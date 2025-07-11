@@ -32,6 +32,8 @@ apis:
   lightweight_service:
     replicas: 2
     port: 8000
+    annotations:
+      reloader.stakater.com/auto: "true"
     strategy:
       type: RollingUpdate
     scaling: {}
@@ -105,6 +107,8 @@ workers:
   vector_search_worker:
     enabled: true
     replicas: 2
+    annotations:
+      reloader.stakater.com/auto: "true"
     strategy:
       type: RollingUpdate
     scaling: {}
@@ -135,6 +139,8 @@ workers:
   file_processor_worker:
     enabled: true
     replicas: 1
+    annotations:
+      reloader.stakater.com/auto: "true"
     strategy:
       type: RollingUpdate
     scaling: {}
@@ -165,6 +171,8 @@ workers:
   embedding_worker:
     enabled: true
     replicas: 1
+    annotations:
+      reloader.stakater.com/auto: "true"
     strategy:
       type: RollingUpdate
     scaling: {}
@@ -195,6 +203,8 @@ workers:
   summary_generation_worker:
     enabled: true
     replicas: 1
+    annotations:
+      reloader.stakater.com/auto: "true"
     strategy:
       type: RollingUpdate
     scaling: {}
