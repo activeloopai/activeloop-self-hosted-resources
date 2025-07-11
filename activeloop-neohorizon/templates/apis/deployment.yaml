@@ -71,14 +71,14 @@ spec:
             {{- toYaml . | nindent 12 }}
           {{- end }}
 
-          {{- with $val.env }}
           env:
+            - name:  PORT
+              value: "8000"
+          {{- with $val.env }}
             {{- range . }}
             - name:  {{ .name }}
               value: {{ .value | quote }}
             {{- end }}
-            - name:  PORT
-              value: "8000"
           {{- end }}
 
           envFrom:
