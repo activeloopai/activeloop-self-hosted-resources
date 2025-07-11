@@ -5,7 +5,7 @@ apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
   name: {{ printf "%s-%s-hpa" (include "chart.name" $) $key | kebabcase }}
-  namespace: {{ $.Release.Namespace }}
+  namespace: {{ include "final.namespace" $ }}
   labels:
     app.kubernetes.io/name: {{ $key }}
     app.kubernetes.io/component: worker

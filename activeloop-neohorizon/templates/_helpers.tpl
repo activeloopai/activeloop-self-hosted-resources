@@ -64,14 +64,14 @@ Create the name of the service account to use
 {{- end }}
 {{- end }}
 
-{{/*
-Define the final namespace to be deployed into
-*/}}
+
 {{- define "final.namespace" -}}
-{{- $vals := $.Values | default dict }}
-{{- $global := get $vals "global" | default dict }}
-{{- get $global "namespace" | default $.Release.Namespace }}
+{{- if .Values.global.namespaceOverride -}}
+{{- print .Values.global.namespaceOverride -}}
+{{- else -}}
+{{- print .Release.Namespace -}}
 {{- end }}
+{{- end -}}
 
 {{/* Return RabbitMQ connection string */}}
 {{- define "activeloop-neohorizon.rabbitmqConnection" -}}

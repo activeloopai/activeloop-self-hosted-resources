@@ -4,7 +4,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ printf "%s-%s" (include "chart.name" $) $key | kebabcase }}
-  namespace: {{ $.Release.Namespace }}
+  namespace: {{ include "final.namespace" $ }}
   labels:
     app.kubernetes.io/name: {{ $key | kebabcase }}
     app.kubernetes.io/component: api
