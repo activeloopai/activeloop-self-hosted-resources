@@ -94,3 +94,25 @@ amqp://{{ .Values.rabbitmq.auth.username }}:{{ .Values.rabbitmq.auth.password }}
 ""  {{/* fallback */}}
 {{- end }}
 {{- end }}
+
+{{/* Return PostgreSQL connection string */}}
+{{- define "activeloop-neohorizon.visualModelUrl" -}}
+{{- if .Values.global.env.VISUAL_MODEL_URL }}
+{{ .Values.global.env.VISUAL_MODEL_URL }}
+{{- else if .Values.postgresql.create }}
+{{ .Release.Name }}-postgresql.{{ $.Release.Namespace }}
+{{- else }}
+""  {{/* fallback */}}
+{{- end }}
+{{- end }}
+
+{{/* Return PostgreSQL connection string */}}
+{{- define "activeloop-neohorizon.embeddingModelUrl" -}}
+{{- if .Values.global.env.EMBEDDING_MODEL_URL }}
+{{ .Values.global.env.EMBEDDING_MODEL_URL }}
+{{- else if .Values.postgresql.create }}
+{{ .Release.Name }}-.{{ $.Release.Namespace }}
+{{- else }}
+""  {{/* fallback */}}
+{{- end }}
+{{- end }}

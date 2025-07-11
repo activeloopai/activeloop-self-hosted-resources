@@ -1,149 +1,244 @@
-# =========================
-# Global parameters (applied to all deployments unless overridden)
-# =========================
 global:
-  # Define the namespace for the deployments
-  # namespace: vlad-neohorizon-test
-
-  # Default image used for deployments
   image:
     registry: quay.io
     repository: activeloopai/neohorizon-main
-    ### TEMP ###
-    tag: tag_based_action
-    ### TEMP ###
-    # Tag is the one defined in Chart.appVersion
+    tag: v0.1.1
 
-  # Default pod security context (applies to all pods)
-  podSecurityContext:
-    fsGroup: 2000  # Files created in mounted volumes will belong to this group
 
-  # Default container security context (applies to all containers)
-  securityContext:
-    runAsUser: 1000   # Run containers as this user
-    runAsGroup: 3000  # Run containers as this group
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
 
-  # Default node scheduling preferences
-  nodeSelector: {}   # Example: {"disktype": "ssd"}
-  tolerations: []    # Example: [{key: "key", operator: "Equal", value: "value", effect: "NoSchedule"}]
-  affinity: {}       # Example: node/pod affinity rules
+  config:
+    postgres_database: ""
+    postgres_host: ""
+    postgres_password: ""
+    postgres_port: ""
+    postgres_user: ""
+    rabbitmq_url: ""
+    api_key: ""
+    visual_model_url: ""
+    embedding_model_url: ""
 
-  # Global environment variables (all keys will be stored as secrets)
-  env:
-    # Add key-value pairs here to be injected as environment variables into all pods.
-    # These will be stored as Kubernetes secrets.
-    # Example:
-    # POSTGRES_DB: "neohorizon"
-    # POSTGRES_HOST: "postgresql-address"
-    # POSTGRES_PASSWORD: "password"
-    # POSTGRES_PORT: "5432"
-    # POSTGRES_USER: "user"
-    # RABBITMQ_URL: "amqp://user:password@rabbitmq-address:5672/"
-    USE_DEEPLAKE: "true"
-    USE_RABBITMQ: "true"
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  labels: {}
+  host: "api.example.com"
+  tls: []
 
-# =========================
-# List of API deployments
-# =========================
 apis:
-  # Lightweight API deployment
-  - name: "api"           # Name of the API deployment
-    enabled: true         # Set to false to disable this API
-    replicas: 2           # Number of pod replicas
-    port: 8001            # Container port
-    strategy:             # Deployment update strategy
+  lightweight_service:
+    enabled: true
+    replicas: 2
+    port: 8001
+    strategy:
       type: RollingUpdate
-      rollingUpdate:
-        maxUnavailable: 10%  # Max unavailable pods during update
-        maxSurge: 50%        # Max extra pods during update
-    scaling:              # Horizontal Pod Autoscaler settings
-      enabled: true
-      minReplicas: 2
-      maxReplicas: 5
-      metrics:
-        cpu: 70           # Target CPU utilization percentage
-        memory: 50        # Target memory utilization percentage
-    command:              # Container command override
-      - bash
-      - "-c"
-      - exec python lightweight_service.py
+    scaling: {}
+      # minReplicas: 2
+      # maxReplicas: 5
+      # metrics:
+      #   cpu: 70
+      #   memory: 50
+    command: []
+    args: []
     service:
-      type: ClusterIP     # Service type (ClusterIP, NodePort, LoadBalancer)
-      port: 80            # Service port
-    ingress:
-      enabled: false      # Enable ingress for this API
-      className: ""       # Ingress class (e.g., nginx)
-      annotations: {}     # Ingress annotations
-      hosts:
-        - host: "api.example.com"
-          paths:
-            - path: /
-              pathType: Prefix
-      tls: []             # TLS configuration for ingress
-    env: {}               # Extra environment variables (key-value pairs)
-    envFrom: []           # Extra envFrom sources (e.g., configMapRef, secretRef)
-    resources:            # Resource requests and limits
+      type: ClusterIP
+      port: 80
+    env: {}
+    envFrom: []
+    resources:
       requests:
-        cpu: "5"
-        memory: "8Gi"
+        cpu: "1"
+        memory: "1Gi"
       limits:
-        cpu: "8"
-        memory: "12Gi"
-    probes:               # Liveness, readiness, and startup probes
-      enabled: true
-      livenessProbe:
-        httpGet:
-          path: /health
-          port: 8001
-        initialDelaySeconds: 30
-        periodSeconds: 30
-        timeoutSeconds: 10
-        failureThreshold: 3
-      readinessProbe:
-        httpGet:
-          path: /health
-          port: 8001
-        initialDelaySeconds: 10
-        periodSeconds: 15
-        timeoutSeconds: 10
-        failureThreshold: 3
-        successThreshold: 1
-      startupProbe:
-        httpGet:
-          path: /health
-          port: 8001
-        failureThreshold: 30
-        periodSeconds: 20
-        timeoutSeconds: 10
-    serviceAccount:       # Service account for this deployment
+        cpu: "2"
+        memory: "2Gi"
+    serviceAccount:
       create: false
       name: ""
       labels: {}
       annotations: {}
+    enableHealthProbes: true
+    nodeSelector: {}
+    tolerations: []
+    affinity: {}
 
-  # Files API Deployment
-  - name: "files-api"
+  files_service:
     enabled: true
     replicas: 3
     port: 8000
     strategy:
       type: RollingUpdate
-      rollingUpdate:
-        maxUnavailable: 10%
-        maxSurge: 50%
-    scaling:
-      enabled: true
-      minReplicas: 3
-      maxReplicas: 6
-      metrics:
-        cpu: 80
-        memory: 80
+    scaling: {}
+      # minReplicas: 3
+      # maxReplicas: 6
+      # metrics:
+      #   cpu: 80
+      #   memory: 80
     image:
       repository: activeloopai/neohorizon-files
-    command:
-      - bash
-      - "-c"
-      - exec python files_service.py
+    command: []
+    args: []
+    service:
+      type: ClusterIP
+      port: 80
+    env: {}
+    envFrom: []
+    resources:
+      requests:
+        cpu: "2"
+        memory: 4Gi
+      limits:
+        cpu: "3"
+        memory: 8Gi
+    serviceAccount:
+      create: false
+      name: ""
+      labels: {}
+      annotations: {}
+    enableHealthProbes: true
+    nodeSelector: {}
+    tolerations: []
+    affinity: {}
+
+workers:
+  vector_search_worker:
+    enabled: true
+    replicas: 2
+    strategy:
+      type: RollingUpdate
+    scaling: {}
+      # minReplicas: 1
+      # maxReplicas: 5
+      # metrics:
+      #   cpu: 70
+      #   memory: 70
+    env: {}
+    envFrom: []
+    resources:
+      requests:
+        cpu: "12"
+        memory: 24Gi
+      limits:
+        cpu: "15"
+        memory: 30Gi
+    serviceAccount:
+      create: false
+      name: ""
+      labels: {}
+      annotations: {}
+    enableHealthProbes: true
+    nodeSelector: {}
+    tolerations: []
+    affinity: {}
+
+  file_processor_worker:
+    enabled: true
+    replicas: 1
+    strategy:
+      type: RollingUpdate
+    scaling: {}
+      # minReplicas: 1
+      # maxReplicas: 5
+      # metrics:
+      #   cpu: 70
+      #   memory: 70
+    env: {}
+    envFrom: []
+    resources:
+      requests:
+        cpu: "4"
+        memory: 8Gi
+      limits:
+        cpu: "8"
+        memory: 15Gi
+    serviceAccount:
+      create: false
+      name: ""
+      labels: {}
+      annotations: {}
+    enableHealthProbes: true
+    nodeSelector: {}
+    tolerations: []
+    affinity: {}
+
+  embedding_worker:
+    enabled: true
+    replicas: 1
+    strategy:
+      type: RollingUpdate
+    scaling: {}
+      # minReplicas: 1
+      # maxReplicas: 5
+      # metrics:
+      #   cpu: 70
+      #   memory: 70
+    env: {}
+    envFrom: []
+    resources:
+      requests:
+        cpu: "4"
+        memory: 8Gi
+      limits:
+        cpu: "8"
+        memory: 15Gi
+    serviceAccount:
+      create: false
+      name: ""
+      labels: {}
+      annotations: {}
+    enableHealthProbes: true
+    nodeSelector: {}
+    tolerations: []
+    affinity: {}
+
+  summary_generation_worker:
+    enabled: true
+    replicas: 1
+    strategy:
+      type: RollingUpdate
+    scaling: {}
+      # minReplicas: 1
+      # maxReplicas: 5
+      # metrics:
+      #   cpu: 70
+      #   memory: 70
+    env: {}
+    envFrom: []
+    resources:
+      requests:
+        cpu: "4"
+        memory: 8Gi
+      limits:
+        cpu: "8"
+        memory: 15Gi
+    serviceAccount:
+      create: false
+      name: ""
+      labels: {}
+      annotations: {}
+    enableHealthProbes: true
+    nodeSelector: {}
+    tolerations: []
+    affinity: {}
+
+models:
+  visual_model:
+    replicas: 1
+    port: 8000
+    strategy:
+      type: RollingUpdate
+    scaling: {}
+      # minReplicas: 1
+      # maxReplicas: 5
+      # metrics:
+      #   cpu: 70
+      #   memory: 70
+    image:
+      repository: activeloopai/visual-model
+      tag: latest
     service:
       type: ClusterIP
       port: 80
@@ -154,7 +249,7 @@ apis:
       hosts:
         - host: "api.example.com"
           paths:
-            - path: /files
+            - path: /
               pathType: Prefix
       tls: []
     env: {}
@@ -162,345 +257,23 @@ apis:
     resources:
       requests:
         cpu: "1"
-        memory: 1Gi
-      limits:
-        cpu: "2"
-        memory: 2Gi
-    probes:
-      enabled: true
-      livenessProbe:
-        httpGet:
-          path: /health
-          port: 8000
-        initialDelaySeconds: 30
-        periodSeconds: 20
-        timeoutSeconds: 3
-        failureThreshold: 3
-      readinessProbe:
-        httpGet:
-          path: /health
-          port: 8000
-        initialDelaySeconds: 10
-        periodSeconds: 10
-        timeoutSeconds: 3
-        failureThreshold: 3
-        successThreshold: 1
-      startupProbe:
-        httpGet:
-          path: /health
-          port: 8000
-        failureThreshold: 20
-        periodSeconds: 5
-        timeoutSeconds: 3
-    serviceAccount:
-      create: false
-      name: ""
-      labels: {}
-      annotations: {}
-
-  # Visual Model Deployment
-  - name: "visual-model"
-    enabled: true
-    replicas: 1
-    port: 8000
-    strategy:
-      type: RollingUpdate
-      rollingUpdate:
-        maxUnavailable: 10%
-        maxSurge: 50%
-    scaling:
-      enabled: false
-    image:
-      repository: activeloopai/visual-model
-      tag: latest
-    service:
-      type: ClusterIP
-      port: 80
-    ingress:
-      enabled: false
-    env: {}
-    envFrom: []
-    resources:
-      requests:
-        cpu: "1"
-        memory: 1Gi
-      limits:
-        cpu: "2"
-        memory: 2Gi
+        memory: 8Gi
         nvidia.com/gpu: "1"
-    probes:
-      enabled: false
-      livenessProbe:
-        httpGet:
-          path: /health
-          port: 8000
-        initialDelaySeconds: 30
-        periodSeconds: 20
-        timeoutSeconds: 3
-        failureThreshold: 3
-      readinessProbe:
-        httpGet:
-          path: /health
-          port: 8000
-        initialDelaySeconds: 10
-        periodSeconds: 10
-        timeoutSeconds: 3
-        failureThreshold: 3
-        successThreshold: 1
-      startupProbe:
-        httpGet:
-          path: /health
-          port: 8000
-        failureThreshold: 20
-        periodSeconds: 5
-        timeoutSeconds: 3
-    serviceAccount:
-      create: false
-      name: ""
-      labels: {}
-      annotations: {}
-
-# =========================
-# List of worker deployments
-# =========================
-workers:
-  # Vector Search Worker Deployment
-  - name: "vector-search-worker"
-    enabled: true
-    replicas: 2
-    strategy:
-      type: RollingUpdate
-      rollingUpdate:
-        maxUnavailable: 10%
-        maxSurge: 50%
-    scaling:
-      enabled: false
-      minReplicas: 1
-      maxReplicas: 5
-      metrics:
-        cpu: 70
-        memory: 70
-    command:
-      - bash
-      - "-c"
-      - exec python vector_search_worker.py
-    env: {}
-    envFrom: []
-    resources:
-      requests:
-        cpu: "12"
-        memory: 24Gi
       limits:
-        cpu: "15"
-        memory: 30Gi
-    probes:
-      enabled: true
-      livenessProbe:
-        exec:
-          command:
-            - /bin/bash
-            - "-c"
-            - "python /neohorizon/vector_search_worker.py --health-check"
-        initialDelaySeconds: 30
-        periodSeconds: 60
-        timeoutSeconds: 30
-        failureThreshold: 3
-      readinessProbe:
-        exec:
-          command:
-            - /bin/bash
-            - "-c"
-            - "python /neohorizon/vector_search_worker.py --health-check"
-        initialDelaySeconds: 10
-        periodSeconds: 10
-        timeoutSeconds: 30
-        failureThreshold: 3
-        successThreshold: 1
+        cpu: "2"
+        memory: 16Gi
+        nvidia.com/gpu: "1"
     serviceAccount:
       create: false
       name: ""
       labels: {}
       annotations: {}
+    enableHealthProbes: true
+    nodeSelector: {}
+    tolerations: []
+    affinity: {}
 
-  # File Processor Worker Deployment
-  - name: "file-processor-worker"
-    enabled: true
-    replicas: 1
-    strategy:
-      type: RollingUpdate
-      rollingUpdate:
-        maxUnavailable: 10%
-        maxSurge: 50%
-    scaling:
-      enabled: false
-      minReplicas: 1
-      maxReplicas: 5
-      metrics:
-        cpu: 70
-        memory: 70
-    command:
-      - bash
-      - "-c"
-      - exec python file_processor_worker.py
-    env: {}
-    envFrom: []
-    resources:
-      requests:
-        cpu: "4"
-        memory: 8Gi
-      limits:
-        cpu: "8"
-        memory: 15Gi
-    probes:
-      enabled: true
-      livenessProbe:
-        exec:
-          command:
-            - /bin/bash
-            - "-c"
-            - "python /neohorizon/file_processor_worker.py --health-check"
-        initialDelaySeconds: 30
-        periodSeconds: 60
-        timeoutSeconds: 30
-        failureThreshold: 3
-      readinessProbe:
-        exec:
-          command:
-            - /bin/bash
-            - "-c"
-            - "python /neohorizon/file_processor_worker.py --health-check"
-        initialDelaySeconds: 10
-        periodSeconds: 10
-        timeoutSeconds: 30
-        failureThreshold: 3
-        successThreshold: 1
-    serviceAccount:
-      create: false
-      name: ""
-      labels: {}
-      annotations: {}
-
-  # Embedding Worker Deployment
-  - name: "embedding-worker"
-    enabled: true
-    replicas: 1
-    strategy:
-      type: RollingUpdate
-      rollingUpdate:
-        maxUnavailable: 10%
-        maxSurge: 50%
-    scaling:
-      enabled: false
-      minReplicas: 1
-      maxReplicas: 5
-      metrics:
-        cpu: 70
-        memory: 70
-    command:
-      - bash
-      - "-c"
-      - exec python embedding_worker.py
-    env: {}
-    envFrom: []
-    resources:
-      requests:
-        cpu: "4"
-        memory: 8Gi
-      limits:
-        cpu: "8"
-        memory: 15Gi
-    probes:
-      enabled: true
-      livenessProbe:
-        exec:
-          command:
-            - /bin/bash
-            - "-c"
-            - "python /neohorizon/embedding_worker.py --health-check"
-        initialDelaySeconds: 30
-        periodSeconds: 60
-        timeoutSeconds: 30
-        failureThreshold: 3
-      readinessProbe:
-        exec:
-          command:
-            - /bin/bash
-            - "-c"
-            - "python /neohorizon/embedding_worker.py --health-check"
-        initialDelaySeconds: 10
-        periodSeconds: 10
-        timeoutSeconds: 30
-        failureThreshold: 3
-        successThreshold: 1
-    serviceAccount:
-      create: false
-      name: ""
-      labels: {}
-      annotations: {}
-
-  # Summary Generation Worker Deployment
-  - name: "summary-generation-worker"
-    enabled: true
-    replicas: 1
-    strategy:
-      type: RollingUpdate
-      rollingUpdate:
-        maxUnavailable: 25%
-        maxSurge: 25%
-    scaling:
-      enabled: false
-      minReplicas: 1
-      maxReplicas: 5
-      metrics:
-        cpu: 70
-        memory: 70
-    command:
-      - bash
-      - "-c"
-      - exec python summary_generation_worker.py
-    env: {}
-    envFrom: []
-    resources:
-      requests:
-        cpu: "4"
-        memory: 8Gi
-      limits:
-        cpu: "8"
-        memory: 15Gi
-    probes:
-      enabled: true
-      livenessProbe:
-        exec:
-          command:
-            - /bin/bash
-            - "-c"
-            - "python /neohorizon/summary_generation_worker.py --health-check"
-        initialDelaySeconds: 30
-        periodSeconds: 60
-        timeoutSeconds: 30
-        failureThreshold: 3
-      readinessProbe:
-        exec:
-          command:
-            - /bin/bash
-            - "-c"
-            - "python /neohorizon/summary_generation_worker.py --health-check"
-        initialDelaySeconds: 10
-        periodSeconds: 10
-        timeoutSeconds: 30
-        failureThreshold: 3
-        successThreshold: 1
-    serviceAccount:
-      create: false
-      name: ""
-      labels: {}
-      annotations: {}
-
-# =========================
-# PostgreSQL subchart configuration
-# =========================
 postgresql:
-  # If using an external PostgreSQL, set create: false and provide connection string in global.env
   create: true
   auth:
     username: "postgres"
@@ -509,19 +282,15 @@ postgresql:
   primary:
     persistence:
       enabled: true
-      size: 10Gi               # Persistent volume size for PostgreSQL
-  resources: {}                # Resource requests/limits for PostgreSQL
+      size: 10Gi
+  resources: {}
 
-# =========================
-# RabbitMQ subchart configuration
-# =========================
 rabbitmq:
-  # If using an external RabbitMQ, set create: false and provide the connection details in global.env
   create: true
   auth:
     username: "user"
     password: "password"
   persistence:
     enabled: true
-    size: 20Gi                 # Persistent volume size for RabbitMQ
-  resources: {}                # Resource requests/limits for RabbitMQ
+    size: 20Gi
+  resources: {}
