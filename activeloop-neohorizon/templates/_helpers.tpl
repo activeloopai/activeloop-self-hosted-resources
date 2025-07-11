@@ -78,7 +78,7 @@ Define the final namespace to be deployed into
 {{- if .Values.global.env.rabbitmqConnection }}
 {{ .Values.global.env.rabbitmqConnection }}
 {{- else if .Values.rabbitmq.create }}
-amqp://{{ .Values.rabbitmq.auth.username }}:{{ .Values.rabbitmq.auth.password }}@{{ .Release.Name }}-rabbitmq.{{ include "final.namespace" $ }}:5672/
+amqp://{{ .Values.rabbitmq.auth.username }}:{{ .Values.rabbitmq.auth.password }}@{{ .Release.Name }}-rabbitmq.{{ $.Release.Namespace }}:5672
 {{- else }}
 ""  {{/* fallback */}}
 {{- end }}
@@ -89,7 +89,7 @@ amqp://{{ .Values.rabbitmq.auth.username }}:{{ .Values.rabbitmq.auth.password }}
 {{- if .Values.global.env.POSTGRES_HOST }}
 {{ .Values.global.env.POSTGRES_HOST }}
 {{- else if .Values.postgresql.create }}
-{{ .Release.Name }}-postgresql.{{ include "final.namespace" $ }}
+{{ .Release.Name }}-postgresql.{{ $.Release.Namespace }}
 {{- else }}
 ""  {{/* fallback */}}
 {{- end }}

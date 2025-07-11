@@ -2,10 +2,10 @@
 # Global parameters (applied to all deployments unless overridden)
 # =========================
 global:
-  # Define the namespace for the deployment
-  namespace: vlad-neohorizon-test
+  # Define the namespace for the deployments
+  # namespace: vlad-neohorizon-test
 
-  # Default image used for deployment
+  # Default image used for deployments
   image:
     registry: quay.io
     repository: activeloopai/neohorizon-main
@@ -138,7 +138,8 @@ apis:
       metrics:
         cpu: 80
         memory: 80
-    repository: activeloopai/neohorizon-files
+    image:
+      repository: activeloopai/neohorizon-files
     command:
       - bash
       - "-c"
@@ -167,6 +168,68 @@ apis:
         memory: 2Gi
     probes:
       enabled: true
+      livenessProbe:
+        httpGet:
+          path: /health
+          port: 8000
+        initialDelaySeconds: 30
+        periodSeconds: 20
+        timeoutSeconds: 3
+        failureThreshold: 3
+      readinessProbe:
+        httpGet:
+          path: /health
+          port: 8000
+        initialDelaySeconds: 10
+        periodSeconds: 10
+        timeoutSeconds: 3
+        failureThreshold: 3
+        successThreshold: 1
+      startupProbe:
+        httpGet:
+          path: /health
+          port: 8000
+        failureThreshold: 20
+        periodSeconds: 5
+        timeoutSeconds: 3
+    serviceAccount:
+      create: false
+      name: ""
+      labels: {}
+      annotations: {}
+
+  # Visual Model Deployment
+  - name: "visual-model"
+    enabled: true
+    replicas: 1
+    port: 8000
+    strategy:
+      type: RollingUpdate
+      rollingUpdate:
+        maxUnavailable: 10%
+        maxSurge: 50%
+    scaling:
+      enabled: false
+    image:
+      repository: activeloopai/visual-model
+      tag: latest
+    service:
+      type: ClusterIP
+      port: 80
+    ingress:
+      enabled: false
+    env: {}
+    envFrom: []
+    resources:
+      requests:
+        cpu: "1"
+        memory: 1Gi
+      limits:
+        cpu: "2"
+        memory: 2Gi
+        nvidia.com/gpu: "1"
+    probes:
+      enabled: false
       livenessProbe:
         httpGet:
           path: /health
