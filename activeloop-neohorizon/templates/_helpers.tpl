@@ -75,8 +75,8 @@ Define the final namespace to be deployed into
 
 {{/* Return RabbitMQ connection string */}}
 {{- define "activeloop-neohorizon.rabbitmqConnection" -}}
-{{- if .Values.global.env.rabbitmqConnection }}
-{{ .Values.global.env.rabbitmqConnection }}
+{{- if .Values.global.config.rabbitmq_url }}
+{{ .Values.global.config.rabbitmq_url }}
 {{- else if .Values.rabbitmq.create }}
 amqp://{{ .Values.rabbitmq.auth.username }}:{{ .Values.rabbitmq.auth.password }}@{{ .Release.Name }}-rabbitmq.{{ $.Release.Namespace }}:5672
 {{- else }}
@@ -86,32 +86,10 @@ amqp://{{ .Values.rabbitmq.auth.username }}:{{ .Values.rabbitmq.auth.password }}
 
 {{/* Return PostgreSQL connection string */}}
 {{- define "activeloop-neohorizon.postgresqlHost" -}}
-{{- if .Values.global.env.POSTGRES_HOST }}
-{{ .Values.global.env.POSTGRES_HOST }}
+{{- if .Values.global.config.postgres_host }}
+{{ .Values.global.config.postgres_host }}
 {{- else if .Values.postgresql.create }}
 {{ .Release.Name }}-postgresql.{{ $.Release.Namespace }}
-{{- else }}
-""  {{/* fallback */}}
-{{- end }}
-{{- end }}
-
-{{/* Return PostgreSQL connection string */}}
-{{- define "activeloop-neohorizon.visualModelUrl" -}}
-{{- if .Values.global.env.VISUAL_MODEL_URL }}
-{{ .Values.global.env.VISUAL_MODEL_URL }}
-{{- else if .Values.postgresql.create }}
-{{ .Release.Name }}-postgresql.{{ $.Release.Namespace }}
-{{- else }}
-""  {{/* fallback */}}
-{{- end }}
-{{- end }}
-
-{{/* Return PostgreSQL connection string */}}
-{{- define "activeloop-neohorizon.embeddingModelUrl" -}}
-{{- if .Values.global.env.EMBEDDING_MODEL_URL }}
-{{ .Values.global.env.EMBEDDING_MODEL_URL }}
-{{- else if .Values.postgresql.create }}
-{{ .Release.Name }}-.{{ $.Release.Namespace }}
 {{- else }}
 ""  {{/* fallback */}}
 {{- end }}

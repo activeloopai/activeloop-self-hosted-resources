@@ -30,7 +30,6 @@ ingress:
 
 apis:
   lightweight_service:
-    enabled: true
     replicas: 2
     port: 8001
     strategy:
@@ -66,7 +65,6 @@ apis:
     affinity: {}
 
   files_service:
-    enabled: true
     replicas: 3
     port: 8000
     strategy:
