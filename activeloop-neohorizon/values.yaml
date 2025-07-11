@@ -16,9 +16,9 @@ global:
     postgres_port: ""
     postgres_user: ""
     rabbitmq_url: ""
-    api_key: ""
     visual_model_url: ""
     embedding_model_url: ""
+    api_key: ""
 
 ingress:
   enabled: false
