@@ -6,3 +6,9 @@
 helm repo add activeloop https://charts.activeloop.ai
 helm repo update activeloop
 ```
+
+## Install Helm Chart
+
+```bash
+helm upgrade -i -n activeloop neohorizon activeloop/activeloop-neohorizon
+```
