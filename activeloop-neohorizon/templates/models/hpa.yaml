@@ -1,3 +1,4 @@
+{{ $ns := include "final.namespace" . }}
 {{- range $key, $val := .Values.models }}
   {{- if $val.scaling }}
 ---
@@ -5,7 +6,7 @@ apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
   name: {{ printf "%s-%s-hpa" (include "chart.name" $) $key | kebabcase }}
-  namespace: {{ include "final.namespace" $ }}
+  namespace: {{ $ns }}
   labels:
     app.kubernetes.io/name: {{ $key }}
     app.kubernetes.io/component: api

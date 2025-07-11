@@ -1,10 +1,11 @@
+{{ $ns := include "final.namespace" . }}
 {{- range $key, $val := .Values.apis }}
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ printf "%s-%s" (include "chart.name" $) $key | kebabcase }}
-  namespace: {{ include "final.namespace" $ }}
+  namespace: {{ $ns }}
   labels:
     app.kubernetes.io/name: {{ $key | kebabcase }}
     app.kubernetes.io/component: api
