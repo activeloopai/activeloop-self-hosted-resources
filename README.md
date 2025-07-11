@@ -1,2 +1,6 @@
 # activeloop-helm-charts
-Official Helm charts for deploying Activeloop services on Kubernetes
+
+```bash
+helm repo add activeloop https://charts.activeloop.ai
+helm repo update activeloop
+```
