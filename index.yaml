@@ -3,7 +3,7 @@ entries:
   activeloop-neohorizon:
   - apiVersion: v2
     appVersion: v0.0.4
-    created: "2025-07-11T22:16:53.750281161+04:00"
+    created: "2025-07-11T22:17:15.53809654+04:00"
     dependencies:
     - condition: postgresql.create
       name: postgresql
@@ -32,4 +32,4 @@ entries:
     urls:
     - activeloop-neohorizon-0.1.0.tgz
     version: 0.1.0
-generated: "2025-07-11T22:16:53.737464342+04:00"
+generated: "2025-07-11T22:17:15.530334595+04:00"
