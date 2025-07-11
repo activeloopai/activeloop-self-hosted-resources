@@ -1,0 +1,35 @@
+apiVersion: v1
+entries:
+  activeloop-neohorizon:
+  - apiVersion: v2
+    appVersion: v0.0.4
+    created: "2025-07-12T00:41:34.387479531+04:00"
+    dependencies:
+    - condition: postgresql.create
+      name: postgresql
+      repository: oci://registry-1.docker.io/bitnamicharts
+      version: 16.7.16
+    - condition: rabbitmq.create
+      name: rabbitmq
+      repository: oci://registry-1.docker.io/bitnamicharts
+      version: 16.0.10
+    description: Activeloop NeoHorizon Deployment Chart
+    digest: e4338d2292d6633e8a1f5b76645c061d6c2a4198e33671f527ed281abe8464e3
+    home: https://activeloop.ai
+    icon: https://static.activeloop.io/logos/SVG/activeloop-logo-256x256.svg
+    keywords:
+    - activeloop
+    - neohorizon
+    - deeplake
+    kubeVersion: '>= 1.24.0-0'
+    maintainers:
+    - email: sre@activeloop.dev
+      name: Activeloop SRE
+    name: activeloop-neohorizon
+    sources:
+    - https://github.com/activeloopai/activeloop-helm-charts
+    type: application
+    urls:
+    - activeloop-neohorizon-0.1.1.tgz
+    version: 0.1.1
+generated: "2025-07-12T00:41:34.373616052+04:00"
