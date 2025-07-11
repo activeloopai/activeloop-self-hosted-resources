@@ -77,6 +77,8 @@ spec:
             - name:  {{ .name }}
               value: {{ .value | quote }}
             {{- end }}
+            - name:  PORT
+              value: "8000"
           {{- end }}
 
           envFrom:
