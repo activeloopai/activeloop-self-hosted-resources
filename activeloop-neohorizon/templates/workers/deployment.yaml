@@ -63,7 +63,7 @@ spec:
           {{- else }}
           command:
             - python3
-            - {{ printf "%s.py" $key }}
+            - {{ printf "%s.py" $key | kebabcase }}
           {{- end }}
 
           {{- with $val.args }}
