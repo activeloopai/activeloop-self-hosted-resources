@@ -1,0 +1,295 @@
+global:
+  namespaceOverride: ""
+  image:
+    registry: quay.io
+    repository: activeloopai/neohorizon-main
+    tag: v0.1.2
+
+
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+  config:
+    postgres_database: ""
+    postgres_host: ""
+    postgres_password: ""
+    postgres_port: ""
+    postgres_user: ""
+    rabbitmq_url: ""
+    api_key: ""
+    visual_model_url: ""
+    embedding_model_url: ""
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  labels: {}
+  host: "api.example.com"
+  tls: []
+
+apis:
+  lightweight_service:
+    replicas: 2
+    port: 8001
+    strategy:
+      type: RollingUpdate
+    scaling: {}
+      # minReplicas: 2
+      # maxReplicas: 5
+      # metrics:
+      #   cpu: 70
+      #   memory: 50
+    command: []
+    args: []
+    service:
+      type: ClusterIP
+      port: 80
+    env: {}
+    envFrom: []
+    resources:
+      requests:
+        cpu: "1"
+        memory: "1Gi"
+      limits:
+        cpu: "2"
+        memory: "2Gi"
+    serviceAccount:
+      create: false
+      name: ""
+      labels: {}
+      annotations: {}
+    enableHealthProbes: true
+    nodeSelector: {}
+    tolerations: []
+    affinity: {}
+
+  files_service:
+    replicas: 3
+    port: 8000
+    strategy:
+      type: RollingUpdate
+    scaling: {}
+      # minReplicas: 3
+      # maxReplicas: 6
+      # metrics:
+      #   cpu: 80
+      #   memory: 80
+    image:
+      repository: activeloopai/neohorizon-files
+    command: []
+    args: []
+    service:
+      type: ClusterIP
+      port: 80
+    env: {}
+    envFrom: []
+    resources:
+      requests:
+        cpu: "2"
+        memory: 4Gi
+      limits:
+        cpu: "3"
+        memory: 8Gi
+    serviceAccount:
+      create: false
+      name: ""
+      labels: {}
+      annotations: {}
+    enableHealthProbes: true
+    nodeSelector: {}
+    tolerations: []
+    affinity: {}
+
+workers:
+  vector_search_worker:
+    enabled: true
+    replicas: 2
+    strategy:
+      type: RollingUpdate
+    scaling: {}
+      # minReplicas: 1
+      # maxReplicas: 5
+      # metrics:
+      #   cpu: 70
+      #   memory: 70
+    env: {}
+    envFrom: []
+    resources:
+      requests:
+        cpu: "12"
+        memory: 24Gi
+      limits:
+        cpu: "15"
+        memory: 30Gi
+    serviceAccount:
+      create: false
+      name: ""
+      labels: {}
+      annotations: {}
+    enableHealthProbes: true
+    nodeSelector: {}
+    tolerations: []
+    affinity: {}
+
+  file_processor_worker:
+    enabled: true
+    replicas: 1
+    strategy:
+      type: RollingUpdate
+    scaling: {}
+      # minReplicas: 1
+      # maxReplicas: 5
+      # metrics:
+      #   cpu: 70
+      #   memory: 70
+    env: {}
+    envFrom: []
+    resources:
+      requests:
+        cpu: "4"
+        memory: 8Gi
+      limits:
+        cpu: "8"
+        memory: 15Gi
+    serviceAccount:
+      create: false
+      name: ""
+      labels: {}
+      annotations: {}
+    enableHealthProbes: true
+    nodeSelector: {}
+    tolerations: []
+    affinity: {}
+
+  embedding_worker:
+    enabled: true
+    replicas: 1
+    strategy:
+      type: RollingUpdate
+    scaling: {}
+      # minReplicas: 1
+      # maxReplicas: 5
+      # metrics:
+      #   cpu: 70
+      #   memory: 70
+    env: {}
+    envFrom: []
+    resources:
+      requests:
+        cpu: "4"
+        memory: 8Gi
+      limits:
+        cpu: "8"
+        memory: 15Gi
+    serviceAccount:
+      create: false
+      name: ""
+      labels: {}
+      annotations: {}
+    enableHealthProbes: true
+    nodeSelector: {}
+    tolerations: []
+    affinity: {}
+
+  summary_generation_worker:
+    enabled: true
+    replicas: 1
+    strategy:
+      type: RollingUpdate
+    scaling: {}
+      # minReplicas: 1
+      # maxReplicas: 5
+      # metrics:
+      #   cpu: 70
+      #   memory: 70
+    env: {}
+    envFrom: []
+    resources:
+      requests:
+        cpu: "4"
+        memory: 8Gi
+      limits:
+        cpu: "8"
+        memory: 15Gi
+    serviceAccount:
+      create: false
+      name: ""
+      labels: {}
+      annotations: {}
+    enableHealthProbes: true
+    nodeSelector: {}
+    tolerations: []
+    affinity: {}
+
+models:
+  visual_model:
+    replicas: 1
+    port: 8000
+    strategy:
+      type: RollingUpdate
+    scaling: {}
+      # minReplicas: 1
+      # maxReplicas: 5
+      # metrics:
+      #   cpu: 70
+      #   memory: 70
+    image:
+      repository: activeloopai/visual-model
+      tag: latest
+    service:
+      type: ClusterIP
+      port: 80
+    ingress:
+      enabled: false
+      className: ""
+      annotations: {}
+      hosts:
+        - host: "api.example.com"
+          paths:
+            - path: /
+              pathType: Prefix
+      tls: []
+    env: {}
+    envFrom: []
+    resources:
+      requests:
+        cpu: "1"
+        memory: 8Gi
+        nvidia.com/gpu: "1"
+      limits:
+        cpu: "2"
+        memory: 16Gi
+        nvidia.com/gpu: "1"
+    serviceAccount:
+      create: false
+      name: ""
+      labels: {}
+      annotations: {}
+    enableHealthProbes: true
+    nodeSelector: {}
+    tolerations: []
+    affinity: {}
+
+postgresql:
+  create: true
+  auth:
+    username: "postgres"
+    password: "postgres"
+    database: "neohorizon"
+  primary:
+    persistence:
+      enabled: true
+      size: 10Gi
+  resources: {}
+
+rabbitmq:
+  create: true
+  auth:
+    username: "user"
+    password: "password"
+  persistence:
+    enabled: true
+    size: 20Gi
+  resources: {}
