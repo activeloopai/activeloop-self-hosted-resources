@@ -57,9 +57,13 @@ spec:
           image: "{{ get $image "registry" | default $.Values.global.image.registry }}/{{ get $image "repository" | default $.Values.global.image.repository }}:{{ get $image "tag" | default $.Values.global.image.tag | default $.Chart.AppVersion }}"
           imagePullPolicy: {{ $val.imagePullPolicy | default "IfNotPresent" }}
 
-          {{- with $val.command }}
+          {{- if $val.command }}
           command:
-            {{- toYaml . | nindent 12 }}
+            {{- toYaml $val.command | nindent 12 }}
+          {{- else }}
+          command:
+            - python3
+            - {{ printf "%s.py" $key  }}
           {{- end }}
 
           {{- with $val.args }}
