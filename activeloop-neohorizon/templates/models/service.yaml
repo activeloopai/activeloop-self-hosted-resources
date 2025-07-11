@@ -57,7 +57,7 @@ spec:
     {{- end }}
   selector:
     app.kubernetes.io/name: {{ $key | kebabcase }}
-    app.kubernetes.io/component: api
+    app.kubernetes.io/component: models
     app.kubernetes.io/instance: {{ $.Release.Name }}
   {{- with $val.service.sessionAffinity }}
   sessionAffinity: {{ . }}
