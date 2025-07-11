@@ -3,7 +3,7 @@ entries:
   activeloop-neohorizon:
   - apiVersion: v2
     appVersion: v0.0.4
-    created: "2025-07-11T18:27:26.183408968+04:00"
+    created: "2025-07-11T18:45:46.33648947+04:00"
     dependencies:
     - condition: postgresql.create
       name: postgresql
@@ -14,7 +14,7 @@ entries:
       repository: oci://registry-1.docker.io/bitnamicharts
       version: 16.0.10
     description: Activeloop NeoHorizon Deployment Chart
-    digest: 032f8d8f7660f3d32c2010af257253919806cf1ec3d8e8c8fa26253912ce6a77
+    digest: 0dcb9ac46d3742d4302e799784a677753cbffe5f2362945ea0a8f3e0b46a75cc
     home: https://activeloop.ai
     icon: https://static.activeloop.io/logos/SVG/activeloop-logo-256x256.svg
     keywords:
@@ -32,4 +32,4 @@ entries:
     urls:
     - activeloop-neohorizon-0.1.0.tgz
     version: 0.1.0
-generated: "2025-07-11T18:27:26.174738793+04:00"
+generated: "2025-07-11T18:45:46.327165819+04:00"
