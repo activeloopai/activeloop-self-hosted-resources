@@ -265,7 +265,7 @@ models:
       name: ""
       labels: {}
       annotations: {}
-    enableHealthProbes: true
+    enableHealthProbes: false
     nodeSelector: {}
     tolerations: []
     affinity: {}
