@@ -1,5 +1,4 @@
 global:
-  namespaceOverride: ""
   image:
     registry: quay.io
     repository: activeloopai/neohorizon-main

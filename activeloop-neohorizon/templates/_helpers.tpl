@@ -64,15 +64,6 @@ Create the name of the service account to use
 {{- end }}
 {{- end }}
 
-
-{{- define "final.namespace" -}}
-{{- if .Values.global.namespaceOverride -}}
-{{- print .Values.global.namespaceOverride -}}
-{{- else -}}
-{{- print .Release.Namespace -}}
-{{- end }}
-{{- end -}}
-
 {{/* Return RabbitMQ connection string */}}
 {{- define "activeloop-neohorizon.rabbitmqConnection" -}}
 {{- if .Values.global.config.rabbitmq_url }}
