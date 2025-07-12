@@ -1,4 +1,5 @@
 {{- range $key, $val := .Values.apis }}
+{{- if $val.enabled }}
 ---
 apiVersion: v1
 kind: Service
@@ -62,4 +63,5 @@ spec:
   {{- with $val.service.sessionAffinity }}
   sessionAffinity: {{ . }}
   {{- end }}
+{{- end }}
 {{- end }}

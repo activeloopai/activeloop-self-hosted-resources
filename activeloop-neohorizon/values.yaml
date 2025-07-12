@@ -29,6 +29,7 @@ ingress:
 
 apis:
   lightweight_service:
+    enabled: true
     replicas: 2
     port: 8000
     annotations:
@@ -66,6 +67,7 @@ apis:
     affinity: {}
 
   files_service:
+    enabled: true
     replicas: 3
     port: 8000
     strategy:
@@ -233,6 +235,7 @@ workers:
 
 models:
   visual_model:
+    enabled: true
     replicas: 1
     port: 8000
     strategy:
@@ -279,6 +282,7 @@ models:
     affinity: {}
 
   embedding_model:
+    enabled: true
     replicas: 1
     port: 8000
     strategy:

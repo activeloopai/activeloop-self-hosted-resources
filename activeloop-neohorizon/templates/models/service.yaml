@@ -1,5 +1,5 @@
 {{- range $key, $val := .Values.models }}
-{{- if $val }}
+{{- if $val.enabled }}
 ---
 apiVersion: v1
 kind: Service

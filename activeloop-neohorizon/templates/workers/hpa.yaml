@@ -1,5 +1,5 @@
 {{- range $key, $val := .Values.workers }}
-  {{- if $val.scaling }}
+{{- if and $val.enabled $val.scaling }}
 ---
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
@@ -25,20 +25,20 @@ spec:
     apiVersion: apps/v1
     kind: Deployment
     name: {{ printf "%s-%s" (include "chart.name" $) $key | kebabcase }}
-  minReplicas: {{ $val.scaling.minReplicas }}
-  maxReplicas: {{ $val.scaling.maxReplicas }}
+  minReplicas: {{ default 1 $val.scaling.minReplicas }}
+  maxReplicas: {{ default 10 $val.scaling.maxReplicas }}
   metrics:
     - type: Resource
       resource:
         name: memory
         target:
           type: Utilization
-          averageUtilization: {{ $val.scaling.metrics.memory }}
+          averageUtilization: {{ default 70 $val.scaling.metrics.memory }}
     - type: Resource
       resource:
         name: cpu
         target:
           type: Utilization
-          averageUtilization: {{ $val.scaling.metrics.cpu }}
+          averageUtilization: {{ default 70 $val.scaling.metrics.cpu }}
   {{- end }}
 {{- end }}
