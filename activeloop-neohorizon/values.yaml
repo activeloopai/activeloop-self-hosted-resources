@@ -4,7 +4,6 @@ global:
     repository: activeloopai/neohorizon-main
     tag: v0.1.2
 
-
   nodeSelector: {}
   tolerations: []
   affinity: {}
@@ -246,7 +245,6 @@ models:
       #   memory: 70
     image:
       repository: activeloopai/visual-model
-      tag: latest
     service:
       type: ClusterIP
       port: 80
