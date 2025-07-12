@@ -2,20 +2,17 @@ Thank you for installing the Activeloop NeoHorizon Helm chart!
 
 To access your deployed APIs, follow the instructions below for each enabled API:
 
-{{- range $api := .Values.apis }}
+{{- if .Values.ingress.enabled }}
+FIles API: {{ .Values.ingress.host }}/files
+Main  API: {{ .Values.ingress.host }}/
+{{- end }}
+
+{{- range $name, $api := .Values.apis }}
 {{- if $api.enabled }}
 --------------------------------------------------------------------------------
-API: {{ $api.name }}
+Name : {{ $name }}
 
-{{- if $api.ingress.enabled }}
-  Ingress is enabled for this API.
-  Access it at:
-  {{- range $host := $api.ingress.hosts }}
-    {{- range $path := $host.paths }}
-      http{{ if $api.ingress.tls }}s{{ end }}://{{ $host.host }}{{ $path.path }}
-    {{- end }}
-  {{- end }}
-{{- else if eq ($api.service.type | default "ClusterIP") "NodePort" }}
+{{- if eq ($api.service.type | default "ClusterIP") "NodePort" }}
   NodePort service is enabled.
   Run the following to get the service URL:
     export NODE_PORT=$(kubectl get --namespace {{ $.Release.Namespace }} -o jsonpath="{.spec.ports[0].nodePort}" services {{ printf "%s-%s-svc" ($.Release.Namespace) $api.name }})

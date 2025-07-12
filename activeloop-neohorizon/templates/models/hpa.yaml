@@ -42,4 +42,3 @@ spec:
           averageUtilization: {{ default 70 $val.scaling.metrics.cpu }}
   {{- end }}
 {{- end }}
-{{- end }}
