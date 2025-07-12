@@ -278,6 +278,52 @@ models:
     tolerations: []
     affinity: {}
 
+  embedding_model:
+    replicas: 1
+    port: 8000
+    strategy:
+      type: RollingUpdate
+    scaling: {}
+      # minReplicas: 1
+      # maxReplicas: 5
+      # metrics:
+      #   cpu: 70
+      #   memory: 70
+    image:
+      repository: activeloopai/visual-model
+    service:
+      type: ClusterIP
+      port: 80
+    ingress:
+      enabled: false
+      className: ""
+      annotations: {}
+      host: "api.example.com"
+      paths:
+        - path: /
+          pathType: Prefix
+      tls: []
+    env: {}
+    envFrom: []
+    resources:
+      requests:
+        cpu: "1"
+        memory: 8Gi
+        nvidia.com/gpu: "1"
+      limits:
+        cpu: "2"
+        memory: 16Gi
+        nvidia.com/gpu: "1"
+    serviceAccount:
+      create: false
+      name: ""
+      labels: {}
+      annotations: {}
+    enableHealthProbes: false
+    nodeSelector: {}
+    tolerations: []
+    affinity: {}
+
 postgresql:
   create: true
   auth:

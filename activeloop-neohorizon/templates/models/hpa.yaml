@@ -1,4 +1,5 @@
 {{- range $key, $val := .Values.models }}
+{{- if $val }}
   {{- if $val.scaling }}
 ---
 apiVersion: autoscaling/v2
@@ -41,4 +42,5 @@ spec:
           type: Utilization
           averageUtilization: {{ $val.scaling.metrics.cpu }}
   {{- end }}
+{{- end }}
 {{- end }}
