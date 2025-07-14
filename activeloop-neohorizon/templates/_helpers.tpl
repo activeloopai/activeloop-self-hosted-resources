@@ -64,19 +64,10 @@ Create the name of the service account to use
 {{- end }}
 {{- end }}
 
-{{/*
-Define the final namespace to be deployed into
-*/}}
-{{- define "final.namespace" -}}
-{{- $vals := $.Values | default dict }}
-{{- $global := get $vals "global" | default dict }}
-{{- get $global "namespace" | default $.Release.Namespace }}
-{{- end }}
-
 {{/* Return RabbitMQ connection string */}}
 {{- define "activeloop-neohorizon.rabbitmqConnection" -}}
-{{- if .Values.global.env.rabbitmqConnection }}
-{{ .Values.global.env.rabbitmqConnection }}
+{{- if .Values.global.config.rabbitmq_url }}
+{{ .Values.global.config.rabbitmq_url }}
 {{- else if .Values.rabbitmq.create }}
 amqp://{{ .Values.rabbitmq.auth.username }}:{{ .Values.rabbitmq.auth.password }}@{{ .Release.Name }}-rabbitmq.{{ $.Release.Namespace }}:5672
 {{- else }}
@@ -86,8 +77,8 @@ amqp://{{ .Values.rabbitmq.auth.username }}:{{ .Values.rabbitmq.auth.password }}
 
 {{/* Return PostgreSQL connection string */}}
 {{- define "activeloop-neohorizon.postgresqlHost" -}}
-{{- if .Values.global.env.POSTGRES_HOST }}
-{{ .Values.global.env.POSTGRES_HOST }}
+{{- if .Values.global.config.postgres_host }}
+{{ .Values.global.config.postgres_host }}
 {{- else if .Values.postgresql.create }}
 {{ .Release.Name }}-postgresql.{{ $.Release.Namespace }}
 {{- else }}

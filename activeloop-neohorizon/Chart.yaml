@@ -2,9 +2,9 @@ apiVersion: v2
 name: activeloop-neohorizon
 description: Activeloop NeoHorizon Deployment Chart
 type: application
-version: 0.1.0
+version: 0.1.0-rc1
 appVersion: "v0.0.4"
-kubeVersion: ">= 1.24.0-0 <= 1.33.0-0"
+kubeVersion: ">= 1.24.0-0"
 
 maintainers:
   - name: Activeloop SRE

@@ -2,39 +2,36 @@ Thank you for installing the Activeloop NeoHorizon Helm chart!
 
 To access your deployed APIs, follow the instructions below for each enabled API:
 
-{{- range $api := .Values.apis }}
+{{- if .Values.ingress.enabled }}
+FIles API: {{ .Values.ingress.host }}/files
+Main  API: {{ .Values.ingress.host }}/
+{{- end }}
+
+{{- range $name, $api := .Values.apis }}
 {{- if $api.enabled }}
 --------------------------------------------------------------------------------
-API: {{ $api.name }}
+Name : {{ $name }}
 
-{{- if $api.ingress.enabled }}
-  Ingress is enabled for this API.
-  Access it at:
-  {{- range $host := $api.ingress.hosts }}
-    {{- range $path := $host.paths }}
-      http{{ if $api.ingress.tls }}s{{ end }}://{{ $host.host }}{{ $path.path }}
-    {{- end }}
-  {{- end }}
-{{- else if eq ($api.service.type | default "ClusterIP") "NodePort" }}
+{{- if eq ($api.service.type | default "ClusterIP") "NodePort" }}
   NodePort service is enabled.
   Run the following to get the service URL:
-    export NODE_PORT=$(kubectl get --namespace {{ include "final.namespace" $ }} -o jsonpath="{.spec.ports[0].nodePort}" services {{ printf "%s-%s-svc" (include "final.namespace" $) $api.name }})
-    export NODE_IP=$(kubectl get nodes --namespace {{ include "final.namespace" $ }} -o jsonpath="{.items[0].status.addresses[0].address}")
+    export NODE_PORT=$(kubectl get --namespace {{ $.Release.Namespace }} -o jsonpath="{.spec.ports[0].nodePort}" services {{ printf "%s-%s-svc" ($.Release.Namespace) $api.name }})
+    export NODE_IP=$(kubectl get nodes --namespace {{ $.Release.Namespace }} -o jsonpath="{.items[0].status.addresses[0].address}")
     echo http://$NODE_IP:$NODE_PORT
 {{- else if eq ($api.service.type | default "ClusterIP") "LoadBalancer" }}
   LoadBalancer service is enabled.
   It may take a few minutes for the external IP to be available.
   Watch status with:
-    kubectl get --namespace {{ include "final.namespace" $ }} svc -w {{ printf "%s-%s-svc" (include "final.namespace" $) $api.name }}
+    kubectl get --namespace {{ $.Release.Namespace }} svc -w {{ printf "%s-%s-svc" ($.Release.Namespace) $api.name }}
   Once ready, get the external IP and access the service:
-    export SERVICE_IP=$(kubectl get svc --namespace {{ include "final.namespace" $ }} {{ printf "%s-%s-svc" (include "final.namespace" $) $api.name }} -o jsonpath="{.status.loadBalancer.ingress[0].ip}")
+    export SERVICE_IP=$(kubectl get svc --namespace {{ $.Release.Namespace }} {{ printf "%s-%s-svc" ($.Release.Namespace) $api.name }} -o jsonpath="{.status.loadBalancer.ingress[0].ip}")
     echo http://$SERVICE_IP:{{ $api.service.port | default 80 }}
 {{- else }}
   ClusterIP service is enabled.
   To access the API locally, run:
-    export POD_NAME=$(kubectl get pods --namespace {{ include "final.namespace" $ }} -l "app.kubernetes.io/name={{ $api.name }},app.kubernetes.io/instance={{ $.Release.Name }}" -o jsonpath="{.items[0].metadata.name}")
+    export POD_NAME=$(kubectl get pods --namespace {{ $.Release.Namespace }} -l "app.kubernetes.io/name={{ $api.name }},app.kubernetes.io/instance={{ $.Release.Name }}" -o jsonpath="{.items[0].metadata.name}")
     export CONTAINER_PORT={{ $api.port | default 8000 }}
-    kubectl --namespace {{ include "final.namespace" $ }} port-forward $POD_NAME 8080:$CONTAINER_PORT
+    kubectl --namespace {{ $.Release.Namespace }} port-forward $POD_NAME 8080:$CONTAINER_PORT
   Then visit: http://127.0.0.1:8080
 {{- end }}
 --------------------------------------------------------------------------------
@@ -42,10 +39,10 @@ API: {{ $api.name }}
 {{- end }}
 
 For troubleshooting, check the status of your pods:
-  kubectl get pods --namespace {{ include "final.namespace" $ }}
+  kubectl get pods --namespace {{ $.Release.Namespace }}
 
 For logs:
-  kubectl logs --namespace {{ include "final.namespace" $ }} <pod-name>
+  kubectl logs --namespace {{ $.Release.Namespace }} <pod-name>
 
 Thank you for using Activeloop NeoHorizon!
 
