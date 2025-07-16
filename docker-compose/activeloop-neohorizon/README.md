@@ -41,7 +41,7 @@ Activeloop NeoHorizon self-hosted docker-compose deployment:
 
    ```bash
    # Start only core services without model (for development/testing)
-   docker-compose up -d main-api files-api files_worker embedding_worker vector_search_worker rabbitmq postgres proxy
+   docker-compose up -d main-api files-api file_processor_worker embedding_worker vector_search_worker rabbitmq postgres proxy
    ```
 
    ```bash
@@ -81,7 +81,7 @@ Activeloop NeoHorizon self-hosted docker-compose deployment:
 
 ### Worker Services
 
-#### `files_worker`
+#### `file_processor_worker`
 
 - **Image:** `quay.io/activeloopai/neohorizon-main:${AL_IMAGE_TAG:-latest}`
 - **Purpose:** Processes file uploads and conversions
@@ -224,7 +224,7 @@ docker-compose logs -f main-api
 
 ```bash
 # Scale specific workers
-docker-compose up -d --scale files_worker=3 --scale embedding_worker=2
+docker-compose up -d --scale file_processor_worker=3 --scale embedding_worker=2
 ```
 
 ### Updating Images
