@@ -4,7 +4,7 @@ This directory contains the Docker Compose configuration for deploying Activeloo
 
 ## Overview
 
-Activelop NeoHorizon self-hosted docker-compose deployment:
+Activeloop NeoHorizon self-hosted docker-compose deployment:
 
 ## Prerequisites
 
@@ -181,7 +181,7 @@ All services run on a custom bridge network `al-neohorizon-network` for secure i
 
 ## Usage Examples
 
-For the API usage plese refer to [Neohorizon Documentation](https://docs.activeloop.ai/)
+For the API usage please refer to [Neohorizon Documentation](https://docs.activeloop.ai/)
 
 ### Basic Deployment
 
