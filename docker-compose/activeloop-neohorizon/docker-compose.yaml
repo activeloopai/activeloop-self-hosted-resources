@@ -83,11 +83,12 @@ services:
     <<: *shared-config
     runtime: nvidia
     shm_size: ${SHM_SIZE:-8g}
-    command:
+    entrypoint:
+      - tritonserver
       - --model-repository=/models
       - --model-control-mode=explicit
-      - --load-model=${AL_MODEL_NAME:-colnomic}
       - --rate-limit=execution_count
+      - --load-model=${AL_MODEL_NAME:-colnomic}
     deploy:
       resources:
         reservations:
