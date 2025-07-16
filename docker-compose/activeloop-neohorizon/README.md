@@ -140,7 +140,7 @@ Activelop NeoHorizon self-hosted docker-compose deployment:
 
 | Variable | Description | Example |
 |----------|-------------|---------|
-| `API_KEY` | API key for authentication, this token has special format</br>and can be copied from Activeloop platform UI | `your-api-key` |
+| `AL_API_TOKEN` | API Bearer authentication token, this token has special format</br>and can be copied from Activeloop platform UI | `your-api-key` |
 | `GEMINI_API_KEY` | Google Gemini API key | `your-gemini-key` |
 | `OPENAI_API_KEY` | OpenAI API key | `your-openai-key` |
 
