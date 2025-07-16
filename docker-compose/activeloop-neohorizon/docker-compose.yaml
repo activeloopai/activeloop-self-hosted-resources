@@ -83,6 +83,11 @@ services:
     <<: *shared-config
     runtime: nvidia
     shm_size: ${SHM_SIZE:-8g}
+    command:
+      - --model-repository=/models
+      - --model-control-mode=explicit
+      - --load-model=${AL_MODEL_NAME:-colnomic}
+      - --rate-limit=execution_count
     deploy:
       resources:
         reservations:

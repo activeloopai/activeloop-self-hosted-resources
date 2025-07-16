@@ -158,6 +158,7 @@ Activeloop NeoHorizon self-hosted docker-compose deployment:
 |----------|-------------|---------|
 | `AL_IMAGE_TAG` | Main application image tag | `latest` |
 | `AL_IMAGE_TAG_MODEL` | Model service image tag | `latest` |
+| `AL_MODEL_NAME` | Which model to serve | `colnomic` |
 | `LISTEN_HOST` | Host interface for nginx proxy | `0.0.0.0` |
 | `LISTEN_PORT` | Port for nginx proxy | `80` |
 | `SHM_SIZE` | Shared memory size for model service | `8g` |
