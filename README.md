@@ -1,8 +1,7 @@
-# activeloop-helm-charts
+# activeloop-self-hosted-resources
 
-## Add Helm repo
+## Available Deployments
 
-```bash
-helm repo add activeloop https://charts.activeloop.ai
-helm repo update activeloop
-```
+- **Activeloop Neohorizon**
+  - [K8s](./helm/activeloop-neohorizon/)
+  - [docker-compose](./docker-compose/activeloop-neohorizon/)

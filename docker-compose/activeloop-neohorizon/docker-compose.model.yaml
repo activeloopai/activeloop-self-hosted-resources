@@ -1,0 +1,30 @@
+services:
+  model:
+    container_name: al-neohorizon-model
+    image: quay.io/activeloopai/visual-model:${AL_IMAGE_TAG_MODEL:-latest}
+    ports:
+      - "${LISTEN_HOST:-0.0.0.0}:8000:8000"
+      - "${LISTEN_HOST:-0.0.0.0}:8001:8001"
+      - "${LISTEN_HOST:-0.0.0.0}:8002:8002"
+    shm_size: ${SHM_SIZE:-8g}
+    runtime: nvidia
+    entrypoint:
+      - tritonserver
+      - --model-repository=/models
+      - --model-control-mode=explicit
+      - --rate-limit=execution_count
+      - --load-model=${AL_MODEL_NAME:-colnomic}
+    restart: always
+    networks:
+      - al-neohorizon-model-network
+    deploy:
+      resources:
+        reservations:
+          devices:
+          - driver: nvidia
+            device_ids: ["0"]
+            capabilities: [gpu]
+networks:
+  al-neohorizon-model-network:
+    driver: bridge
+
