@@ -44,7 +44,7 @@ services:
       <<: *environment
     <<: *shared-config
   files-api:
-    container_name: al-neohorizon-main-api
+    container_name: al-neohorizon-files-api
     image: quay.io/activeloopai/neohorizon-files:${AL_IMAGE_TAG:-latest}
     entrypoint:
       - python3

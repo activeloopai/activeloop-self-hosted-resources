@@ -107,7 +107,7 @@ Activeloop NeoHorizon self-hosted docker-compose deployment:
 - **Port:** 8000 (internal)
 - **Purpose:** Provides visual and embedding model inference
 - **GPU:** Requires NVIDIA GPU with CUDA support
-- **Access:** Internal service, not directly exposed. Only exposed in [docker-compose.model.yaml](./docker-compose.yaml) via `8000/HTTP`, `8001/GRPC` and `8002/http metrics` ports
+- **Access:** Internal service, not directly exposed. Only exposed in [docker-compose.model.yaml](./docker-compose.model.yaml) via `8000/HTTP`, `8001/GRPC` and `8002/http metrics` ports
 - **SHM_SIZE:** Configurable via `SHM_SIZE` environment variable, default is `8g`
 
 ### Dependency Services
