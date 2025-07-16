@@ -190,13 +190,19 @@ For the API usage plese refer to [Neohorizon Documentation](https://docs.activel
 export API_KEY="your-api-key"
 export GEMINI_API_KEY="your-gemini-key"
 export OPENAI_API_KEY="your-openai-key"
+```
 
+```bash
 # Start all services
 docker-compose up -d
+```
 
+```bash
 # Check service status
 docker-compose ps
+```
 
+```bash
 # View logs
 docker-compose logs -f main-api
 ```
