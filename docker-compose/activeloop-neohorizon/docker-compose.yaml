@@ -27,15 +27,27 @@ services:
     environment:
       PORT: 8000
       <<: *environment
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
     <<: *shared-config
   files-api:
-    container_name: files-api
+    container_name: al-neohorizon-files-api
     image: quay.io/activeloopai/neohorizon-files:${AL_IMAGE_TAG:-latest}
     volumes:
       - al_neohorizon_deeplake_data:/var/lib/deeplake
     environment:
       PORT: 8000
       <<: *environment
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
     <<: *shared-config
   files_worker:
     container_name: al-neohorizon-files-worker
@@ -98,7 +110,7 @@ services:
     <<: *shared-config
 
   postgres:
-    image: postgres:16
+    image: postgres:17
     container_name: postgres
     ports:
       - "127.0.0.1:5432:5432"
@@ -119,7 +131,7 @@ services:
     container_name: al-neohorizon-proxy
     image: nginx:latest
     ports:
-      - "${LISTEN_HOST:-0.0.0.0}:80:80"
+      - "${LISTEN_HOST:-0.0.0.0}:${LISTEN_PORT:-80}:80"
     configs:
       - source: al-proxy-config
         target: /etc/nginx/conf.d/al-neohorizon-proxy.conf

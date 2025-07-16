@@ -24,29 +24,33 @@ Activeloop NeoHorizon self-hosted docker-compose deployment:
 2. **Set required environment variables:**
 
    ```bash
-   # Api key to use as Bearer token for authentication
+   # API key to use as Bearer token for authentication
    export AL_API_TOKEN="neohorizon-api-key-here"
-   # Api key for gemini requests
+   # API key for Gemini requests
    export GEMINI_API_KEY="your-gemini-api-key-here"
-   # Api key for openai requests
+   # API key for OpenAI requests
    export OPENAI_API_KEY="your-openai-api-key-here"
    ```
 
 3. **Start the services:**
 
    ```bash
-   # Start all services with dependencies and model
+   # Start all services (recommended for full deployment)
    docker-compose up -d
    ```
 
    ```bash
-   # Start only neohorizon main services without dependencies
-   docker-compose up -d
+   # Start only core services without model (for development/testing)
+   docker-compose up -d main-api files-api files_worker embedding_worker vector_search_worker rabbitmq postgres proxy
    ```
 
    ```bash
-   # Start only neohorizon model service
-   docker-compose up -d
+   # Start only the model service (for separate model deployment)
+   docker-compose up -d model
+   ```
+
+   ```bash
+    # Start only the application services (for production when Model, RMQ and Postgres are managed separately)
    ```
 
 4. **Access the application:**
@@ -65,6 +69,7 @@ Activeloop NeoHorizon self-hosted docker-compose deployment:
 - **Port:** 8000 (internal)
 - **Purpose:** Main API service handling core application logic
 - **Access:** Via nginx proxy at `/`
+- **Health Check:** HTTP endpoint `/health`
 
 #### `files-api`
 
@@ -72,6 +77,7 @@ Activeloop NeoHorizon self-hosted docker-compose deployment:
 - **Port:** 8000 (internal)
 - **Purpose:** File management and processing service
 - **Access:** Via nginx proxy at `/files`
+- **Health Check:** HTTP endpoint `/health`
 
 ### Worker Services
 
@@ -101,7 +107,7 @@ Activeloop NeoHorizon self-hosted docker-compose deployment:
 - **Port:** 8000 (internal)
 - **Purpose:** Provides visual and embedding model inference
 - **GPU:** Requires NVIDIA GPU with CUDA support
-- **Access:** Internal service, not directly exposed if not deployed separately otherwise with `8000` port
+- **Access:** Internal service, not directly exposed. Only exposed in [docker-compose.model.yaml](./docker-compose.yaml) via `8000/HTTP`, `8001/GRPC` and `8002/http metrics` ports
 - **SHM_SIZE:** Configurable via `SHM_SIZE` environment variable, default is `8g`
 
 ### Dependency Services
@@ -115,6 +121,7 @@ Activeloop NeoHorizon self-hosted docker-compose deployment:
 - **Purpose:** Message queue for asynchronous processing
 - **Credentials:** `neohorizon`/`neohorizon`
 - **Persistence:** Volume `al_neohorizon_rabbitmq_data`
+- **Health Check:** RabbitMQ service status
 
 #### `postgres`
 
@@ -124,12 +131,13 @@ Activeloop NeoHorizon self-hosted docker-compose deployment:
 - **Credentials:** `postgres`/`postgres`
 - **Database:** `neohorizon`
 - **Persistence:** Volume `al_neohorizon_postgres_data`
+- **Health Check:** Database readiness check
 
 #### `proxy`
 
 - **Image:** `nginx:latest`
-- **Port:** `80` (configurable via `LISTEN_PORT`)
-- **Host:** `0.0.0.0` (configurable via `LISTEN_PORT`)
+- **Port:** Configurable via `LISTEN_PORT` (default: `80`)
+- **Host:** Configurable via `LISTEN_HOST` (default: `0.0.0.0`)
 - **Purpose:** Reverse proxy for API services
 - **Configuration:** Routes `/files` to files-api and everything else to main-api
 - **File Upload:** Supports up to 512MB file uploads
@@ -140,7 +148,7 @@ Activeloop NeoHorizon self-hosted docker-compose deployment:
 
 | Variable | Description | Example |
 |----------|-------------|---------|
-| `AL_API_TOKEN` | API Bearer authentication token, this token has special format</br>and can be copied from Activeloop platform UI | `your-api-key` |
+| `AL_API_TOKEN` | API Bearer authentication token, this token has special format and can be copied from Activeloop platform UI | `your-api-key` |
 | `GEMINI_API_KEY` | Google Gemini API key | `your-gemini-key` |
 | `OPENAI_API_KEY` | OpenAI API key | `your-openai-key` |
 
@@ -151,7 +159,8 @@ Activeloop NeoHorizon self-hosted docker-compose deployment:
 | `AL_IMAGE_TAG` | Main application image tag | `latest` |
 | `AL_IMAGE_TAG_MODEL` | Model service image tag | `latest` |
 | `LISTEN_HOST` | Host interface for nginx proxy | `0.0.0.0` |
-| `LISTEN_PORT` | Host interface for nginx proxy | `80` |
+| `LISTEN_PORT` | Port for nginx proxy | `80` |
+| `SHM_SIZE` | Shared memory size for model service | `8g` |
 | `POSTGRES_DATABASE` | PostgreSQL database name | `neohorizon` |
 | `POSTGRES_HOST` | PostgreSQL host | `al-neohorizon-postgres` |
 | `POSTGRES_PASSWORD` | PostgreSQL password | `postgres` |
@@ -160,8 +169,8 @@ Activeloop NeoHorizon self-hosted docker-compose deployment:
 | `RABBITMQ_URL` | RabbitMQ connection URL | `amqp://neohorizon:neohorizon@al-neohorizon-rabbitmq:5672` |
 | `VISUAL_MODEL_URL` | Visual model service URL | `http://al-neohorizon-model:8000` |
 | `EMBEDDING_MODEL_URL` | Embedding model service URL | `http://al-neohorizon-model:8000` |
-| `DEEPLAKE_ROOT_DIR` | Storage path for the neohorizon data | `/var/lib/deeplake` |
-| `DEEPLAKE_CREDS` | Credentials for storage if (optional) </br>like s3 endpoint url or storage credentials | `N/A` |
+| `DEEPLAKE_ROOT_DIR` | Storage path for the NeoHorizon data | `/var/lib/deeplake` |
+| `DEEPLAKE_CREDS` | DeepLake storage credentials (optional, for cloud storage) | `N/A` |
 
 ## Configuration
 
@@ -171,17 +180,20 @@ All services run on a custom bridge network `al-neohorizon-network` for secure i
 
 ### Volume Persistence
 
-- **PostgreSQL Data:** `al_neohorizon_postgres_data`
-- **RabbitMQ Data:** `al_neohorizon_rabbitmq_data`
+- **PostgreSQL Data Storage:** `al_neohorizon_postgres_data`
+- **RabbitMQ Data Storage:** `al_neohorizon_rabbitmq_data`
+- **DeepLake Default Data Storage:** `al_neohorizon_deeplake_data`
 
 ### Health Checks
 
-- **RabbitMQ:** Checks service status every 30s
-- **PostgreSQL:** Checks database readiness every 30s
+- **Main API:** HTTP health check every 30s
+- **Files API:** HTTP health check every 30s
+- **RabbitMQ:** Service status check every 30s
+- **PostgreSQL:** Database readiness check every 30s
 
 ## Usage Examples
 
-For the API usage please refer to [Neohorizon Documentation](https://docs.activeloop.ai/)
+For the API usage please refer to [NeoHorizon Documentation](https://docs.activeloop.ai/)
 
 ### Basic Deployment
 
@@ -224,6 +236,16 @@ docker-compose pull
 docker-compose up -d
 ```
 
+### Backup and Restore
+
+```bash
+# Backup PostgreSQL data
+docker-compose exec postgres pg_dump -U postgres neohorizon > backup.sql
+
+# Restore PostgreSQL data
+docker-compose exec -T postgres psql -U postgres neohorizon < backup.sql
+```
+
 ## Troubleshooting
 
 ### Common Issues
@@ -233,6 +255,9 @@ docker-compose up -d
    ```bash
    # Check logs for specific service
    docker-compose logs service-name
+   ```
+
+   ```bash
    # Check all logs
    docker-compose logs
    ```
@@ -250,7 +275,24 @@ docker-compose up -d
    - Increase Docker memory limit
    - Reduce worker replicas
    - Monitor resource usage: `docker stats`
-   - Set higher `SHM_SIZE` and run docker compose reastart if Model is on low memory
+   - Set higher `SHM_SIZE` and run docker compose restart if Model is on low memory
+
+### Logs and Debugging
+
+```bash
+# Follow logs in real-time
+docker-compose logs -f
+```
+
+```bash
+# Follow specific service logs
+docker-compose logs -f main-api
+```
+
+```bash
+# Check service configuration
+docker-compose config
+```
 
 ## Security Considerations
 
@@ -267,14 +309,15 @@ For production deployments, consider:
 1. **Environment Variables:** Use `.env` files or external secret management
 2. **Resource Limits:** Set appropriate CPU and memory limits
 3. **Monitoring:** Implement logging and monitoring solutions
-4. **SSL/TLS:** Configure HTTPS termination at the proxy level
-5. **Scaling:** Use Docker Swarm or Kubernetes for orchestration
+4. **Backup Strategy:** Regular database and volume backups
+5. **SSL/TLS:** Configure HTTPS termination at the proxy level
+6. **Scaling:** Use Docker Swarm or Kubernetes for orchestration
 
 ## Support
 
 For issues and support:
 
-- Check the [Activeloop Neohorizon Documentation](https://docs.activeloop.ai/)
+- Check the [Activeloop NeoHorizon Documentation](https://docs.activeloop.ai/)
 - Review service logs for error messages
 - Ensure all prerequisites are met
 - Verify environment variable configuration
