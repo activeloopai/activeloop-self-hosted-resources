@@ -13,10 +13,15 @@ x-environment: &environment
   DEEPLAKE_CREDS: "${DEEPLAKE_CREDS:-{}}"
   DEEPLAKE_ROOT_DIR: "${DEEPLAKE_ROOT_DIR:-/var/lib/deeplake}"
 
-x-shared-config: &shared-config
+x-shared-apps: &shared-apps
   restart: always
   depends_on:
     - change_vol_ownership
+  networks:
+    - al-neohorizon-network
+
+x-shared-deps: &shared-deps
+  restart: always
   networks:
     - al-neohorizon-network
 
@@ -44,7 +49,7 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
-    <<: *shared-config
+    <<: *shared-apps
   files-api:
     container_name: al-neohorizon-files-api
     image: quay.io/activeloopai/neohorizon-files:${AL_IMAGE_TAG:-latest}
@@ -62,7 +67,7 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
-    <<: *shared-config
+    <<: *shared-apps
   vector_search_worker:
     container_name: al-neohorizon-vector-search-worker
     image: quay.io/activeloopai/neohorizon-main:${AL_IMAGE_TAG:-latest}
@@ -73,7 +78,7 @@ services:
       - vector_search_worker.py
     environment:
       <<: *environment
-    <<: *shared-config
+    <<: *shared-apps
   file_processor_worker:
     container_name: al-neohorizon-file-processor-worker
     image: quay.io/activeloopai/neohorizon-main:${AL_IMAGE_TAG:-latest}
@@ -84,7 +89,7 @@ services:
       - file_processor_worker.py
     environment:
       <<: *environment
-    <<: *shared-config
+    <<: *shared-apps
   embedding_worker:
     container_name: al-neohorizon-embedding-worker
     image: quay.io/activeloopai/neohorizon-main:${AL_IMAGE_TAG:-latest}
@@ -95,7 +100,7 @@ services:
       - embedding_worker.py
     environment:
       <<: *environment
-    <<: *shared-config
+    <<: *shared-apps
   summary_generation_worker:
     container_name: al-neohorizon-summary-generation-worker
     image: quay.io/activeloopai/neohorizon-main:${AL_IMAGE_TAG:-latest}
@@ -106,7 +111,7 @@ services:
       - summary_generation_worker.py
     environment:
       <<: *environment
-    <<: *shared-config
+    <<: *shared-apps
   model:
     container_name: al-neohorizon-model
     image: quay.io/activeloopai/visual-model:${AL_IMAGE_TAG_MODEL:-latest}
@@ -114,7 +119,7 @@ services:
       - al_neohorizon_deeplake_data:/var/lib/deeplake
     environment:
       <<: *environment
-    <<: *shared-config
+    <<: *shared-deps
     runtime: nvidia
     shm_size: ${SHM_SIZE:-8g}
     entrypoint:
@@ -147,7 +152,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
-    <<: *shared-config
+    <<: *shared-deps
 
   postgres:
     image: postgres:17
@@ -165,7 +170,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
-    <<: *shared-config
+    <<: *shared-deps
 
   proxy:
     container_name: al-neohorizon-proxy
@@ -178,7 +183,7 @@ services:
     configs:
       - source: al-proxy-config
         target: /etc/nginx/conf.d/default.conf
-    <<: *shared-config
+    <<: *shared-deps
 
 networks:
   al-neohorizon-network:
