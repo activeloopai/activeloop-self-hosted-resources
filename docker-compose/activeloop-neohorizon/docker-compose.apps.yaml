@@ -24,6 +24,9 @@ services:
   main-api:
     container_name: al-neohorizon-main-api
     image: quay.io/activeloopai/neohorizon-main:${AL_IMAGE_TAG:-latest}
+    entrypoint:
+      - python3
+      - lightweight_service.py
     environment:
       PORT: 8000
       <<: *environment
@@ -31,25 +34,46 @@ services:
   files-api:
     container_name: al-neohorizon-main-api
     image: quay.io/activeloopai/neohorizon-files:${AL_IMAGE_TAG:-latest}
+    entrypoint:
+      - python3
+      - files_service.py
     environment:
       PORT: 8000
       <<: *environment
     <<: *shared-config
-  files_worker:
-    container_name: al-neohorizon-files-worker
+  vector_search_worker:
+    container_name: al-neohorizon-vector-search-worker
     image: quay.io/activeloopai/neohorizon-main:${AL_IMAGE_TAG:-latest}
+    entrypoint:
+      - python3
+      - vector_search_worker.py
+    environment:
+      <<: *environment
+    <<: *shared-config
+  file_processor_worker:
+    container_name: al-neohorizon-file-processor-worker
+    image: quay.io/activeloopai/neohorizon-main:${AL_IMAGE_TAG:-latest}
+    entrypoint:
+      - python3
+      - file_processor_worker.py
     environment:
       <<: *environment
     <<: *shared-config
   embedding_worker:
     container_name: al-neohorizon-embedding-worker
     image: quay.io/activeloopai/neohorizon-main:${AL_IMAGE_TAG:-latest}
+    entrypoint:
+      - python3
+      - embedding_worker.py
     environment:
       <<: *environment
     <<: *shared-config
-  vector_search_worker:
-    container_name: al-neohorizon-vector-search-worker
+  summary_generation_worker:
+    container_name: al-neohorizon-summary-generation-worker
     image: quay.io/activeloopai/neohorizon-main:${AL_IMAGE_TAG:-latest}
+    entrypoint:
+      - python3
+      - summary_generation_worker.py
     environment:
       <<: *environment
     <<: *shared-config
