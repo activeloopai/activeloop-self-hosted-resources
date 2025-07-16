@@ -25,7 +25,7 @@ Activelop NeoHorizon self-hosted docker-compose deployment:
 
    ```bash
    # Api key to use as Bearer token for authentication
-   export API_KEY="neohorizon-api-key-here"
+   export AL_API_TOKEN="neohorizon-api-key-here"
    # Api key for gemini requests
    export GEMINI_API_KEY="your-gemini-api-key-here"
    # Api key for openai requests
@@ -187,7 +187,7 @@ For the API usage plese refer to [Neohorizon Documentation](https://docs.activel
 
 ```bash
 # Set environment variables
-export API_KEY="your-api-key"
+export AL_API_TOKEN="your-api-key"
 export GEMINI_API_KEY="your-gemini-key"
 export OPENAI_API_KEY="your-openai-key"
 ```

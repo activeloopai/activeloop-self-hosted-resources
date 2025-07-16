@@ -7,7 +7,7 @@ x-environment: &environment
   RABBITMQ_URL: "${RABBITMQ_URL:-amqp://neohorizon:neohorizon@al-neohorizon-rabbitmq:5672}"
   VISUAL_MODEL_URL: "${VISUAL_MODEL_URL:-http://al-neohorizon-model:8000}"
   EMBEDDING_MODEL_URL: "${EMBEDDING_MODEL_URL:-http://al-neohorizon-model:8000}"
-  API_KEY: "${API_KEY:?}"
+  AL_API_TOKEN: "${AL_API_TOKEN:?}"
   GEMINI_API_KEY: "${GEMINI_API_KEY:?}"
   OPENAI_API_KEY: "${OPENAI_API_KEY:?}"
   DEEPLAKE_CREDS: "${DEEPLAKE_CREDS:-}"
