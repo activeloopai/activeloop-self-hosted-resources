@@ -136,6 +136,9 @@ services:
   proxy:
     container_name: al-neohorizon-proxy
     image: nginx:latest
+    depends_on:
+      - main-api
+      - files-api
     ports:
       - "${LISTEN_HOST:-0.0.0.0}:${LISTEN_PORT:-80}:80"
     configs:
