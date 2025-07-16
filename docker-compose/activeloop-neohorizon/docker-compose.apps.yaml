@@ -1,0 +1,82 @@
+x-environment: &environment
+  POSTGRES_DATABASE: "${POSTGRES_DATABASE:?}"
+  POSTGRES_HOST: "${POSTGRES_HOST:?}"
+  POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?}"
+  POSTGRES_PORT: "${POSTGRES_PORT:?}"
+  POSTGRES_USER: "${POSTGRES_USER:?}"
+  RABBITMQ_URL: "${RABBITMQ_URL:?}"
+  VISUAL_MODEL_URL: "${VISUAL_MODEL_URL:?}"
+  EMBEDDING_MODEL_URL: "${EMBEDDING_MODEL_URL:?}"
+  API_KEY: "${API_KEY:?}"
+  GEMINI_API_KEY: "${GEMINI_API_KEY:?}"
+  OPENAI_API_KEY: "${OPENAI_API_KEY:?}"
+
+x-shared-config: &shared-config
+  restart: always
+  networks:
+    - al-neohorizon-apps-network
+
+services:
+  main-api:
+    container_name: al-neohorizon-main-api
+    image: quay.io/activeloopai/neohorizon-main:${AL_IMAGE_TAG:-latest}
+    environment:
+      PORT: 8000
+      <<: *environment
+    <<: *shared-config
+  files-api:
+    container_name: files-api
+    image: quay.io/activeloopai/neohorizon-files:${AL_IMAGE_TAG:-latest}
+    environment:
+      PORT: 8000
+      <<: *environment
+    <<: *shared-config
+  files_worker:
+    container_name: al-neohorizon-files-worker
+    image: quay.io/activeloopai/neohorizon-main:${AL_IMAGE_TAG:-latest}
+    environment:
+      <<: *environment
+    <<: *shared-config
+  embedding_worker:
+    container_name: al-neohorizon-embedding-worker
+    image: quay.io/activeloopai/neohorizon-main:${AL_IMAGE_TAG:-latest}
+    environment:
+      <<: *environment
+    <<: *shared-config
+  vector_search_worker:
+    container_name: al-neohorizon-vector-search-worker
+    image: quay.io/activeloopai/neohorizon-main:${AL_IMAGE_TAG:-latest}
+    environment:
+      <<: *environment
+    <<: *shared-config
+
+  proxy:
+    container_name: al-neohorizon-proxy
+    image: nginx:latest
+    ports:
+      - "${LISTEN_HOST:-0.0.0.0}:${LISTEN_PORT:-80}:80"
+    configs:
+      - source: al-proxy-config
+        target: /etc/nginx/conf.d/al-neohorizon-proxy.conf
+    <<: *shared-config
+
+networks:
+  al-neohorizon-apps-network:
+    driver: bridge
+
+configs:
+  al-proxy-config:
+    content: |
+      server {
+        client_max_body_size 512m;
+        listen 80;
+        server_name _;
+
+        location /files {
+          proxy_pass http://al-neohorizon-files-api:8000;
+        }
+
+        location / {
+          proxy_pass http://al-neohorizon-main-api:8000;
+        }
+      }

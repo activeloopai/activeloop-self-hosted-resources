@@ -1,0 +1,137 @@
+x-environment: &environment
+  POSTGRES_DATABASE: "${POSTGRES_DATABASE:-neohorizon}"
+  POSTGRES_HOST: "${POSTGRES_HOST:-al-neohorizon-postgres}"
+  POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-postgres}"
+  POSTGRES_PORT: "${POSTGRES_PORT:-5432}"
+  POSTGRES_USER: "${POSTGRES_USER:-postgres}"
+  RABBITMQ_URL: "${RABBITMQ_URL:-amqp://neohorizon:neohorizon@al-neohorizon-rabbitmq:5672}"
+  VISUAL_MODEL_URL: "${VISUAL_MODEL_URL:-http://al-neohorizon-model:8000}"
+  EMBEDDING_MODEL_URL: "${EMBEDDING_MODEL_URL:-http://al-neohorizon-model:8000}"
+  API_KEY: "${API_KEY:?}"
+  GEMINI_API_KEY: "${GEMINI_API_KEY:?}"
+  OPENAI_API_KEY: "${OPENAI_API_KEY:?}"
+
+x-shared-config: &shared-config
+  restart: always
+  networks:
+    - al-neohorizon-network
+
+services:
+  main-api:
+    container_name: al-neohorizon-main-api
+    image: quay.io/activeloopai/neohorizon-main:${AL_IMAGE_TAG:-latest}
+    environment:
+      PORT: 8000
+      <<: *environment
+    <<: *shared-config
+  files-api:
+    container_name: files-api
+    image: quay.io/activeloopai/neohorizon-files:${AL_IMAGE_TAG:-latest}
+    environment:
+      PORT: 8000
+      <<: *environment
+    <<: *shared-config
+  files_worker:
+    container_name: al-neohorizon-files-worker
+    image: quay.io/activeloopai/neohorizon-main:${AL_IMAGE_TAG:-latest}
+    environment:
+      <<: *environment
+    <<: *shared-config
+  embedding_worker:
+    container_name: al-neohorizon-embedding-worker
+    image: quay.io/activeloopai/neohorizon-main:${AL_IMAGE_TAG:-latest}
+    environment:
+      <<: *environment
+    <<: *shared-config
+  vector_search_worker:
+    container_name: al-neohorizon-vector-search-worker
+    image: quay.io/activeloopai/neohorizon-main:${AL_IMAGE_TAG:-latest}
+    environment:
+      <<: *environment
+    <<: *shared-config
+  model:
+    container_name: al-neohorizon-model
+    image: quay.io/activeloopai/visual-model:${AL_IMAGE_TAG_MODEL:-latest}
+    environment:
+      <<: *environment
+    <<: *shared-config
+    runtime: nvidia
+    shm_size: ${SHM_SIZE:-8g}
+    deploy:
+      resources:
+        reservations:
+          devices:
+          - driver: nvidia
+            device_ids: ["0"]
+            capabilities: [gpu]
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: al-neohorizon-rabbitmq
+    ports:
+      - "127.0.0.1:5672:5672"
+      - "127.0.0.1:15672:15672"
+    volumes:
+      - al_neohorizon_rabbitmq_data:/var/lib/rabbitmq
+    environment:
+      - RABBITMQ_DEFAULT_USER=neohorizon
+      - RABBITMQ_DEFAULT_PASS=neohorizon
+    healthcheck:
+      test: ["CMD", "rabbitmqctl", "status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    <<: *shared-config
+
+  postgres:
+    image: postgres:16
+    container_name: postgres
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - al_neohorizon_postgres_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=neohorizon
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    <<: *shared-config
+
+  proxy:
+    container_name: al-neohorizon-proxy
+    image: nginx:latest
+    ports:
+      - "${LISTEN_HOST:-0.0.0.0}:80:80"
+    configs:
+      - source: al-proxy-config
+        target: /etc/nginx/conf.d/al-neohorizon-proxy.conf
+    <<: *shared-config
+
+networks:
+  al-neohorizon-network:
+    driver: bridge
+
+volumes:
+  al_neohorizon_rabbitmq_data:
+  al_neohorizon_postgres_data:
+
+configs:
+  al-proxy-config:
+    content: |
+      server {
+        client_max_body_size 512m;
+        listen 80;
+        server_name _;
+
+        location /files {
+          proxy_pass http://al-neohorizon-files-api:8000;
+        }
+
+        location / {
+          proxy_pass http://al-neohorizon-main-api:8000;
+        }
+      }
