@@ -10,7 +10,7 @@ x-environment: &environment
   API_KEY: "${API_KEY:?}"
   GEMINI_API_KEY: "${GEMINI_API_KEY:?}"
   OPENAI_API_KEY: "${OPENAI_API_KEY:?}"
-  DEEPLAKE_CREDS: "${DEEPLAKE_CREDS}"
+  DEEPLAKE_CREDS: "${DEEPLAKE_CREDS:-}"
   DEEPLAKE_ROOT_DIR: "${DEEPLAKE_ROOT_DIR:-/var/lib/deeplake}"
 
 x-shared-config: &shared-config
