@@ -10,11 +10,15 @@ x-environment: &environment
   API_KEY: "${API_KEY:?}"
   GEMINI_API_KEY: "${GEMINI_API_KEY:?}"
   OPENAI_API_KEY: "${OPENAI_API_KEY:?}"
+  DEEPLAKE_CREDS: "${DEEPLAKE_CREDS}"
+  DEEPLAKE_ROOT_DIR: "${DEEPLAKE_ROOT_DIR:-/var/lib/deeplake}"
 
 x-shared-config: &shared-config
   restart: always
   networks:
     - al-neohorizon-apps-network
+  volumes:
+    - al_neohorizon_deeplake_data:/var/lib/deeplake
 
 services:
   main-api:
@@ -80,3 +84,7 @@ configs:
           proxy_pass http://al-neohorizon-main-api:8000;
         }
       }
+
+volumes:
+  al_neohorizon_deeplake_data:
+    driver: local

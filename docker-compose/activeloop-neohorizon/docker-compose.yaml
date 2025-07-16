@@ -10,6 +10,8 @@ x-environment: &environment
   API_KEY: "${API_KEY:?}"
   GEMINI_API_KEY: "${GEMINI_API_KEY:?}"
   OPENAI_API_KEY: "${OPENAI_API_KEY:?}"
+  DEEPLAKE_CREDS: "${DEEPLAKE_CREDS}"
+  DEEPLAKE_ROOT_DIR: "${DEEPLAKE_ROOT_DIR:-/var/lib/deeplake}"
 
 x-shared-config: &shared-config
   restart: always
@@ -20,6 +22,8 @@ services:
   main-api:
     container_name: al-neohorizon-main-api
     image: quay.io/activeloopai/neohorizon-main:${AL_IMAGE_TAG:-latest}
+    volumes:
+      - al_neohorizon_deeplake_data:/var/lib/deeplake
     environment:
       PORT: 8000
       <<: *environment
@@ -27,6 +31,8 @@ services:
   files-api:
     container_name: files-api
     image: quay.io/activeloopai/neohorizon-files:${AL_IMAGE_TAG:-latest}
+    volumes:
+      - al_neohorizon_deeplake_data:/var/lib/deeplake
     environment:
       PORT: 8000
       <<: *environment
@@ -34,24 +40,32 @@ services:
   files_worker:
     container_name: al-neohorizon-files-worker
     image: quay.io/activeloopai/neohorizon-main:${AL_IMAGE_TAG:-latest}
+    volumes:
+      - al_neohorizon_deeplake_data:/var/lib/deeplake
     environment:
       <<: *environment
     <<: *shared-config
   embedding_worker:
     container_name: al-neohorizon-embedding-worker
     image: quay.io/activeloopai/neohorizon-main:${AL_IMAGE_TAG:-latest}
+    volumes:
+      - al_neohorizon_deeplake_data:/var/lib/deeplake
     environment:
       <<: *environment
     <<: *shared-config
   vector_search_worker:
     container_name: al-neohorizon-vector-search-worker
     image: quay.io/activeloopai/neohorizon-main:${AL_IMAGE_TAG:-latest}
+    volumes:
+      - al_neohorizon_deeplake_data:/var/lib/deeplake
     environment:
       <<: *environment
     <<: *shared-config
   model:
     container_name: al-neohorizon-model
     image: quay.io/activeloopai/visual-model:${AL_IMAGE_TAG_MODEL:-latest}
+    volumes:
+      - al_neohorizon_deeplake_data:/var/lib/deeplake
     environment:
       <<: *environment
     <<: *shared-config
@@ -117,7 +131,11 @@ networks:
 
 volumes:
   al_neohorizon_rabbitmq_data:
+    driver: local
   al_neohorizon_postgres_data:
+    driver: local
+  al_neohorizon_deeplake_data:
+    driver: local
 
 configs:
   al-proxy-config:
