@@ -1,4 +1,7 @@
 x-environment: &environment
+  USE_RABBITMQ: "true"
+  USE_DEEPLAKE: "true"
+  ENVIRONMENT: "local"
   POSTGRES_DATABASE: "${POSTGRES_DATABASE:?}"
   POSTGRES_HOST: "${POSTGRES_HOST:?}"
   POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?}"
