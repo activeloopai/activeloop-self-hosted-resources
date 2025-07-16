@@ -1,0 +1,196 @@
+x-environment: &environment
+  USE_RABBITMQ: "true"
+  USE_DEEPLAKE: "true"
+  ENVIRONMENT: "local"
+  POSTGRES_DATABASE: "${POSTGRES_DATABASE:-neohorizon}"
+  POSTGRES_HOST: "${POSTGRES_HOST:-al-neohorizon-postgres}"
+  POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-postgres}"
+  POSTGRES_PORT: "${POSTGRES_PORT:-5432}"
+  POSTGRES_USER: "${POSTGRES_USER:-postgres}"
+  RABBITMQ_URL: "${RABBITMQ_URL:-amqp://neohorizon:neohorizon@al-neohorizon-rabbitmq:5672}"
+  VISUAL_MODEL_URL: "${VISUAL_MODEL_URL:?}"
+  EMBEDDING_MODEL_URL: "${EMBEDDING_MODEL_URL:?}"
+  AL_API_TOKEN: "${AL_API_TOKEN:?}"
+  GEMINI_API_KEY: "${GEMINI_API_KEY:?}"
+  OPENAI_API_KEY: "${OPENAI_API_KEY:?}"
+  DEEPLAKE_CREDS: "${DEEPLAKE_CREDS:-{}}"
+  DEEPLAKE_ROOT_DIR: "${DEEPLAKE_ROOT_DIR:-/var/lib/deeplake}"
+
+x-shared-apps: &shared-apps
+  restart: always
+  depends_on:
+    - change_vol_ownership
+  networks:
+    - al-neohorizon-network
+
+x-shared-deps: &shared-deps
+  restart: always
+  networks:
+    - al-neohorizon-network
+
+services:
+  change_vol_ownership:
+    container_name: al-neohorizon-change-vol-ownership
+    image: busybox
+    command: chown -R 10001:10001 /var/lib/deeplake
+    volumes:
+      - al_neohorizon_deeplake_data:/var/lib/deeplake
+    restart: "no"
+  main-api:
+    container_name: al-neohorizon-main-api
+    image: quay.io/activeloopai/neohorizon-main:${AL_IMAGE_TAG:-latest}
+    volumes:
+      - al_neohorizon_deeplake_data:/var/lib/deeplake
+    entrypoint:
+      - python3
+      - lightweight_service.py
+    environment:
+      PORT: 8000
+      <<: *environment
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    <<: *shared-apps
+  files-api:
+    container_name: al-neohorizon-files-api
+    image: quay.io/activeloopai/neohorizon-files:${AL_IMAGE_TAG:-latest}
+    volumes:
+      - al_neohorizon_deeplake_data:/var/lib/deeplake
+    entrypoint:
+      - python3
+      - files_service.py
+    environment:
+      PORT: 8000
+      <<: *environment
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    <<: *shared-apps
+  vector_search_worker:
+    container_name: al-neohorizon-vector-search-worker
+    image: quay.io/activeloopai/neohorizon-main:${AL_IMAGE_TAG:-latest}
+    volumes:
+      - al_neohorizon_deeplake_data:/var/lib/deeplake
+    entrypoint:
+      - python3
+      - vector_search_worker.py
+    environment:
+      <<: *environment
+    <<: *shared-apps
+  file_processor_worker:
+    container_name: al-neohorizon-file-processor-worker
+    image: quay.io/activeloopai/neohorizon-main:${AL_IMAGE_TAG:-latest}
+    volumes:
+      - al_neohorizon_deeplake_data:/var/lib/deeplake
+    entrypoint:
+      - python3
+      - file_processor_worker.py
+    environment:
+      <<: *environment
+    <<: *shared-apps
+  embedding_worker:
+    container_name: al-neohorizon-embedding-worker
+    image: quay.io/activeloopai/neohorizon-main:${AL_IMAGE_TAG:-latest}
+    volumes:
+      - al_neohorizon_deeplake_data:/var/lib/deeplake
+    entrypoint:
+      - python3
+      - embedding_worker.py
+    environment:
+      <<: *environment
+    <<: *shared-apps
+  summary_generation_worker:
+    container_name: al-neohorizon-summary-generation-worker
+    image: quay.io/activeloopai/neohorizon-main:${AL_IMAGE_TAG:-latest}
+    volumes:
+      - al_neohorizon_deeplake_data:/var/lib/deeplake
+    entrypoint:
+      - python3
+      - summary_generation_worker.py
+    environment:
+      <<: *environment
+    <<: *shared-apps
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: al-neohorizon-rabbitmq
+    ports:
+      - "127.0.0.1:5672:5672"
+      - "127.0.0.1:15672:15672"
+    volumes:
+      - al_neohorizon_rabbitmq_data:/var/lib/rabbitmq
+    environment:
+      - RABBITMQ_DEFAULT_USER=neohorizon
+      - RABBITMQ_DEFAULT_PASS=neohorizon
+    healthcheck:
+      test: ["CMD", "rabbitmqctl", "status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    <<: *shared-deps
+
+  postgres:
+    image: postgres:17
+    container_name: al-neohorizon-postgres
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - al_neohorizon_postgres_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=neohorizon
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    <<: *shared-deps
+
+  proxy:
+    container_name: al-neohorizon-proxy
+    image: nginx:latest
+    depends_on:
+      - main-api
+      - files-api
+    ports:
+      - "${LISTEN_HOST:-0.0.0.0}:${LISTEN_PORT:-80}:80"
+    configs:
+      - source: al-proxy-config
+        target: /etc/nginx/conf.d/default.conf
+    <<: *shared-deps
+
+networks:
+  al-neohorizon-network:
+    driver: bridge
+
+volumes:
+  al_neohorizon_rabbitmq_data:
+    driver: local
+  al_neohorizon_postgres_data:
+    driver: local
+  al_neohorizon_deeplake_data:
+    driver: local
+
+configs:
+  al-proxy-config:
+    content: |
+      server {
+        client_max_body_size 512m;
+        listen 80;
+        server_name _;
+
+        location /files {
+          proxy_pass http://al-neohorizon-files-api:8000;
+        }
+
+        location / {
+          proxy_pass http://al-neohorizon-main-api:8000;
+        }
+      }
