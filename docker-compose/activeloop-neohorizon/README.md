@@ -160,6 +160,8 @@ Activelop NeoHorizon self-hosted docker-compose deployment:
 | `RABBITMQ_URL` | RabbitMQ connection URL | `amqp://neohorizon:neohorizon@al-neohorizon-rabbitmq:5672` |
 | `VISUAL_MODEL_URL` | Visual model service URL | `http://al-neohorizon-model:8000` |
 | `EMBEDDING_MODEL_URL` | Embedding model service URL | `http://al-neohorizon-model:8000` |
+| `DEEPLAKE_ROOT_DIR` | Storage path for the neohorizon data | `/var/lib/deeplake` |
+| `DEEPLAKE_CREDS` | Credentials for storage if (optional) </br>like s3 endpoint url or storage credentials | `N/A` |
 
 ## Configuration
 
