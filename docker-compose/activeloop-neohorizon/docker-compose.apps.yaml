@@ -15,12 +15,20 @@ x-environment: &environment
 
 x-shared-config: &shared-config
   restart: always
+  depends_on:
+    - change_vol_ownership
   networks:
     - al-neohorizon-apps-network
   volumes:
     - al_neohorizon_deeplake_data:/var/lib/deeplake
 
 services:
+  change_vol_ownership:
+    image: busybox
+    command: chown -R 10001:10001 /var/lib/deeplake
+    volumes:
+      - al_neohorizon_deeplake_data:/var/lib/deeplake
+    restart: "no"
   main-api:
     container_name: al-neohorizon-main-api
     image: quay.io/activeloopai/neohorizon-main:${AL_IMAGE_TAG:-latest}
