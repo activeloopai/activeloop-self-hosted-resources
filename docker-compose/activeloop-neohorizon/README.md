@@ -231,8 +231,8 @@ docker-compose up -d --scale file_processor_worker=3 --scale embedding_worker=2
 
 ```bash
 # Update to specific image tags
-export AL_IMAGE_TAG="v0.1.3"
-export AL_IMAGE_TAG_MODEL="v0.1.3"
+export AL_IMAGE_TAG="v0.1.5"
+export AL_IMAGE_TAG_MODEL="v0.1.5"
 docker-compose pull
 docker-compose up -d
 ```
