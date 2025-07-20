@@ -121,11 +121,6 @@ services:
   model:
     container_name: al-neohorizon-model
     image: quay.io/activeloopai/visual-model:${AL_IMAGE_TAG_MODEL:-latest}
-<<<<<<< HEAD
-=======
-    volumes:
-      - al_neohorizon_deeplake_data:/var/lib/deeplake
->>>>>>> main
     environment:
       <<: *environment
     <<: *shared-deps
