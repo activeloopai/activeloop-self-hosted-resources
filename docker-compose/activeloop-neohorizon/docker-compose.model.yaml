@@ -8,12 +8,8 @@ services:
       - "${LISTEN_HOST:-0.0.0.0}:8002:8002"
     shm_size: ${SHM_SIZE:-8g}
     runtime: nvidia
-    entrypoint:
-      - tritonserver
-      - --model-repository=/models
-      - --model-control-mode=explicit
-      - --rate-limit=execution_count
-      - --load-model=${AL_MODEL_NAME:-colnomic}
+    command:
+      - --load-model=${AL_MODEL_NAME:-?}
     restart: always
     networks:
       - al-neohorizon-model-network
