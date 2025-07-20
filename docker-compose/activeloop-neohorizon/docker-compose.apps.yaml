@@ -32,8 +32,6 @@ services:
     container_name: al-neohorizon-change-vol-ownership
     image: busybox
     command: chown -R 10001:10001 /var/lib/deeplake
-    volumes:
-      - al_neohorizon_deeplake_data:/var/lib/deeplake
     restart: "no"
   main-api:
     container_name: al-neohorizon-main-api
