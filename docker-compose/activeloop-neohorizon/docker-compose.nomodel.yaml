@@ -10,6 +10,8 @@ x-environment: &environment
   RABBITMQ_URL: "${RABBITMQ_URL:-amqp://neohorizon:neohorizon@al-neohorizon-rabbitmq:5672}"
   VISUAL_MODEL_URL: "${VISUAL_MODEL_URL:?}"
   EMBEDDING_MODEL_URL: "${EMBEDDING_MODEL_URL:?}"
+  INF_RETRIEVER_V1_DEPLOYMENT_INGESTION_URL: "${INF_RETRIEVER_V1_DEPLOYMENT_INGESTION_URL:?}"
+  INF_RETRIEVER_V1_DEPLOYMENT_QUERY_URL: "${INF_RETRIEVER_V1_DEPLOYMENT_QUERY_URL:?}"
   AL_API_TOKEN: "${AL_API_TOKEN:?}"
   GEMINI_API_KEY: "${GEMINI_API_KEY:?}"
   OPENAI_API_KEY: "${OPENAI_API_KEY:?}"
@@ -22,6 +24,8 @@ x-shared-apps: &shared-apps
     - change_vol_ownership
   networks:
     - al-neohorizon-network
+  volumes:
+    - al_neohorizon_deeplake_data:/var/lib/deeplake
 
 x-shared-deps: &shared-deps
   restart: always
@@ -33,14 +37,12 @@ services:
     container_name: al-neohorizon-change-vol-ownership
     image: busybox
     command: chown -R 10001:10001 /var/lib/deeplake
+    restart: "no"
     volumes:
       - al_neohorizon_deeplake_data:/var/lib/deeplake
-    restart: "no"
   main-api:
     container_name: al-neohorizon-main-api
     image: quay.io/activeloopai/neohorizon-main:${AL_IMAGE_TAG:-latest}
-    volumes:
-      - al_neohorizon_deeplake_data:/var/lib/deeplake
     entrypoint:
       - python3
       - lightweight_service.py
@@ -57,8 +59,6 @@ services:
   files-api:
     container_name: al-neohorizon-files-api
     image: quay.io/activeloopai/neohorizon-files:${AL_IMAGE_TAG:-latest}
-    volumes:
-      - al_neohorizon_deeplake_data:/var/lib/deeplake
     entrypoint:
       - python3
       - files_service.py
@@ -75,8 +75,6 @@ services:
   vector_search_worker:
     container_name: al-neohorizon-vector-search-worker
     image: quay.io/activeloopai/neohorizon-main:${AL_IMAGE_TAG:-latest}
-    volumes:
-      - al_neohorizon_deeplake_data:/var/lib/deeplake
     entrypoint:
       - python3
       - vector_search_worker.py
@@ -86,8 +84,6 @@ services:
   file_processor_worker:
     container_name: al-neohorizon-file-processor-worker
     image: quay.io/activeloopai/neohorizon-main:${AL_IMAGE_TAG:-latest}
-    volumes:
-      - al_neohorizon_deeplake_data:/var/lib/deeplake
     entrypoint:
       - python3
       - file_processor_worker.py
@@ -97,8 +93,6 @@ services:
   embedding_worker:
     container_name: al-neohorizon-embedding-worker
     image: quay.io/activeloopai/neohorizon-main:${AL_IMAGE_TAG:-latest}
-    volumes:
-      - al_neohorizon_deeplake_data:/var/lib/deeplake
     entrypoint:
       - python3
       - embedding_worker.py
@@ -108,8 +102,6 @@ services:
   summary_generation_worker:
     container_name: al-neohorizon-summary-generation-worker
     image: quay.io/activeloopai/neohorizon-main:${AL_IMAGE_TAG:-latest}
-    volumes:
-      - al_neohorizon_deeplake_data:/var/lib/deeplake
     entrypoint:
       - python3
       - summary_generation_worker.py

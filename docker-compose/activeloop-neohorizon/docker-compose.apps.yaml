@@ -10,6 +10,8 @@ x-environment: &environment
   RABBITMQ_URL: "${RABBITMQ_URL:?}"
   VISUAL_MODEL_URL: "${VISUAL_MODEL_URL:?}"
   EMBEDDING_MODEL_URL: "${EMBEDDING_MODEL_URL:?}"
+  INF_RETRIEVER_V1_DEPLOYMENT_INGESTION_URL: "${INF_RETRIEVER_V1_DEPLOYMENT_INGESTION_URL:?}"
+  INF_RETRIEVER_V1_DEPLOYMENT_QUERY_URL: "${INF_RETRIEVER_V1_DEPLOYMENT_QUERY_URL:?}"
   AL_API_TOKEN: "${AL_API_TOKEN:?}"
   GEMINI_API_KEY: "${GEMINI_API_KEY:?}"
   OPENAI_API_KEY: "${OPENAI_API_KEY:?}"
@@ -30,9 +32,9 @@ services:
     container_name: al-neohorizon-change-vol-ownership
     image: busybox
     command: chown -R 10001:10001 /var/lib/deeplake
+    restart: "no"
     volumes:
       - al_neohorizon_deeplake_data:/var/lib/deeplake
-    restart: "no"
   main-api:
     container_name: al-neohorizon-main-api
     image: quay.io/activeloopai/neohorizon-main:${AL_IMAGE_TAG:-latest}
