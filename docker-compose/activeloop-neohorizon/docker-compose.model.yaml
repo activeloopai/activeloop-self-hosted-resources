@@ -1,7 +1,7 @@
 services:
   model:
     container_name: al-neohorizon-model
-    image: quay.io/activeloopai/model-triton:${AL_IMAGE_TAG_MODEL:-latest}
+    image: quay.io/activeloopai/models-triton:${AL_IMAGE_TAG_MODEL:-latest}
     ports:
       - "${LISTEN_HOST:-0.0.0.0}:8000:8000"
       - "${LISTEN_HOST:-0.0.0.0}:8001:8001"
