@@ -110,7 +110,7 @@ services:
     <<: *shared-apps
   model:
     container_name: al-neohorizon-model
-    image: quay.io/activeloopai/visual-model:${AL_IMAGE_TAG_MODEL:-latest}
+    image: quay.io/activeloopai/model-triton:${AL_IMAGE_TAG_MODEL:-latest}
     environment:
       <<: *environment
     <<: *shared-deps
