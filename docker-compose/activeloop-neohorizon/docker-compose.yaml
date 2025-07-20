@@ -17,6 +17,8 @@ x-environment: &environment
   OPENAI_API_KEY: "${OPENAI_API_KEY:?}"
   DEEPLAKE_CREDS: "${DEEPLAKE_CREDS:-{}}"
   DEEPLAKE_ROOT_DIR: "${DEEPLAKE_ROOT_DIR:-/var/lib/deeplake}"
+  # Uncomment this if you want to use google application credentials
+  # GOOGLE_APPLICATION_CREDENTIALS: "/creds/google-application-credentials.json"
 
 x-shared-apps: &shared-apps
   restart: always
@@ -26,6 +28,10 @@ x-shared-apps: &shared-apps
     - al-neohorizon-network
   volumes:
     - al_neohorizon_deeplake_data:/var/lib/deeplake
+  # Uncomment this if you want to use google application credentials
+  # configs:
+  #   - source: google-application-credentials
+  #     target: /creds/google-application-credentials.json
 
 x-shared-deps: &shared-deps
   restart: always
@@ -186,6 +192,10 @@ volumes:
     driver: local
 
 configs:
+  # Uncomment this if you want to use google application credentials
+  # google-application-credentials:
+  #   content: |
+  #     JSON_CONTENT_HERE
   al-proxy-config:
     content: |
       server {
