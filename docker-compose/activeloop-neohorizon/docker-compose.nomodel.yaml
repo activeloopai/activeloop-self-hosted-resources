@@ -38,6 +38,8 @@ services:
     image: busybox
     command: chown -R 10001:10001 /var/lib/deeplake
     restart: "no"
+    volumes:
+      - al_neohorizon_deeplake_data:/var/lib/deeplake
   main-api:
     container_name: al-neohorizon-main-api
     image: quay.io/activeloopai/neohorizon-main:${AL_IMAGE_TAG:-latest}
