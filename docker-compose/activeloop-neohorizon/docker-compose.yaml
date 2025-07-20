@@ -111,8 +111,6 @@ services:
   model:
     container_name: al-neohorizon-model
     image: quay.io/activeloopai/models-triton:${AL_IMAGE_TAG_MODEL:-latest}
-    environment:
-      <<: *environment
     <<: *shared-deps
     runtime: nvidia
     shm_size: ${SHM_SIZE:-8g}
