@@ -46,26 +46,30 @@ helm upgrade -i -n activeloop neohorizon activeloop/activeloop-neohorizon
 | ------------------------- | -------------------------------------------------------- | ------------------------------ |
 | `global.image.registry`   | Global Docker image registry                             | `quay.io`                      |
 | `global.image.repository` | Global Docker image repository                           | `activeloopai/neohorizon-main` |
-| `global.image.tag`        | Global Docker image tag (immutable tags are recommended) | `v0.1.2`                       |
+| `global.image.tag`        | Global Docker image tag (immutable tags are recommended) | `v0.1.12`                      |
 | `global.nodeSelector`     | Global node selector for all pods                        | `{}`                           |
 | `global.tolerations`      | Global tolerations for all pods                          | `[]`                           |
 | `global.affinity`         | Global affinity for all pods                             | `{}`                           |
 
 ### Global configuration parameters
 
-| Name                                | Description                                                                              | Value |
-| ----------------------------------- | ---------------------------------------------------------------------------------------- | ----- |
-| `global.config.postgres_database`   | PostgreSQL database name (default: see `postgresql.auth.database`)                       | `""`  |
-| `global.config.postgres_host`       | PostgreSQL host address (default: see `postgresql.primary.persistence.host`)             | `""`  |
-| `global.config.postgres_password`   | PostgreSQL password (default: see `postgresql.auth.password`)                            | `""`  |
-| `global.config.postgres_port`       | PostgreSQL port (default: see `postgresql.primary.persistence.port`)                     | `""`  |
-| `global.config.postgres_user`       | PostgreSQL username (default: see `postgresql.auth.username`)                            | `""`  |
-| `global.config.rabbitmq_url`        | RabbitMQ connection URL, default is generated from rabbitmq.auth.url                     | `""`  |
-| `global.config.visual_model_url`    | Visual model service URL, default is generated from models.visual_model if enabled       | `""`  |
-| `global.config.embedding_model_url` | Embedding model service URL, default is generated from models.embedding_model if enabled | `""`  |
-| `global.config.api_key`             | API key for api authentication                                                           | `""`  |
-| `global.config.gemini_api_key`      | Gemini API key for gemini model                                                          | `""`  |
-| `global.config.openai_api_key`      | OpenAI API key for openai model                                                          | `""`  |
+| Name                                                            | Description                                                                  | Value |
+| --------------------------------------------------------------- | ---------------------------------------------------------------------------- | ----- |
+| `global.config.postgres_database`                               | PostgreSQL database name (default: see `postgresql.auth.database`)           | `""`  |
+| `global.config.postgres_host`                                   | PostgreSQL host address (default: see `postgresql.primary.persistence.host`) | `""`  |
+| `global.config.postgres_password`                               | PostgreSQL password (default: see `postgresql.auth.password`)                | `""`  |
+| `global.config.postgres_port`                                   | PostgreSQL port (default: see `postgresql.primary.persistence.port`)         | `""`  |
+| `global.config.postgres_user`                                   | PostgreSQL username (default: see `postgresql.auth.username`)                | `""`  |
+| `global.config.rabbitmq_url`                                    | RabbitMQ connection URL, default is generated from rabbitmq.auth.url         | `""`  |
+| `global.config.api_key`                                         | API key for api authentication                                               | `""`  |
+| `global.config.gemini_api_key`                                  | Gemini API key for gemini model                                              | `""`  |
+| `global.config.openai_api_key`                                  | OpenAI API key for openai model                                              | `""`  |
+| `global.config.text_image__matrix_of_embeddings__ingestion_url` | Text image matrix of embeddings ingestion modelURL                           | `""`  |
+| `global.config.text_image__matrix_of_embeddings__query_url`     | Text image matrix of embeddings query model URL                              | `""`  |
+| `global.config.text_image__embedding__ingestion_url`            | Text image embedding ingestion model URL                                     | `""`  |
+| `global.config.text_image__embedding__query_url`                | Text image embedding query model URL                                         | `""`  |
+| `global.config.text__embedding__ingestion_url`                  | Text embedding ingestion model URL                                           | `""`  |
+| `global.config.text__embedding__query_url`                      | Text embedding query model URL                                               | `""`  |
 
 ### Ingress parameters
 
@@ -190,54 +194,56 @@ helm upgrade -i -n activeloop neohorizon activeloop/activeloop-neohorizon
 
 ### Models parameters
 
-| Name                                                | Description                                             | Value                       |
-| --------------------------------------------------- | ------------------------------------------------------- | --------------------------- |
-| `models.visual_model.enabled`                       | Enable visual model deployment                          | `true`                      |
-| `models.visual_model.replicas`                      | Number of visual model replicas to deploy               | `1`                         |
-| `models.visual_model.port`                          | Port for the visual model service                       | `8000`                      |
-| `models.visual_model.strategy.type`                 | Deployment strategy type                                | `RollingUpdate`             |
-| `models.visual_model.scaling`                       | Horizontal Pod Autoscaler configuration                 | `{}`                        |
-| `models.visual_model.image.repository`              | Docker image repository for visual model                | `activeloopai/visual-model` |
-| `models.visual_model.service.type`                  | Kubernetes service type                                 | `ClusterIP`                 |
-| `models.visual_model.service.port`                  | Service port                                            | `80`                        |
-| `models.visual_model.ingress.enabled`               | Enable ingress record generation for visual model       | `false`                     |
-| `models.visual_model.ingress.className`             | IngressClass that will be used to implement the Ingress | `""`                        |
-| `models.visual_model.ingress.annotations`           | Additional custom annotations for the ingress record    | `{}`                        |
-| `models.visual_model.ingress.host`                  | Default host for the ingress record                     | `api.example.com`           |
-| `models.visual_model.ingress.tls`                   | Enable TLS configuration for the hostname               | `[]`                        |
-| `models.visual_model.env`                           | Environment variables for the visual model              | `{}`                        |
-| `models.visual_model.envFrom`                       | Environment variables from ConfigMap/Secret             | `[]`                        |
-| `models.visual_model.serviceAccount.create`         | Specifies whether a service account should be created   | `false`                     |
-| `models.visual_model.serviceAccount.name`           | The name of the service account to use                  | `""`                        |
-| `models.visual_model.serviceAccount.labels`         | Additional labels for the service account               | `{}`                        |
-| `models.visual_model.serviceAccount.annotations`    | Additional annotations for the service account          | `{}`                        |
-| `models.visual_model.enableHealthProbes`            | Enable health probes for the visual model               | `false`                     |
-| `models.visual_model.nodeSelector`                  | Node selector for visual model pods                     | `{}`                        |
-| `models.visual_model.tolerations`                   | Tolerations for visual model pods                       | `[]`                        |
-| `models.visual_model.affinity`                      | Affinity for visual model pods                          | `{}`                        |
-| `models.embedding_model.enabled`                    | Enable embedding model deployment                       | `true`                      |
-| `models.embedding_model.replicas`                   | Number of embedding model replicas to deploy            | `1`                         |
-| `models.embedding_model.port`                       | Port for the embedding model service                    | `8000`                      |
-| `models.embedding_model.strategy.type`              | Deployment strategy type                                | `RollingUpdate`             |
-| `models.embedding_model.scaling`                    | Horizontal Pod Autoscaler configuration                 | `{}`                        |
-| `models.embedding_model.image.repository`           | Docker image repository for embedding model             | `activeloopai/visual-model` |
-| `models.embedding_model.service.type`               | Kubernetes service type                                 | `ClusterIP`                 |
-| `models.embedding_model.service.port`               | Service port                                            | `80`                        |
-| `models.embedding_model.ingress.enabled`            | Enable ingress record generation for embedding model    | `false`                     |
-| `models.embedding_model.ingress.className`          | IngressClass that will be used to implement the Ingress | `""`                        |
-| `models.embedding_model.ingress.annotations`        | Additional custom annotations for the ingress record    | `{}`                        |
-| `models.embedding_model.ingress.host`               | Default host for the ingress record                     | `api.example.com`           |
-| `models.embedding_model.ingress.tls`                | Enable TLS configuration for the hostname               | `[]`                        |
-| `models.embedding_model.env`                        | Environment variables for the embedding model           | `{}`                        |
-| `models.embedding_model.envFrom`                    | Environment variables from ConfigMap/Secret             | `[]`                        |
-| `models.embedding_model.serviceAccount.create`      | Specifies whether a service account should be created   | `false`                     |
-| `models.embedding_model.serviceAccount.name`        | The name of the service account to use                  | `""`                        |
-| `models.embedding_model.serviceAccount.labels`      | Additional labels for the service account               | `{}`                        |
-| `models.embedding_model.serviceAccount.annotations` | Additional annotations for the service account          | `{}`                        |
-| `models.embedding_model.enableHealthProbes`         | Enable health probes for the embedding model            | `false`                     |
-| `models.embedding_model.nodeSelector`               | Node selector for embedding model pods                  | `{}`                        |
-| `models.embedding_model.tolerations`                | Tolerations for embedding model pods                    | `[]`                        |
-| `models.embedding_model.affinity`                   | Affinity for embedding model pods                       | `{}`                        |
+| Name                                             | Description                                             | Value                        |
+| ------------------------------------------------ | ------------------------------------------------------- | ---------------------------- |
+| `models.visual_model.enabled`                    | Enable visual model deployment                          | `true`                       |
+| `models.visual_model.model_name`                 | Model name for the visual model                         | `colnomic`                   |
+| `models.visual_model.replicas`                   | Number of visual model replicas to deploy               | `1`                          |
+| `models.visual_model.port`                       | Port for the visual model service                       | `8000`                       |
+| `models.visual_model.strategy.type`              | Deployment strategy type                                | `RollingUpdate`              |
+| `models.visual_model.scaling`                    | Horizontal Pod Autoscaler configuration                 | `{}`                         |
+| `models.visual_model.image.repository`           | Docker image repository for visual model                | `activeloopai/models-triton` |
+| `models.visual_model.service.type`               | Kubernetes service type                                 | `ClusterIP`                  |
+| `models.visual_model.service.port`               | Service port                                            | `80`                         |
+| `models.visual_model.ingress.enabled`            | Enable ingress record generation for visual model       | `false`                      |
+| `models.visual_model.ingress.className`          | IngressClass that will be used to implement the Ingress | `""`                         |
+| `models.visual_model.ingress.annotations`        | Additional custom annotations for the ingress record    | `{}`                         |
+| `models.visual_model.ingress.host`               | Default host for the ingress record                     | `api.example.com`            |
+| `models.visual_model.ingress.tls`                | Enable TLS configuration for the hostname               | `[]`                         |
+| `models.visual_model.env`                        | Environment variables for the visual model              | `{}`                         |
+| `models.visual_model.envFrom`                    | Environment variables from ConfigMap/Secret             | `[]`                         |
+| `models.visual_model.serviceAccount.create`      | Specifies whether a service account should be created   | `false`                      |
+| `models.visual_model.serviceAccount.name`        | The name of the service account to use                  | `""`                         |
+| `models.visual_model.serviceAccount.labels`      | Additional labels for the service account               | `{}`                         |
+| `models.visual_model.serviceAccount.annotations` | Additional annotations for the service account          | `{}`                         |
+| `models.visual_model.enableHealthProbes`         | Enable health probes for the visual model               | `false`                      |
+| `models.visual_model.nodeSelector`               | Node selector for visual model pods                     | `{}`                         |
+| `models.visual_model.tolerations`                | Tolerations for visual model pods                       | `[]`                         |
+| `models.visual_model.affinity`                   | Affinity for visual model pods                          | `{}`                         |
+| `models.text_model.enabled`                      | Enable embedding model deployment                       | `true`                       |
+| `models.text_model.model_name`                   | Model name for the embedding model                      | `qwen_06B`                   |
+| `models.text_model.replicas`                     | Number of embedding model replicas to deploy            | `1`                          |
+| `models.text_model.port`                         | Port for the embedding model service                    | `8000`                       |
+| `models.text_model.strategy.type`                | Deployment strategy type                                | `RollingUpdate`              |
+| `models.text_model.scaling`                      | Horizontal Pod Autoscaler configuration                 | `{}`                         |
+| `models.text_model.image.repository`             | Docker image repository for embedding model             | `activeloopai/models-triton` |
+| `models.text_model.service.type`                 | Kubernetes service type                                 | `ClusterIP`                  |
+| `models.text_model.service.port`                 | Service port                                            | `80`                         |
+| `models.text_model.ingress.enabled`              | Enable ingress record generation for embedding model    | `false`                      |
+| `models.text_model.ingress.className`            | IngressClass that will be used to implement the Ingress | `""`                         |
+| `models.text_model.ingress.annotations`          | Additional custom annotations for the ingress record    | `{}`                         |
+| `models.text_model.ingress.host`                 | Default host for the ingress record                     | `api.example.com`            |
+| `models.text_model.ingress.tls`                  | Enable TLS configuration for the hostname               | `[]`                         |
+| `models.text_model.env`                          | Environment variables for the embedding model           | `{}`                         |
+| `models.text_model.envFrom`                      | Environment variables from ConfigMap/Secret             | `[]`                         |
+| `models.text_model.serviceAccount.create`        | Specifies whether a service account should be created   | `false`                      |
+| `models.text_model.serviceAccount.name`          | The name of the service account to use                  | `""`                         |
+| `models.text_model.serviceAccount.labels`        | Additional labels for the service account               | `{}`                         |
+| `models.text_model.serviceAccount.annotations`   | Additional annotations for the service account          | `{}`                         |
+| `models.text_model.enableHealthProbes`           | Enable health probes for the embedding model            | `false`                      |
+| `models.text_model.nodeSelector`                 | Node selector for embedding model pods                  | `{}`                         |
+| `models.text_model.tolerations`                  | Tolerations for embedding model pods                    | `[]`                         |
+| `models.text_model.affinity`                     | Affinity for embedding model pods                       | `{}`                         |
 
 ### PostgreSQL parameters
 
