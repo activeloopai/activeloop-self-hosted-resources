@@ -9,7 +9,7 @@ services:
     shm_size: ${SHM_SIZE:-8g}
     runtime: nvidia
     command:
-      - --load-model=${AL_MODEL_NAME:-?}
+      - --load-model=${AL_MODEL_NAME:?}
     restart: always
     networks:
       - al-neohorizon-model-network
