@@ -4,7 +4,7 @@ This directory contains the Docker Compose configuration for deploying Activeloo
 
 ## Overview
 
-Activeloop NeoHorizon self-hosted docker-compose deployment:
+Activeloop NeoHorizon self-hosted docker-compose deployment with multiple configuration options for different deployment scenarios.
 
 ## Prerequisites
 
@@ -32,7 +32,7 @@ Activeloop NeoHorizon self-hosted docker-compose deployment:
    export OPENAI_API_KEY="your-openai-api-key-here"
    ```
 
-3. **Start the services:**
+3. **Choose your deployment scenario:**
 
    ```bash
    # Start all services (recommended for full deployment)
@@ -41,16 +41,17 @@ Activeloop NeoHorizon self-hosted docker-compose deployment:
 
    ```bash
    # Start only core services without model (for development/testing)
-   docker-compose up -d main-api files-api file_processor_worker embedding_worker vector_search_worker rabbitmq postgres proxy
+   docker-compose -f docker-compose.nomodel.yaml up -d
    ```
 
    ```bash
    # Start only the model service (for separate model deployment)
-   docker-compose up -d model
+   docker-compose -f docker-compose.model.yaml up -d
    ```
 
    ```bash
-    # Start only the application services (for production when Model, RMQ and Postgres are managed separately)
+   # Start only the application services (for production when Model, RMQ and Postgres are managed separately)
+   docker-compose -f docker-compose.apps.yaml up -d
    ```
 
 4. **Access the application:**
@@ -58,6 +59,37 @@ Activeloop NeoHorizon self-hosted docker-compose deployment:
    - Main API: `http://localhost`
    - RabbitMQ Management: `http://localhost:15672` (username: `neohorizon`, password: `neohorizon`)
    - PostgreSQL: localhost:5432 (username: `postgres`, password: `postgres`)
+
+## Docker Compose Files
+
+This directory contains multiple docker-compose files for different deployment scenarios:
+
+### `docker-compose.yaml` (Default)
+
+- **Purpose:** Complete deployment with all services including model
+- **Use case:** Full self-hosted deployment with local model inference
+- **Services:** All application services, workers, model, RabbitMQ, PostgreSQL, and proxy
+
+### `docker-compose.nomodel.yaml`
+
+- **Purpose:** Deployment without the model service
+- **Use case:** Development/testing or when using external model services
+- **Services:** All application services, workers, RabbitMQ, PostgreSQL, and proxy
+- **Note:** Requires external model service URLs to be configured
+
+### `docker-compose.model.yaml`
+
+- **Purpose:** Standalone model service deployment
+- **Use case:** Separate model deployment for scaling or resource isolation
+- **Services:** Only the model service with exposed ports
+- **Ports:** 8000 (HTTP), 8001 (gRPC), 8002 (metrics)
+
+### `docker-compose.apps.yaml`
+
+- **Purpose:** Application services only
+- **Use case:** Production deployment with external managed services
+- **Services:** All application services and workers, proxy
+- **Note:** Requires external PostgreSQL, RabbitMQ, and model service URLs
 
 ## Services
 
@@ -99,15 +131,21 @@ Activeloop NeoHorizon self-hosted docker-compose deployment:
 - **Purpose:** Handles vector search operations
 - **Scaling:** Can be scaled horizontally
 
+#### `summary_generation_worker`
+
+- **Image:** `quay.io/activeloopai/neohorizon-main:${AL_IMAGE_TAG:-latest}`
+- **Purpose:** Generates document summaries
+- **Scaling:** Can be scaled horizontally
+
 ### Model Services
 
 #### `model`
 
-- **Image:** `quay.io/activeloopai/visual-model:${AL_IMAGE_TAG_MODEL:-latest}`
+- **Image:** `quay.io/activeloopai/models-triton:${AL_IMAGE_TAG_MODEL:-latest}`
 - **Port:** 8000 (internal)
 - **Purpose:** Provides visual and embedding model inference
 - **GPU:** Requires NVIDIA GPU with CUDA support
-- **Access:** Internal service, not directly exposed. Only exposed in [docker-compose.model.yaml](./docker-compose.model.yaml) via `8000/HTTP`, `8001/GRPC` and `8002/http metrics` ports
+- **Access:** Internal service, not directly exposed in main compose. Only exposed in [docker-compose.model.yaml](./docker-compose.model.yaml) via `8000/HTTP`, `8001/GRPC` and `8002/http metrics` ports
 - **SHM_SIZE:** Configurable via `SHM_SIZE` environment variable, default is `8g`
 
 ### Dependency Services
@@ -116,8 +154,8 @@ Activeloop NeoHorizon self-hosted docker-compose deployment:
 
 - **Image:** `rabbitmq:3-management`
 - **Ports:**
-  - 5672 (AMQP)
-  - 15672 (Management UI)
+  - 5672 (AMQP) - bound to localhost only
+  - 15672 (Management UI) - bound to localhost only
 - **Purpose:** Message queue for asynchronous processing
 - **Credentials:** `neohorizon`/`neohorizon`
 - **Persistence:** Volume `al_neohorizon_rabbitmq_data`
@@ -126,7 +164,7 @@ Activeloop NeoHorizon self-hosted docker-compose deployment:
 #### `postgres`
 
 - **Image:** `postgres:17`
-- **Port:** 5432
+- **Port:** 5432 - bound to localhost only
 - **Purpose:** Primary database for application data
 - **Credentials:** `postgres`/`postgres`
 - **Database:** `neohorizon`
@@ -173,11 +211,24 @@ Activeloop NeoHorizon self-hosted docker-compose deployment:
 | `DEEPLAKE_ROOT_DIR` | Storage path for the NeoHorizon data | `/var/lib/deeplake` |
 | `DEEPLAKE_CREDS` | DeepLake storage credentials (optional, for cloud storage) | `N/A` |
 
+### Model Service URLs (Required for nomodel and apps deployments)
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `TEXT_IMAGE__MATRIX_OF_EMBEDDINGS__INGESTION_URL` | URL for text/image matrix embeddings ingestion | `http://model-service:8000/v2/models/colnomic/infer` |
+| `TEXT_IMAGE__MATRIX_OF_EMBEDDINGS__QUERY_URL` | URL for text/image matrix embeddings query | `http://model-service:8000/v2/models/colnomic/infer` |
+| `TEXT_IMAGE__EMBEDDING__INGESTION_URL` | URL for text/image embedding ingestion | `http://model-service:8000/v2/models/colnomic/infer` |
+| `TEXT_IMAGE__EMBEDDING__QUERY_URL` | URL for text/image embedding query | `http://model-service:8000/v2/models/colnomic/infer` |
+| `TEXT__EMBEDDING__INGESTION_URL` | URL for text embedding ingestion | `http://model-service:8000/v2/models/colnomic/infer` |
+| `TEXT__EMBEDDING__QUERY_URL` | URL for text embedding query | `http://model-service:8000/v2/models/colnomic/infer` |
+
 ## Configuration
 
 ### Network Configuration
 
-All services run on a custom bridge network `al-neohorizon-network` for secure inter-service communication.
+- **Main deployment:** All services run on a custom bridge network `al-neohorizon-network`
+- **Model-only deployment:** Uses `al-neohorizon-model-network`
+- **Apps-only deployment:** Uses `al-neohorizon-apps-network`
 
 ### Volume Persistence
 
@@ -247,6 +298,24 @@ docker-compose exec postgres pg_dump -U postgres neohorizon > backup.sql
 docker-compose exec -T postgres psql -U postgres neohorizon < backup.sql
 ```
 
+### Separate Model Deployment
+
+```bash
+# Deploy model on a separate machine
+export AL_MODEL_NAME="colnomic"
+export SHM_SIZE="16g"
+docker-compose -f docker-compose.model.yaml up -d
+
+# Deploy applications with external model
+export TEXT_IMAGE__MATRIX_OF_EMBEDDINGS__INGESTION_URL="http://model-host:8000/v2/models/colnomic/infer"
+export TEXT_IMAGE__MATRIX_OF_EMBEDDINGS__QUERY_URL="http://model-host:8000/v2/models/colnomic/infer"
+export TEXT_IMAGE__EMBEDDING__INGESTION_URL="http://model-host:8000/v2/models/colnomic/infer"
+export TEXT_IMAGE__EMBEDDING__QUERY_URL="http://model-host:8000/v2/models/colnomic/infer"
+export TEXT__EMBEDDING__INGESTION_URL="http://model-host:8000/v2/models/colnomic/infer"
+export TEXT__EMBEDDING__QUERY_URL="http://model-host:8000/v2/models/colnomic/infer"
+docker-compose -f docker-compose.nomodel.yaml up -d
+```
+
 ## Troubleshooting
 
 ### Common Issues
@@ -266,17 +335,29 @@ docker-compose exec -T postgres psql -U postgres neohorizon < backup.sql
 2. **Port conflicts:**
    - Ensure ports 80, 5432, 5672, and 15672 are available
    - Modify port mappings in docker-compose.yaml if needed
+   - Note: PostgreSQL and RabbitMQ are bound to localhost only for security
 
 3. **GPU issues:**
    - Ensure NVIDIA Docker runtime is installed
    - Check GPU availability: `nvidia-smi`
    - Verify CUDA compatibility
+   - Increase `SHM_SIZE` if model service fails to start
 
 4. **Memory issues:**
    - Increase Docker memory limit
    - Reduce worker replicas
    - Monitor resource usage: `docker stats`
    - Set higher `SHM_SIZE` and run docker compose restart if Model is on low memory
+
+5. **Model service connection issues:**
+   - Verify model service URLs are correct when using nomodel or apps deployments
+   - Check network connectivity between services
+   - Ensure model service is running and accessible
+
+6. **External service configuration:**
+   - When using apps.yaml, ensure all external service URLs are properly configured
+   - Verify PostgreSQL and RabbitMQ connection strings
+   - Check model service endpoints are accessible
 
 ### Logs and Debugging
 
@@ -295,6 +376,11 @@ docker-compose logs -f main-api
 docker-compose config
 ```
 
+```bash
+# Check specific compose file configuration
+docker-compose -f docker-compose.nomodel.yaml config
+```
+
 ## Security Considerations
 
 1. **API Keys:** Store sensitive API keys in environment variables or Docker secrets
@@ -302,6 +388,7 @@ docker-compose config
 3. **Database Security:** Change default PostgreSQL credentials in production
 4. **RabbitMQ Security:** Change default RabbitMQ credentials in production
 5. **File Uploads:** Configure appropriate file size limits and validation
+6. **Port Binding:** PostgreSQL and RabbitMQ are bound to localhost only for security
 
 ## Production Deployment
 
@@ -313,6 +400,8 @@ For production deployments, consider:
 4. **Backup Strategy:** Regular database and volume backups
 5. **SSL/TLS:** Configure HTTPS termination at the proxy level
 6. **Scaling:** Use Docker Swarm or Kubernetes for orchestration
+7. **Separate Services:** Consider using external managed PostgreSQL and RabbitMQ
+8. **Model Deployment:** Deploy model service on dedicated GPU machines
 
 ## Support
 
@@ -322,6 +411,7 @@ For issues and support:
 - Review service logs for error messages
 - Ensure all prerequisites are met
 - Verify environment variable configuration
+- Check network connectivity between services
 
 ## License
 

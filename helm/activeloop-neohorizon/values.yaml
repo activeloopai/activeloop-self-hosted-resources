@@ -7,7 +7,7 @@ global:
   image:
     registry: quay.io
     repository: activeloopai/neohorizon-main
-    tag: v0.1.2
+    tag: v0.1.12
 
   ## @param global.nodeSelector Global node selector for all pods
   nodeSelector: {}
@@ -23,11 +23,15 @@ global:
   ## @param global.config.postgres_port PostgreSQL port (default: see `postgresql.primary.persistence.port`)
   ## @param global.config.postgres_user PostgreSQL username (default: see `postgresql.auth.username`)
   ## @param global.config.rabbitmq_url RabbitMQ connection URL, default is generated from rabbitmq.auth.url
-  ## @param global.config.visual_model_url Visual model service URL, default is generated from models.visual_model if enabled
-  ## @param global.config.embedding_model_url Embedding model service URL, default is generated from models.embedding_model if enabled
   ## @param global.config.api_key API key for api authentication
   ## @param global.config.gemini_api_key Gemini API key for gemini model
   ## @param global.config.openai_api_key OpenAI API key for openai model
+  ## @param global.config.text_image__matrix_of_embeddings__ingestion_url Text image matrix of embeddings ingestion model URL
+  ## @param global.config.text_image__matrix_of_embeddings__query_url Text image matrix of embeddings query model URL
+  ## @param global.config.text_image__embedding__ingestion_url Text image embedding ingestion model URL
+  ## @param global.config.text_image__embedding__query_url Text image embedding query model URL
+  ## @param global.config.text__embedding__ingestion_url Text embedding ingestion model URL
+  ## @param global.config.text__embedding__query_url Text embedding query model URL
   config:
     postgres_database: ""
     postgres_host: ""
@@ -35,11 +39,15 @@ global:
     postgres_port: ""
     postgres_user: ""
     rabbitmq_url: ""
-    visual_model_url: ""
-    embedding_model_url: ""
     api_key: ""
     gemini_api_key: ""
     openai_api_key: ""
+    text_image__matrix_of_embeddings__ingestion_url: ""
+    text_image__matrix_of_embeddings__query_url: ""
+    text_image__embedding__ingestion_url: ""
+    text_image__embedding__query_url: ""
+    text__embedding__ingestion_url: ""
+    text__embedding__query_url: ""
 
 ## @section Ingress parameters
 ## @param ingress.enabled Enable ingress record generation for the application
@@ -390,6 +398,7 @@ workers:
 ## @section Models parameters
 models:
   ## @param models.visual_model.enabled Enable visual model deployment
+  ## @param models.visual_model.model_name Model name for the visual model
   ## @param models.visual_model.replicas Number of visual model replicas to deploy
   ## @param models.visual_model.port Port for the visual model service
   ## @param models.visual_model.strategy.type Deployment strategy type
@@ -421,6 +430,7 @@ models:
   ## @param models.visual_model.affinity Affinity for visual model pods
   visual_model:
     enabled: true
+    model_name: "colnomic"
     replicas: 1
     port: 8000
     strategy:
@@ -432,7 +442,7 @@ models:
       #   cpu: 70
       #   memory: 70
     image:
-      repository: activeloopai/visual-model
+      repository: activeloopai/models-triton
     service:
       type: ClusterIP
       port: 80
@@ -466,38 +476,40 @@ models:
     tolerations: []
     affinity: {}
 
-  ## @param models.embedding_model.enabled Enable embedding model deployment
-  ## @param models.embedding_model.replicas Number of embedding model replicas to deploy
-  ## @param models.embedding_model.port Port for the embedding model service
-  ## @param models.embedding_model.strategy.type Deployment strategy type
-  ## @param models.embedding_model.scaling Horizontal Pod Autoscaler configuration
-  ## @param models.embedding_model.image.repository Docker image repository for embedding model
-  ## @param models.embedding_model.service.type Kubernetes service type
-  ## @param models.embedding_model.service.port Service port
-  ## @param models.embedding_model.ingress.enabled Enable ingress record generation for embedding model
-  ## @param models.embedding_model.ingress.className IngressClass that will be used to implement the Ingress
-  ## @param models.embedding_model.ingress.annotations Additional custom annotations for the ingress record
-  ## @param models.embedding_model.ingress.host Default host for the ingress record
-  ## @skip models.embedding_model.ingress.paths
-  ## @param models.embedding_model.ingress.tls Enable TLS configuration for the hostname
-  ## @param models.embedding_model.env Environment variables for the embedding model
-  ## @param models.embedding_model.envFrom Environment variables from ConfigMap/Secret
-  ## @skip models.embedding_model.resources.requests.cpu
-  ## @skip models.embedding_model.resources.requests.memory
-  ## @skip models.embedding_model.resources.requests.nvidia.com/gpu
-  ## @skip models.embedding_model.resources.limits.cpu
-  ## @skip models.embedding_model.resources.limits.memory
-  ## @skip models.embedding_model.resources.limits.nvidia.com/gpu
-  ## @param models.embedding_model.serviceAccount.create Specifies whether a service account should be created
-  ## @param models.embedding_model.serviceAccount.name The name of the service account to use
-  ## @param models.embedding_model.serviceAccount.labels Additional labels for the service account
-  ## @param models.embedding_model.serviceAccount.annotations Additional annotations for the service account
-  ## @param models.embedding_model.enableHealthProbes Enable health probes for the embedding model
-  ## @param models.embedding_model.nodeSelector Node selector for embedding model pods
-  ## @param models.embedding_model.tolerations Tolerations for embedding model pods
-  ## @param models.embedding_model.affinity Affinity for embedding model pods
-  embedding_model:
+  ## @param models.text_model.enabled Enable embedding model deployment
+  ## @param models.text_model.model_name Model name for the embedding model
+  ## @param models.text_model.replicas Number of embedding model replicas to deploy
+  ## @param models.text_model.port Port for the embedding model service
+  ## @param models.text_model.strategy.type Deployment strategy type
+  ## @param models.text_model.scaling Horizontal Pod Autoscaler configuration
+  ## @param models.text_model.image.repository Docker image repository for embedding model
+  ## @param models.text_model.service.type Kubernetes service type
+  ## @param models.text_model.service.port Service port
+  ## @param models.text_model.ingress.enabled Enable ingress record generation for embedding model
+  ## @param models.text_model.ingress.className IngressClass that will be used to implement the Ingress
+  ## @param models.text_model.ingress.annotations Additional custom annotations for the ingress record
+  ## @param models.text_model.ingress.host Default host for the ingress record
+  ## @skip models.text_model.ingress.paths
+  ## @param models.text_model.ingress.tls Enable TLS configuration for the hostname
+  ## @param models.text_model.env Environment variables for the embedding model
+  ## @param models.text_model.envFrom Environment variables from ConfigMap/Secret
+  ## @skip models.text_model.resources.requests.cpu
+  ## @skip models.text_model.resources.requests.memory
+  ## @skip models.text_model.resources.requests.nvidia.com/gpu
+  ## @skip models.text_model.resources.limits.cpu
+  ## @skip models.text_model.resources.limits.memory
+  ## @skip models.text_model.resources.limits.nvidia.com/gpu
+  ## @param models.text_model.serviceAccount.create Specifies whether a service account should be created
+  ## @param models.text_model.serviceAccount.name The name of the service account to use
+  ## @param models.text_model.serviceAccount.labels Additional labels for the service account
+  ## @param models.text_model.serviceAccount.annotations Additional annotations for the service account
+  ## @param models.text_model.enableHealthProbes Enable health probes for the embedding model
+  ## @param models.text_model.nodeSelector Node selector for embedding model pods
+  ## @param models.text_model.tolerations Tolerations for embedding model pods
+  ## @param models.text_model.affinity Affinity for embedding model pods
+  text_model:
     enabled: true
+    model_name: "qwen_06B"
     replicas: 1
     port: 8000
     strategy:
@@ -509,7 +521,7 @@ models:
       #   cpu: 70
       #   memory: 70
     image:
-      repository: activeloopai/visual-model
+      repository: activeloopai/models-triton
     service:
       type: ClusterIP
       port: 80

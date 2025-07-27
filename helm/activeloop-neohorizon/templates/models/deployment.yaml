@@ -63,10 +63,8 @@ spec:
             {{- toYaml . | nindent 12 }}
           {{- end }}
 
-          {{- with $val.args }}
           args:
-            {{- toYaml . | nindent 12 }}
-          {{- end }}
+            - --load-model={{ $val.model_name }}
 
           {{- with $val.env }}
           env:
