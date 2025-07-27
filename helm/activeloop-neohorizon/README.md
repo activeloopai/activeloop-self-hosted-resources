@@ -64,7 +64,7 @@ helm upgrade -i -n activeloop neohorizon activeloop/activeloop-neohorizon
 | `global.config.api_key`                                         | API key for api authentication                                               | `""`  |
 | `global.config.gemini_api_key`                                  | Gemini API key for gemini model                                              | `""`  |
 | `global.config.openai_api_key`                                  | OpenAI API key for openai model                                              | `""`  |
-| `global.config.text_image__matrix_of_embeddings__ingestion_url` | Text image matrix of embeddings ingestion modelURL                           | `""`  |
+| `global.config.text_image__matrix_of_embeddings__ingestion_url` | Text image matrix of embeddings ingestion model URL                          | `""`  |
 | `global.config.text_image__matrix_of_embeddings__query_url`     | Text image matrix of embeddings query model URL                              | `""`  |
 | `global.config.text_image__embedding__ingestion_url`            | Text image embedding ingestion model URL                                     | `""`  |
 | `global.config.text_image__embedding__query_url`                | Text image embedding query model URL                                         | `""`  |
