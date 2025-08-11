@@ -81,8 +81,13 @@ spec:
           {{- end }}
 
           envFrom:
+            {{- if $.Values.global.useExistingSecret }}
+            - secretRef:
+                name: {{ $.Values.global.useExistingSecret }}
+            {{- else }}
             - secretRef:
                 name: {{ include "activeloop-neohorizon.fullname" $ }}
+            {{- end }}
           {{- if $val.envFrom }}
             {{- with $val.envFrom }}
             {{- toYaml . | nindent 12 }}

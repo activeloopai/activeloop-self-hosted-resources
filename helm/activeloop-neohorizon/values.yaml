@@ -49,6 +49,10 @@ global:
     text__embedding__ingestion_url: ""
     text__embedding__query_url: ""
 
+  ## @param global.useExistingSecret Use existing secret for the config, if set config will be ignored
+  # -- secret will be referenced as envFrom, make sure keys are uppercase like POSTGRES_PASSWORD, etc.
+  useExistingSecret: ""
+
 ## @section Ingress parameters
 ## @param ingress.enabled Enable ingress record generation for the application
 ## @param ingress.className IngressClass that will be used to implement the Ingress

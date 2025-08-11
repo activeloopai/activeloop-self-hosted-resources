@@ -70,6 +70,7 @@ helm upgrade -i -n activeloop neohorizon activeloop/activeloop-neohorizon
 | `global.config.text_image__embedding__query_url`                | Text image embedding query model URL                                         | `""`  |
 | `global.config.text__embedding__ingestion_url`                  | Text embedding ingestion model URL                                           | `""`  |
 | `global.config.text__embedding__query_url`                      | Text embedding query model URL                                               | `""`  |
+| `global.useExistingSecret`                                      | Use existing secret for the config, if set config will be ignored            | `""`  |
 
 ### Ingress parameters
 

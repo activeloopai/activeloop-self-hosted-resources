@@ -74,10 +74,15 @@ spec:
             {{- end }}
           {{- end }}
 
+          {{- if $.Values.global.useExistingSecret }}
+          envFrom:
+            - secretRef:
+                name: {{ $.Values.global.useExistingSecret }}
+          {{- else }}
           {{- if $val.envFrom }}
-            {{- with $val.envFrom }}
-            {{- toYaml . | nindent 12 }}
-            {{- end }}
+          envFrom:
+            {{- toYaml $val.envFrom | nindent 12 }}
+          {{- end }}
           {{- end }}
           {{- if $val.enableHealthProbes }}
           livenessProbe:
