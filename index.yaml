@@ -3,7 +3,38 @@ entries:
   activeloop-neohorizon:
   - apiVersion: v2
     appVersion: v0.1.12
-    created: "2025-07-28T00:37:51.451303717+04:00"
+    created: "2025-08-11T09:33:04.403389202+04:00"
+    dependencies:
+    - condition: postgresql.create
+      name: postgresql
+      repository: oci://registry-1.docker.io/bitnamicharts
+      version: 16.7.16
+    - condition: rabbitmq.create
+      name: rabbitmq
+      repository: oci://registry-1.docker.io/bitnamicharts
+      version: 16.0.10
+    description: Activeloop NeoHorizon Deployment Chart
+    digest: 53c416b9a945ad6d21eba43f943feaf919e950ccc068633c279c0d84d80b95e7
+    home: https://activeloop.ai
+    icon: https://static.activeloop.io/logos/SVG/activeloop-logo-256x256.svg
+    keywords:
+    - activeloop
+    - neohorizon
+    - deeplake
+    kubeVersion: '>= 1.24.0-0'
+    maintainers:
+    - email: sre@activeloop.dev
+      name: Activeloop SRE
+    name: activeloop-neohorizon
+    sources:
+    - https://github.com/activeloopai/activeloop-helm-charts
+    type: application
+    urls:
+    - activeloop-neohorizon-0.1.13.tgz
+    version: 0.1.13
+  - apiVersion: v2
+    appVersion: v0.1.12
+    created: "2025-08-11T09:33:04.389063722+04:00"
     dependencies:
     - condition: postgresql.create
       name: postgresql
@@ -34,7 +65,7 @@ entries:
     version: 0.1.12
   - apiVersion: v2
     appVersion: v0.0.4
-    created: "2025-07-28T00:37:51.464618724+04:00"
+    created: "2025-08-11T09:33:04.418988199+04:00"
     dependencies:
     - condition: postgresql.create
       name: postgresql
@@ -65,7 +96,7 @@ entries:
     version: 0.1.2
   - apiVersion: v2
     appVersion: v0.0.4
-    created: "2025-07-28T00:37:51.435960844+04:00"
+    created: "2025-08-11T09:33:04.378059253+04:00"
     dependencies:
     - condition: postgresql.create
       name: postgresql
@@ -94,4 +125,4 @@ entries:
     urls:
     - activeloop-neohorizon-0.1.1.tgz
     version: 0.1.1
-generated: "2025-07-28T00:37:51.418871218+04:00"
+generated: "2025-08-11T09:33:04.370374823+04:00"
