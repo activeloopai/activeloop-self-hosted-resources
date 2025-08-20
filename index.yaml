@@ -3,7 +3,7 @@ entries:
   activeloop-neohorizon:
   - apiVersion: v2
     appVersion: v0.1.12
-    created: "2025-08-11T09:33:04.403389202+04:00"
+    created: "2025-08-20T23:23:38.930822566+04:00"
     dependencies:
     - condition: postgresql.create
       name: postgresql
@@ -14,7 +14,7 @@ entries:
       repository: oci://registry-1.docker.io/bitnamicharts
       version: 16.0.10
     description: Activeloop NeoHorizon Deployment Chart
-    digest: 53c416b9a945ad6d21eba43f943feaf919e950ccc068633c279c0d84d80b95e7
+    digest: 8c0f119f835d072c8eba6e56c6f237db71022d6f6501cee823fc15197c7d9d36
     home: https://activeloop.ai
     icon: https://static.activeloop.io/logos/SVG/activeloop-logo-256x256.svg
     keywords:
@@ -34,7 +34,7 @@ entries:
     version: 0.1.13
   - apiVersion: v2
     appVersion: v0.1.12
-    created: "2025-08-11T09:33:04.389063722+04:00"
+    created: "2025-08-20T23:23:38.919544562+04:00"
     dependencies:
     - condition: postgresql.create
       name: postgresql
@@ -45,7 +45,7 @@ entries:
       repository: oci://registry-1.docker.io/bitnamicharts
       version: 16.0.10
     description: Activeloop NeoHorizon Deployment Chart
-    digest: 090e64ddf31b066ccd332ad9c2115666eaac5d7f67c91b784cb9a662703b3a72
+    digest: b34b26cc4cc0cb40c3bacb046de0ac14139c56f1e3f3d6eac7be7643704612a8
     home: https://activeloop.ai
     icon: https://static.activeloop.io/logos/SVG/activeloop-logo-256x256.svg
     keywords:
@@ -65,7 +65,7 @@ entries:
     version: 0.1.12
   - apiVersion: v2
     appVersion: v0.0.4
-    created: "2025-08-11T09:33:04.418988199+04:00"
+    created: "2025-08-20T23:23:38.941781705+04:00"
     dependencies:
     - condition: postgresql.create
       name: postgresql
@@ -96,7 +96,7 @@ entries:
     version: 0.1.2
   - apiVersion: v2
     appVersion: v0.0.4
-    created: "2025-08-11T09:33:04.378059253+04:00"
+    created: "2025-08-20T23:23:38.905781976+04:00"
     dependencies:
     - condition: postgresql.create
       name: postgresql
@@ -125,4 +125,4 @@ entries:
     urls:
     - activeloop-neohorizon-0.1.1.tgz
     version: 0.1.1
-generated: "2025-08-11T09:33:04.370374823+04:00"
+generated: "2025-08-20T23:23:38.89153204+04:00"
