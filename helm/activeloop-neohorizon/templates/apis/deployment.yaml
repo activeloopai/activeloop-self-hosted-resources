@@ -76,9 +76,9 @@ spec:
             - name:  PORT
               value: "8000"
           {{- with $val.env }}
-            {{- range . }}
-            - name:  {{ .name }}
-              value: {{ .value | quote }}
+            {{- range $key, $value := . }}
+            - name:  {{ $key | quote }}
+              value: {{ $value | quote }}
             {{- end }}
           {{- end }}
 
