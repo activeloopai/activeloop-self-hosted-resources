@@ -1,21 +1,22 @@
-{{- range $key, $val := .Values.models }}
-{{- if and $val.enabled $val.scaling }}
+{{- with .Values.models }}
+{{- range . }}
+{{- if and (not (empty .load_models)) .scaling }}
 ---
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
-  name: {{ printf "%s-%s-hpa" (include "chart.name" $) $key | kebabcase }}
+  name: {{ printf "%s-%s-hpa" (include "chart.name" $) .name | kebabcase }}
   labels:
-    app.kubernetes.io/name: {{ $key | kebabcase }}
+    app.kubernetes.io/name: {{ .name | kebabcase }}
     app.kubernetes.io/component: models
     app.kubernetes.io/instance: {{ $.Release.Name }}
     app.kubernetes.io/managed-by: {{ $.Release.Service }}
     app.kubernetes.io/part-of: {{ include "chart.name" $ }}
     helm.sh/chart: {{ $.Chart.Name }}
-    {{- with $val.scaling.labels }}
+    {{- with .scaling.labels }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
-  {{- with $val.scaling.annotations }}
+  {{- with .scaling.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
   {{- end }}
@@ -24,21 +25,24 @@ spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: {{ printf "%s-%s" (include "chart.name" $) $key | kebabcase }}
-  minReplicas: {{ default 1 $val.scaling.minReplicas }}
-  maxReplicas: {{ default 10 $val.scaling.maxReplicas }}
+    name: {{ printf "%s-%s" (include "chart.name" $) .name | kebabcase }}
+  minReplicas: {{ default 1 .scaling.minReplicas }}
+  maxReplicas: {{ default 10 .scaling.maxReplicas }}
   metrics:
     - type: Resource
       resource:
         name: memory
         target:
           type: Utilization
-          averageUtilization: {{ default 70 $val.scaling.metrics.memory }}
+          averageUtilization: {{ default 70 .scaling.metrics.memory }}
     - type: Resource
       resource:
         name: cpu
         target:
           type: Utilization
-          averageUtilization: {{ default 70 $val.scaling.metrics.cpu }}
+          averageUtilization: {{ default 70 .scaling.metrics.cpu }}
   {{- end }}
 {{- end }}
+{{- end }}
+{{/*
+*/}}

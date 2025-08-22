@@ -1,72 +1,85 @@
-{{- range $key, $val := .Values.models }}
-{{- if $val.enabled }}
+{{- with .Values.models }}
+{{- range . }}
+{{- if not (empty .load_models) }}
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ printf "%s-%s" (include "chart.name" $) $key | kebabcase }}
+  name: {{ printf "%s-%s" (include "chart.name" $) .name | kebabcase }}
   labels:
-    app.kubernetes.io/name: {{ $key | kebabcase }}
+    app.kubernetes.io/name: {{ .name | kebabcase }}
     app.kubernetes.io/component: models
     app.kubernetes.io/instance: {{ $.Release.Name }}
     app.kubernetes.io/managed-by: {{ $.Release.Service }}
     app.kubernetes.io/part-of: {{ include "chart.name" $ }}
     helm.sh/chart: {{ $.Chart.Name }}
-    {{- with $val.labels }}
+    {{- with .labels }}
     {{- toYaml . | nindent 8 }}
     {{- end }}
-  {{- with $val.annotations }}
+  {{- with .annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
   {{- end }}
 spec:
-  replicas: {{ $val.replicas | default 1 }}
-  {{- with $val.strategy }}
+  replicas: {{ .replicas | default 1 }}
+  {{- with .strategy }}
   strategy:
     {{- toYaml . | nindent 4 }}
   {{- end }}
   selector:
     matchLabels:
-      app.kubernetes.io/name:      {{ $key | kebabcase }}
+      app.kubernetes.io/name:      {{ .name | kebabcase }}
       app.kubernetes.io/component: models
       app.kubernetes.io/instance:  {{ $.Release.Name }}
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: {{ $key | kebabcase }}
+        app.kubernetes.io/name: {{ .name | kebabcase }}
         app.kubernetes.io/component: models
         app.kubernetes.io/instance: {{ $.Release.Name }}
         app.kubernetes.io/managed-by: {{ $.Release.Service }}
         app.kubernetes.io/part-of: {{ include "chart.name" $ }}
         helm.sh/chart: {{ $.Chart.Name }}
-        {{- with $val.labels }}
+        {{- with .labels }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
-      {{- with $val.podAnnotations }}
+      {{- with .podAnnotations }}
       annotations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
     spec:
-      serviceAccountName: {{ $val.serviceAccount.name | default "default" }}
-      {{- with $val.imagePullSecrets }}
+      {{- if .serviceAccount.create }}
+      {{- if .serviceAccount.name }}
+      serviceAccountName: {{ .serviceAccount.name }}
+      {{- else }}
+      serviceAccountName: {{ .name }}
+      {{- end }}
+      {{- end }}
+      {{- with .imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       containers:
-        - name: {{ $key | kebabcase }}
-          {{- $image := get $val "image" | default dict }}
+        - name: {{ .name | kebabcase }}
+          {{- $image := get . "image" | default dict }}
           image: "{{ get $image "registry" | default $.Values.global.image.registry }}/{{ get $image "repository" | default $.Values.global.image.repository }}:{{ get $image "tag" | default $.Values.global.image.tag | default $.Chart.AppVersion }}"
-          imagePullPolicy: {{ $val.imagePullPolicy | default "IfNotPresent" }}
-
-          {{- with $val.command }}
+          imagePullPolicy: {{ .imagePullPolicy | default "IfNotPresent" }}
+          ports:
+            - containerPort: 8000
+              protocol: TCP
+          {{- with .command }}
           command:
             {{- toYaml . | nindent 12 }}
           {{- end }}
 
+          {{- with .load_models }}
           args:
-            - --load-model={{ $val.model_name }}
+            {{- range . }}
+            - --load-model={{ . }}
+            {{- end }}
+          {{- end }}
 
-          {{- with $val.env }}
+          {{- with .env }}
           env:
             {{- range $key, $value := . }}
             - name:  {{ $key | quote }}
@@ -79,12 +92,12 @@ spec:
             - secretRef:
                 name: {{ $.Values.global.useExistingSecret }}
           {{- else }}
-          {{- if $val.envFrom }}
+          {{- if .envFrom }}
           envFrom:
-            {{- toYaml $val.envFrom | nindent 12 }}
+            {{- toYaml .envFrom | nindent 12 }}
           {{- end }}
           {{- end }}
-          {{- if $val.enableHealthProbes }}
+          {{- if .enableHealthProbes }}
           livenessProbe:
             httpGet:
               path: /v2/health/live
@@ -104,34 +117,35 @@ spec:
             successThreshold: 1
           {{- end }}
 
-          {{- with $val.resources }}
+          {{- with .resources }}
           resources:
             {{- toYaml . | nindent 12 }}
           {{- end }}
 
-          {{- with $val.securityContext | default $.Values.global.securityContext }}
+          {{- with .securityContext | default $.Values.global.securityContext }}
           securityContext:
             {{- toYaml . | nindent 12 }}
           {{- end }}
 
-      {{- with $val.nodeSelector | default $.Values.global.nodeSelector }}
+      {{- with .nodeSelector | default $.Values.global.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
       {{- end }}
 
-      {{- with $val.affinity | default $.Values.global.affinity }}
+      {{- with .affinity | default $.Values.global.affinity }}
       affinity:
         {{- toYaml . | nindent 8 }}
       {{- end }}
 
-      {{- with $val.tolerations | default $.Values.global.tolerations }}
+      {{- with .tolerations | default $.Values.global.tolerations }}
       tolerations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
 
-      {{- with $val.podSecurityContext | default $.Values.global.podSecurityContext }}
+      {{- with .podSecurityContext | default $.Values.global.podSecurityContext }}
       securityContext:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+{{- end }}
 {{- end }}
 {{- end }}

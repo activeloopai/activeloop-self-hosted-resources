@@ -16,7 +16,7 @@ global:
   ## @param global.affinity Global affinity for all pods
   affinity: {}
 
-  ## @section Global configuration parameters
+  ## @section Global configuration parameters [Description of the parameters](https://github.com/activeloopai/activeloop-self-hosted-resources/blob/main/README.md#Parameters)
   ## @param global.config.postgres_database PostgreSQL database name (default: see `postgresql.auth.database`)
   ## @param global.config.postgres_host PostgreSQL host address (default: see `postgresql.primary.persistence.host`)
   ## @param global.config.postgres_password PostgreSQL password (default: see `postgresql.auth.password`)
@@ -33,11 +33,11 @@ global:
   ## @param global.config.text__embedding__ingestion_url Text embedding ingestion model URL
   ## @param global.config.text__embedding__query_url Text embedding query model URL
   config:
-    postgres_database: ""
+    postgres_database: "neohorizon"
+    postgres_password: "postgres"
+    postgres_port: "5432"
+    postgres_user: "postgres"
     postgres_host: ""
-    postgres_password: ""
-    postgres_port: ""
-    postgres_user: ""
     rabbitmq_url: ""
     al_api_token: ""
     gemini_api_key: ""
@@ -388,115 +388,42 @@ workers:
     affinity: {}
 
 ## @section Models parameters
-models:
-  ## @param models.visual_model.enabled Enable visual model deployment
-  ## @param models.visual_model.model_name Model name for the visual model
-  ## @param models.visual_model.replicas Number of visual model replicas to deploy
-  ## @param models.visual_model.port Port for the visual model service
-  ## @param models.visual_model.strategy.type Deployment strategy type
-  ## @param models.visual_model.scaling Horizontal Pod Autoscaler configuration
-  ## @param models.visual_model.image.repository Docker image repository for visual model
-  ## @param models.visual_model.service.type Kubernetes service type
-  ## @param models.visual_model.service.port Service port
-  ## @param models.visual_model.ingress.enabled Enable ingress record generation for visual model
-  ## @param models.visual_model.ingress.className IngressClass that will be used to implement the Ingress
-  ## @param models.visual_model.ingress.annotations Additional custom annotations for the ingress record
-  ## @param models.visual_model.ingress.host Default host for the ingress record
-  ## @skip models.visual_model.ingress.paths
-  ## @param models.visual_model.ingress.tls Enable TLS configuration for the hostname
-  ## @param models.visual_model.env Environment variables for the visual model
-  ## @param models.visual_model.envFrom Environment variables from ConfigMap/Secret
-  ## @skip models.visual_model.resources.requests.cpu
-  ## @skip models.visual_model.resources.requests.memory
-  ## @skip models.visual_model.resources.requests.nvidia.com/gpu
-  ## @param models.visual_model.serviceAccount.create Specifies whether a service account should be created
-  ## @param models.visual_model.serviceAccount.name The name of the service account to use
-  ## @param models.visual_model.serviceAccount.labels Additional labels for the service account
-  ## @param models.visual_model.serviceAccount.annotations Additional annotations for the service account
-  ## @param models.visual_model.enableHealthProbes Enable health probes for the visual model
-  ## @param models.visual_model.nodeSelector Node selector for visual model pods
-  ## @param models.visual_model.tolerations Tolerations for visual model pods
-  ## @param models.visual_model.affinity Affinity for visual model pods
-  visual_model:
-    enabled: true
-    model_name: "colnomic"
-    replicas: 1
-    port: 8000
-    strategy:
-      type: RollingUpdate
-    scaling: {}
-      # minReplicas: 1
-      # maxReplicas: 5
-      # metrics:
-      #   cpu: 70
-      #   memory: 70
-    image:
-      repository: activeloopai/models-triton
-    service:
-      type: ClusterIP
-      port: 80
-    ingress:
-      enabled: false
-      className: ""
-      annotations: {}
-      host: "api.example.com"
-      paths:
-        - path: /
-          pathType: Prefix
-      tls: []
-    env: {}
-    envFrom: []
-    resources:
-      requests:
-        cpu: "1"
-        memory: 8Gi
-        nvidia.com/gpu: "1"
-      #limits:
-      #  cpu: "2"
-      #  memory: 16Gi
-      #  nvidia.com/gpu: "1"
-    serviceAccount:
-      create: false
-      name: ""
-      labels: {}
-      annotations: {}
-    enableHealthProbes: false
-    nodeSelector: {}
-    tolerations: []
-    affinity: {}
 
-  ## @param models.text_model.enabled Enable embedding model deployment
-  ## @param models.text_model.model_name Model name for the embedding model
-  ## @param models.text_model.replicas Number of embedding model replicas to deploy
-  ## @param models.text_model.port Port for the embedding model service
-  ## @param models.text_model.strategy.type Deployment strategy type
-  ## @param models.text_model.scaling Horizontal Pod Autoscaler configuration
-  ## @param models.text_model.image.repository Docker image repository for embedding model
-  ## @param models.text_model.service.type Kubernetes service type
-  ## @param models.text_model.service.port Service port
-  ## @param models.text_model.ingress.enabled Enable ingress record generation for embedding model
-  ## @param models.text_model.ingress.className IngressClass that will be used to implement the Ingress
-  ## @param models.text_model.ingress.annotations Additional custom annotations for the ingress record
-  ## @param models.text_model.ingress.host Default host for the ingress record
-  ## @skip models.text_model.ingress.paths
-  ## @param models.text_model.ingress.tls Enable TLS configuration for the hostname
-  ## @param models.text_model.env Environment variables for the embedding model
-  ## @param models.text_model.envFrom Environment variables from ConfigMap/Secret
-  ## @skip models.text_model.resources.requests.cpu
-  ## @skip models.text_model.resources.requests.memory
-  ## @skip models.text_model.resources.requests.nvidia.com/gpu
-  ## @param models.text_model.serviceAccount.create Specifies whether a service account should be created
-  ## @param models.text_model.serviceAccount.name The name of the service account to use
-  ## @param models.text_model.serviceAccount.labels Additional labels for the service account
-  ## @param models.text_model.serviceAccount.annotations Additional annotations for the service account
-  ## @param models.text_model.enableHealthProbes Enable health probes for the embedding model
-  ## @param models.text_model.nodeSelector Node selector for embedding model pods
-  ## @param models.text_model.tolerations Tolerations for embedding model pods
-  ## @param models.text_model.affinity Affinity for embedding model pods
-  text_model:
-    enabled: true
-    model_name: "qwen_06B"
+models:
+  ## @param models[0].name Model name for the visual model
+  ## @param models[0].load_models List of models to load
+  ## @param models[0].replicas Number of visual model replicas to deploy
+  ## @param models[0].port Port for the visual model service
+  ## @param models[0].strategy.type Deployment strategy type
+  ## @param models[0].scaling Horizontal Pod Autoscaler configuration
+  ## @param models[0].image.repository Docker image repository for visual model
+  ## @param models[0].service.type Kubernetes service type
+  ## @param models[0].service.port Service port
+  ## @param models[0].ingress.enabled Enable ingress record generation for visual model
+  ## @param models[0].ingress.className IngressClass that will be used to implement the Ingress
+  ## @param models[0].ingress.annotations Additional custom annotations for the ingress record
+  ## @param models[0].ingress.host Default host for the ingress record
+  ## @skip models[0].ingress.paths
+  ## @param models[0].ingress.tls Enable TLS configuration for the hostname
+  ## @param models[0].env Environment variables for the visual model
+  ## @param models[0].envFrom Environment variables from ConfigMap/Secret
+  ## @skip models[0].resources.requests.cpu
+  ## @skip models[0].resources.requests.memory
+  ## @skip models[0].resources.requests.nvidia.com/gpu
+  ## @param models[0].serviceAccount.create Specifies whether a service account should be created
+  ## @param models[0].serviceAccount.name The name of the service account to use
+  ## @param models[0].serviceAccount.labels Additional labels for the service account
+  ## @param models[0].serviceAccount.annotations Additional annotations for the service account
+  ## @param models[0].enableHealthProbes Enable health probes for the visual model
+  ## @param models[0].nodeSelector Node selector for visual model pods
+  ## @param models[0].tolerations Tolerations for visual model pods
+  ## @param models[0].affinity Affinity for visual model pods
+  - name: models
     replicas: 1
+    load_models:
+      - colnomic          # can be used for ingest/retrieval of images,  suggested to provide at least 16GiB RAM and A100 GPU
+      # - inf-retriever-v1  # can be used for ingest/retrieval of texts,   suggested to provide at least 4GiB  RAM and A10/L4 GPU
+      # - doclayout_parser  # can be used to generate images for answers,  suggested to provide at least 4GiB  RAM and A10/L4 GPU
     port: 8000
     strategy:
       type: RollingUpdate
@@ -512,7 +439,7 @@ models:
       type: ClusterIP
       port: 80
     ingress:
-      enabled: false
+      enabled: true
       className: ""
       annotations: {}
       host: "api.example.com"
@@ -525,7 +452,7 @@ models:
     resources:
       requests:
         cpu: "1"
-        memory: 8Gi
+        memory: 4Gi
         nvidia.com/gpu: "1"
       #limits:
       #  cpu: "2"

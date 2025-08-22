@@ -1,10 +1,13 @@
-{{- range $key, $val := .Values.models }}
-{{- if and $val.enabled $val.ingress.enabled }}
+{{- with .Values.models }}
+{{- range . }}
+{{- if and (not (empty .load_models)) .ingress.enabled }}
+{{ $sp := default 80 .service.port }}
+{{ $name := printf "%s-%s" (include "chart.name" $) .name | kebabcase }}
 ---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: {{ printf "%s-%s" (include "chart.name" $) $key | kebabcase }}
+  name: {{ $name }}
   labels:
     app.kubernetes.io/name: {{ $.Release.Name }}
     app.kubernetes.io/component: models
@@ -12,35 +15,37 @@ metadata:
     app.kubernetes.io/managed-by: {{ $.Release.Service }}
     app.kubernetes.io/part-of: {{ include "chart.name" $ }}
     helm.sh/chart: {{ $.Chart.Name }}
-    {{- with $val.ingress.labels }}
+    {{- with .ingress.labels }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
-  {{- with $val.ingress.annotations }}
+  {{- with .ingress.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
   {{- end }}
 spec:
-  {{- with $val.ingress.className }}
+  {{- with .ingress.className }}
   ingressClassName: {{ . | quote }}
   {{- end }}
 
   rules:
-    - host: {{ $val.ingress.host }}
+    - host: {{ .ingress.host }}
       http:
         paths:
-          {{- range $val.ingress.paths }}
+          {{- range .ingress.paths }}
           - path: {{ .path }}
             pathType: {{ .pathType }}
             backend:
               service:
-                name: {{ printf "%s-%s-svc" (include "chart.name" $) $key | kebabcase }}
+                name: {{ $name }}
                 port:
-                  number: {{ $val.service.port }}
+                  number: {{ $sp }}
           {{- end }}
-  {{- if $val.ingress.tls }}
+  {{- if .ingress.tls }}
   tls:
-    {{- toYaml $val.ingress.tls | nindent 4 }}
+    {{- toYaml .ingress.tls | nindent 4 }}
   {{- end }}
 {{- end }}
 {{- end }}
-
+{{- end }}
+{{/*
+*/}}

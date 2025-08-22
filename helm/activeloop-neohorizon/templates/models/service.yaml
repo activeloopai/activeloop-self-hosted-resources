@@ -1,67 +1,69 @@
-{{- range $key, $val := .Values.models }}
-{{- if $val.enabled }}
+{{- with .Values.models }}
+{{- range . }}
+{{- if .load_models }}
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ printf "%s-%s-svc" (include "chart.name" $) $key | kebabcase }}
+  name: {{ printf "%s-%s-svc" (include "chart.name" $) .name | kebabcase }}
   labels:
-    app.kubernetes.io/name: {{ $key | kebabcase }}
+    app.kubernetes.io/name: {{ .name | kebabcase }}
     app.kubernetes.io/component: models
     app.kubernetes.io/instance: {{ $.Release.Name }}
     app.kubernetes.io/managed-by: {{ $.Release.Service }}
     app.kubernetes.io/part-of: {{ include "chart.name" $ }}
     helm.sh/chart: {{ $.Chart.Name }}
-    {{- with $val.service.labels }}
+    {{- with .service.labels }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
-  {{- with $val.service.annotations }}
+  {{- with .service.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
   {{- end }}
 
 spec:
-  type: {{ default "ClusterIP" $val.service.type }}
+  type: {{ default "ClusterIP" .service.type }}
 
-  {{- with $val.service.clusterIP }}
+  {{- with .service.clusterIP }}
   clusterIP: {{ . }}
   {{- end }}
 
-  {{- with $val.service.externalIPs }}
+  {{- with .service.externalIPs }}
   externalIPs:
     {{- toYaml . | nindent 4 }}
   {{- end }}
 
-  {{- with $val.service.loadBalancerIP }}
+  {{- with .service.loadBalancerIP }}
   loadBalancerIP: {{ . }}
   {{- end }}
 
-  {{- with $val.service.loadBalancerSourceRanges }}
+  {{- with .service.loadBalancerSourceRanges }}
   loadBalancerSourceRanges:
     {{- toYaml . | nindent 4 }}
   {{- end }}
 
-  {{- if and (eq $val.service.type "LoadBalancer") $val.service.loadBalancerClass }}
-  loadBalancerClass: {{ $val.service.loadBalancerClass | quote }}
+  {{- if and (eq .service.type "LoadBalancer") .service.loadBalancerClass }}
+  loadBalancerClass: {{ .service.loadBalancerClass | quote }}
   {{- end }}
 
   ports:
     - name: http
-      port: {{ $val.service.port | default 80 }}
-      targetPort: {{ $val.port | default 8000 }}
+      port: {{ .service.port | default 80 }}
+      targetPort: {{ .port | default 8000 }}
       protocol: TCP
-    {{- if $val.service.nodePort }}
-      nodePort: {{ $val.service.nodePort }}
+    {{- if .service.nodePort }}
+      nodePort: {{ .service.nodePort }}
     {{- end }}
-    {{- with $val.service.additionalPorts }}
+    {{- with .service.additionalPorts }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
   selector:
-    app.kubernetes.io/name: {{ $key | kebabcase }}
+    app.kubernetes.io/name: {{ .name | kebabcase }}
     app.kubernetes.io/component: models
     app.kubernetes.io/instance: {{ $.Release.Name }}
-  {{- with $val.service.sessionAffinity }}
+  {{- with .service.sessionAffinity }}
   sessionAffinity: {{ . }}
   {{- end }}
+{{- end }}
 {{- end }}
 {{- end }}

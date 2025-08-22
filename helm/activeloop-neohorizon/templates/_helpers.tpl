@@ -71,7 +71,7 @@ Create the name of the service account to use
 {{- else if .Values.rabbitmq.create }}
 amqp://{{ .Values.rabbitmq.auth.username }}:{{ .Values.rabbitmq.auth.password }}@{{ .Release.Name }}-rabbitmq.{{ $.Release.Namespace }}:5672
 {{- else }}
-""  {{/* fallback */}}
+{{ fail "rabbitmq_url is required or rabbitmq.create is true" }}
 {{- end }}
 {{- end }}
 
@@ -82,6 +82,6 @@ amqp://{{ .Values.rabbitmq.auth.username }}:{{ .Values.rabbitmq.auth.password }}
 {{- else if .Values.postgresql.create }}
 {{ .Release.Name }}-postgresql.{{ $.Release.Namespace }}
 {{- else }}
-""  {{/* fallback */}}
+{{ fail "postgresql_host is required or postgresql.create is true" }}
 {{- end }}
 {{- end }}
