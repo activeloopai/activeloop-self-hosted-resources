@@ -23,7 +23,7 @@ global:
   ## @param global.config.postgres_port PostgreSQL port (default: see `postgresql.primary.persistence.port`)
   ## @param global.config.postgres_user PostgreSQL username (default: see `postgresql.auth.username`)
   ## @param global.config.rabbitmq_url RabbitMQ connection URL, default is generated from rabbitmq.auth.url
-  ## @param global.config.api_key API key for api authentication
+  ## @param global.config.al_api_token API key for api authentication
   ## @param global.config.gemini_api_key Gemini API key for gemini model
   ## @param global.config.openai_api_key OpenAI API key for openai model
   ## @param global.config.text_image__matrix_of_embeddings__ingestion_url Text image matrix of embeddings ingestion model URL
@@ -39,7 +39,7 @@ global:
     postgres_port: ""
     postgres_user: ""
     rabbitmq_url: ""
-    api_key: ""
+    al_api_token: ""
     gemini_api_key: ""
     openai_api_key: ""
     text_image__matrix_of_embeddings__ingestion_url: ""
@@ -88,8 +88,6 @@ apis:
   ## @param apis.lightweight_service.envFrom Environment variables from ConfigMap/Secret
   ## @skip apis.lightweight_service.resources.requests.cpu
   ## @skip apis.lightweight_service.resources.requests.memory
-  ## @skip apis.lightweight_service.resources.limits.cpu
-  ## @skip apis.lightweight_service.resources.limits.memory
   ## @param apis.lightweight_service.serviceAccount.create Specifies whether a service account should be created
   ## @param apis.lightweight_service.serviceAccount.name The name of the service account to use
   ## @param apis.lightweight_service.serviceAccount.labels Additional labels for the service account
@@ -100,7 +98,7 @@ apis:
   ## @param apis.lightweight_service.affinity Affinity for lightweight service pods
   lightweight_service:
     enabled: true
-    replicas: 2
+    replicas: 1
     port: 8000
     annotations: {}
     strategy:
@@ -122,9 +120,9 @@ apis:
       requests:
         cpu: "1"
         memory: "1Gi"
-      limits:
-        cpu: "2"
-        memory: "2Gi"
+      #limits:
+      #  cpu: "2"
+      #  memory: "2Gi"
     serviceAccount:
       create: false
       name: ""
@@ -149,8 +147,6 @@ apis:
   ## @param apis.files_service.envFrom Environment variables from ConfigMap/Secret
   ## @skip apis.files_service.resources.requests.cpu
   ## @skip apis.files_service.resources.requests.memory
-  ## @skip apis.files_service.resources.limits.cpu
-  ## @skip apis.files_service.resources.limits.memory
   ## @param apis.files_service.serviceAccount.create Specifies whether a service account should be created
   ## @param apis.files_service.serviceAccount.name The name of the service account to use
   ## @param apis.files_service.serviceAccount.labels Additional labels for the service account
@@ -161,7 +157,7 @@ apis:
   ## @param apis.files_service.affinity Affinity for files service pods
   files_service:
     enabled: true
-    replicas: 3
+    replicas: 1
     port: 8000
     strategy:
       type: RollingUpdate
@@ -184,9 +180,9 @@ apis:
       requests:
         cpu: "2"
         memory: 4Gi
-      limits:
-        cpu: "3"
-        memory: 8Gi
+      #limits:
+      #  cpu: "3"
+      #  memory: 8Gi
     serviceAccount:
       create: false
       name: ""
@@ -208,8 +204,6 @@ workers:
   ## @param workers.vector_search_worker.envFrom Environment variables from ConfigMap/Secret
   ## @skip workers.vector_search_worker.resources.requests.cpu
   ## @skip workers.vector_search_worker.resources.requests.memory
-  ## @skip workers.vector_search_worker.resources.limits.cpu
-  ## @skip workers.vector_search_worker.resources.limits.memory
   ## @param workers.vector_search_worker.serviceAccount.create Specifies whether a service account should be created
   ## @param workers.vector_search_worker.serviceAccount.name The name of the service account to use
   ## @param workers.vector_search_worker.serviceAccount.labels Additional labels for the service account
@@ -220,7 +214,7 @@ workers:
   ## @param workers.vector_search_worker.affinity Affinity for vector search worker pods
   vector_search_worker:
     enabled: true
-    replicas: 2
+    replicas: 1
     annotations: {}
     strategy:
       type: RollingUpdate
@@ -236,9 +230,9 @@ workers:
       requests:
         cpu: "12"
         memory: 24Gi
-      limits:
-        cpu: "15"
-        memory: 30Gi
+      #limits:
+      #  cpu: "15"
+      #  memory: 30Gi
     serviceAccount:
       create: false
       name: ""
@@ -258,8 +252,6 @@ workers:
   ## @param workers.file_processor_worker.envFrom Environment variables from ConfigMap/Secret
   ## @skip workers.file_processor_worker.resources.requests.cpu
   ## @skip workers.file_processor_worker.resources.requests.memory
-  ## @skip workers.file_processor_worker.resources.limits.cpu
-  ## @skip workers.file_processor_worker.resources.limits.memory
   ## @param workers.file_processor_worker.serviceAccount.create Specifies whether a service account should be created
   ## @param workers.file_processor_worker.serviceAccount.name The name of the service account to use
   ## @param workers.file_processor_worker.serviceAccount.labels Additional labels for the service account
@@ -286,9 +278,9 @@ workers:
       requests:
         cpu: "4"
         memory: 8Gi
-      limits:
-        cpu: "8"
-        memory: 15Gi
+      #limits:
+      #  cpu: "8"
+      #  memory: 15Gi
     serviceAccount:
       create: false
       name: ""
@@ -308,8 +300,6 @@ workers:
   ## @param workers.embedding_worker.envFrom Environment variables from ConfigMap/Secret
   ## @skip workers.embedding_worker.resources.requests.cpu
   ## @skip workers.embedding_worker.resources.requests.memory
-  ## @skip workers.embedding_worker.resources.limits.cpu
-  ## @skip workers.embedding_worker.resources.limits.memory
   ## @param workers.embedding_worker.serviceAccount.create Specifies whether a service account should be created
   ## @param workers.embedding_worker.serviceAccount.name The name of the service account to use
   ## @param workers.embedding_worker.serviceAccount.labels Additional labels for the service account
@@ -336,9 +326,9 @@ workers:
       requests:
         cpu: "4"
         memory: 8Gi
-      limits:
-        cpu: "8"
-        memory: 15Gi
+      #limits:
+      #  cpu: "8"
+      #  memory: 15Gi
     serviceAccount:
       create: false
       name: ""
@@ -358,8 +348,6 @@ workers:
   ## @param workers.summary_generation_worker.envFrom Environment variables from ConfigMap/Secret
   ## @skip workers.summary_generation_worker.resources.requests.cpu
   ## @skip workers.summary_generation_worker.resources.requests.memory
-  ## @skip workers.summary_generation_worker.resources.limits.cpu
-  ## @skip workers.summary_generation_worker.resources.limits.memory
   ## @param workers.summary_generation_worker.serviceAccount.create Specifies whether a service account should be created
   ## @param workers.summary_generation_worker.serviceAccount.name The name of the service account to use
   ## @param workers.summary_generation_worker.serviceAccount.labels Additional labels for the service account
@@ -386,9 +374,9 @@ workers:
       requests:
         cpu: "4"
         memory: 8Gi
-      limits:
-        cpu: "8"
-        memory: 15Gi
+      #limits:
+      #  cpu: "8"
+      #  memory: 15Gi
     serviceAccount:
       create: false
       name: ""
@@ -421,9 +409,6 @@ models:
   ## @skip models.visual_model.resources.requests.cpu
   ## @skip models.visual_model.resources.requests.memory
   ## @skip models.visual_model.resources.requests.nvidia.com/gpu
-  ## @skip models.visual_model.resources.limits.cpu
-  ## @skip models.visual_model.resources.limits.memory
-  ## @skip models.visual_model.resources.limits.nvidia.com/gpu
   ## @param models.visual_model.serviceAccount.create Specifies whether a service account should be created
   ## @param models.visual_model.serviceAccount.name The name of the service account to use
   ## @param models.visual_model.serviceAccount.labels Additional labels for the service account
@@ -466,10 +451,10 @@ models:
         cpu: "1"
         memory: 8Gi
         nvidia.com/gpu: "1"
-      limits:
-        cpu: "2"
-        memory: 16Gi
-        nvidia.com/gpu: "1"
+      #limits:
+      #  cpu: "2"
+      #  memory: 16Gi
+      #  nvidia.com/gpu: "1"
     serviceAccount:
       create: false
       name: ""
@@ -500,9 +485,6 @@ models:
   ## @skip models.text_model.resources.requests.cpu
   ## @skip models.text_model.resources.requests.memory
   ## @skip models.text_model.resources.requests.nvidia.com/gpu
-  ## @skip models.text_model.resources.limits.cpu
-  ## @skip models.text_model.resources.limits.memory
-  ## @skip models.text_model.resources.limits.nvidia.com/gpu
   ## @param models.text_model.serviceAccount.create Specifies whether a service account should be created
   ## @param models.text_model.serviceAccount.name The name of the service account to use
   ## @param models.text_model.serviceAccount.labels Additional labels for the service account
@@ -545,10 +527,10 @@ models:
         cpu: "1"
         memory: 8Gi
         nvidia.com/gpu: "1"
-      limits:
-        cpu: "2"
-        memory: 16Gi
-        nvidia.com/gpu: "1"
+      #limits:
+      #  cpu: "2"
+      #  memory: 16Gi
+      #  nvidia.com/gpu: "1"
     serviceAccount:
       create: false
       name: ""

@@ -61,7 +61,7 @@ helm upgrade -i -n activeloop neohorizon activeloop/activeloop-neohorizon
 | `global.config.postgres_port`                                   | PostgreSQL port (default: see `postgresql.primary.persistence.port`)         | `""`  |
 | `global.config.postgres_user`                                   | PostgreSQL username (default: see `postgresql.auth.username`)                | `""`  |
 | `global.config.rabbitmq_url`                                    | RabbitMQ connection URL, default is generated from rabbitmq.auth.url         | `""`  |
-| `global.config.api_key`                                         | API key for api authentication                                               | `""`  |
+| `global.config.al_api_token`                                    | API key for api authentication                                               | `""`  |
 | `global.config.gemini_api_key`                                  | Gemini API key for gemini model                                              | `""`  |
 | `global.config.openai_api_key`                                  | OpenAI API key for openai model                                              | `""`  |
 | `global.config.text_image__matrix_of_embeddings__ingestion_url` | Text image matrix of embeddings ingestion model URL                          | `""`  |
@@ -88,7 +88,7 @@ helm upgrade -i -n activeloop neohorizon activeloop/activeloop-neohorizon
 | Name                                                  | Description                                           | Value                           |
 | ----------------------------------------------------- | ----------------------------------------------------- | ------------------------------- |
 | `apis.lightweight_service.enabled`                    | Enable lightweight service deployment                 | `true`                          |
-| `apis.lightweight_service.replicas`                   | Number of lightweight service replicas to deploy      | `2`                             |
+| `apis.lightweight_service.replicas`                   | Number of lightweight service replicas to deploy      | `1`                             |
 | `apis.lightweight_service.port`                       | Port for the lightweight service                      | `8000`                          |
 | `apis.lightweight_service.annotations`                | Annotations for the lightweight service deployment    | `{}`                            |
 | `apis.lightweight_service.strategy.type`              | Deployment strategy type                              | `RollingUpdate`                 |
@@ -108,7 +108,7 @@ helm upgrade -i -n activeloop neohorizon activeloop/activeloop-neohorizon
 | `apis.lightweight_service.tolerations`                | Tolerations for lightweight service pods              | `[]`                            |
 | `apis.lightweight_service.affinity`                   | Affinity for lightweight service pods                 | `{}`                            |
 | `apis.files_service.enabled`                          | Enable files service deployment                       | `true`                          |
-| `apis.files_service.replicas`                         | Number of files service replicas to deploy            | `3`                             |
+| `apis.files_service.replicas`                         | Number of files service replicas to deploy            | `1`                             |
 | `apis.files_service.port`                             | Port for the files service                            | `8000`                          |
 | `apis.files_service.strategy.type`                    | Deployment strategy type                              | `RollingUpdate`                 |
 | `apis.files_service.scaling`                          | Horizontal Pod Autoscaler configuration               | `{}`                            |
@@ -133,7 +133,7 @@ helm upgrade -i -n activeloop neohorizon activeloop/activeloop-neohorizon
 | Name                                                           | Description                                              | Value           |
 | -------------------------------------------------------------- | -------------------------------------------------------- | --------------- |
 | `workers.vector_search_worker.enabled`                         | Enable vector search worker deployment                   | `true`          |
-| `workers.vector_search_worker.replicas`                        | Number of vector search worker replicas to deploy        | `2`             |
+| `workers.vector_search_worker.replicas`                        | Number of vector search worker replicas to deploy        | `1`             |
 | `workers.vector_search_worker.annotations`                     | Annotations for the vector search worker deployment      | `{}`            |
 | `workers.vector_search_worker.strategy.type`                   | Deployment strategy type                                 | `RollingUpdate` |
 | `workers.vector_search_worker.scaling`                         | Horizontal Pod Autoscaler configuration                  | `{}`            |
