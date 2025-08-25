@@ -53,24 +53,26 @@ helm upgrade -i -n activeloop neohorizon activeloop/activeloop-neohorizon
 
 ### Global configuration parameters [Description of the parameters](https://github.com/activeloopai/activeloop-self-hosted-resources/blob/main/README.md#Parameters)
 
-| Name                                                            | Description                                                                  | Value |
-| --------------------------------------------------------------- | ---------------------------------------------------------------------------- | ----- |
-| `global.config.postgres_database`                               | PostgreSQL database name (default: see `postgresql.auth.database`)           | `""`  |
-| `global.config.postgres_host`                                   | PostgreSQL host address (default: see `postgresql.primary.persistence.host`) | `""`  |
-| `global.config.postgres_password`                               | PostgreSQL password (default: see `postgresql.auth.password`)                | `""`  |
-| `global.config.postgres_port`                                   | PostgreSQL port (default: see `postgresql.primary.persistence.port`)         | `""`  |
-| `global.config.postgres_user`                                   | PostgreSQL username (default: see `postgresql.auth.username`)                | `""`  |
-| `global.config.rabbitmq_url`                                    | RabbitMQ connection URL, default is generated from rabbitmq.auth.url         | `""`  |
-| `global.config.al_api_token`                                    | API key for api authentication                                               | `""`  |
-| `global.config.gemini_api_key`                                  | Gemini API key for gemini model                                              | `""`  |
-| `global.config.openai_api_key`                                  | OpenAI API key for openai model                                              | `""`  |
-| `global.config.text_image__matrix_of_embeddings__ingestion_url` | Text image matrix of embeddings ingestion model URL                          | `""`  |
-| `global.config.text_image__matrix_of_embeddings__query_url`     | Text image matrix of embeddings query model URL                              | `""`  |
-| `global.config.text_image__embedding__ingestion_url`            | Text image embedding ingestion model URL                                     | `""`  |
-| `global.config.text_image__embedding__query_url`                | Text image embedding query model URL                                         | `""`  |
-| `global.config.text__embedding__ingestion_url`                  | Text embedding ingestion model URL                                           | `""`  |
-| `global.config.text__embedding__query_url`                      | Text embedding query model URL                                               | `""`  |
-| `global.useExistingSecret`                                      | Use existing secret for the config, if set config will be ignored            | `""`  |
+| Name                                                            | Description                                                                                                        | Value        |
+| --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ | ------------ |
+| `global.config.postgres_database`                               | PostgreSQL database name (default: see `postgresql.auth.database`)                                                 | `neohorizon` |
+| `global.config.postgres_host`                                   | PostgreSQL host address (default: see `postgresql.primary.persistence.host`)                                       | `""`         |
+| `global.config.postgres_password`                               | PostgreSQL password (default: see `postgresql.auth.password`)                                                      | `postgres`   |
+| `global.config.postgres_port`                                   | PostgreSQL port (default: see `postgresql.primary.persistence.port`)                                               | `5432`       |
+| `global.config.postgres_user`                                   | PostgreSQL username (default: see `postgresql.auth.username`)                                                      | `postgres`   |
+| `global.config.deeplake_creds`                                  | Deep Lake credentials, default must be '{}', cloud creds like '{"aws_access_key": "...", "aws_secret_key": "..."}' | `{}`         |
+| `global.config.deeplake_root_dir`                               | Deep Lake storage root, like s3://my-bucket/my-dir                                                                 | `""`         |
+| `global.config.rabbitmq_url`                                    | RabbitMQ connection URL, default is generated from rabbitmq.auth.url                                               | `""`         |
+| `global.config.al_api_token`                                    | API key for api authentication                                                                                     | `""`         |
+| `global.config.gemini_api_key`                                  | Gemini API key for gemini model                                                                                    | `""`         |
+| `global.config.openai_api_key`                                  | OpenAI API key for openai model                                                                                    | `""`         |
+| `global.config.text_image__matrix_of_embeddings__ingestion_url` | Text image matrix of embeddings ingestion model URL                                                                | `""`         |
+| `global.config.text_image__matrix_of_embeddings__query_url`     | Text image matrix of embeddings query model URL                                                                    | `""`         |
+| `global.config.text_image__embedding__ingestion_url`            | Text image embedding ingestion model URL                                                                           | `""`         |
+| `global.config.text_image__embedding__query_url`                | Text image embedding query model URL                                                                               | `""`         |
+| `global.config.text__embedding__ingestion_url`                  | Text embedding ingestion model URL                                                                                 | `""`         |
+| `global.config.text__embedding__query_url`                      | Text embedding query model URL                                                                                     | `""`         |
+| `global.useExistingSecret`                                      | Use existing secret for the config, if set config will be ignored                                                  | `""`         |
 
 ### Ingress parameters
 
@@ -197,8 +199,8 @@ helm upgrade -i -n activeloop neohorizon activeloop/activeloop-neohorizon
 
 | Name                                   | Description                                             | Value                        |
 | -------------------------------------- | ------------------------------------------------------- | ---------------------------- |
-| `models[0].name`                       | Model name for the visual model                         | `all-in-one-models`          |
-| `models[0].load_models`                | List of models to load                                  | `[]`                         |
+| `models[0].name`                       | Model name for the visual model                         | `models`                     |
+| `models[0].load_models`                | List of models to load                                  | `["colnomic"]`               |
 | `models[0].replicas`                   | Number of visual model replicas to deploy               | `1`                          |
 | `models[0].port`                       | Port for the visual model service                       | `8000`                       |
 | `models[0].strategy.type`              | Deployment strategy type                                | `RollingUpdate`              |
@@ -206,7 +208,7 @@ helm upgrade -i -n activeloop neohorizon activeloop/activeloop-neohorizon
 | `models[0].image.repository`           | Docker image repository for visual model                | `activeloopai/models-triton` |
 | `models[0].service.type`               | Kubernetes service type                                 | `ClusterIP`                  |
 | `models[0].service.port`               | Service port                                            | `80`                         |
-| `models[0].ingress.enabled`            | Enable ingress record generation for visual model       | `false`                      |
+| `models[0].ingress.enabled`            | Enable ingress record generation for visual model       | `true`                       |
 | `models[0].ingress.className`          | IngressClass that will be used to implement the Ingress | `""`                         |
 | `models[0].ingress.annotations`        | Additional custom annotations for the ingress record    | `{}`                         |
 | `models[0].ingress.host`               | Default host for the ingress record                     | `api.example.com`            |
