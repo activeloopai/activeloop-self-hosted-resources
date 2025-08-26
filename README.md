@@ -16,7 +16,7 @@
 | postgres_user                                   | POSTGRES_USER                                   | postgres                                | postgres database username                                                       |
 | postgres_port                                   | POSTGRES_PORT                                   | 5432                                    | postgres database port                                                           |
 | rabbitmq_url                                    | RABBITMQ_URL                                    | -                                       | rabbitmq ampq url, default will be built from dependency installation (required) |
-| al_api_token                                    | AL_API_TOKEN                                    |                                         |                                                                                  |
+| al_api_token          ****                          | AL_API_TOKEN                                    |                                         |                                                                                  |
 | gemini_api_key                                  | GEMINI_API_KEY                                  | -                                       | optional to run geminy requests                                                  |
 | openai_api_key                                  | OPENAI_API_KEY                                  | -                                       | needed for query generation                                                      |
 | text_image__matrix_of_embeddings__ingestion_url | TEXT_IMAGE__MATRIX_OF_EMBEDDINGS__INGESTION_URL | ""                                      | should be full path to endpoint triton inference endpoint                        |
@@ -34,6 +34,7 @@ Here are descriptions of models:
 - **colnomic**: can be used for ingest/retrieval of images, suggested to provide at least **16GiB** RAM and **A100** GPU
 - **inf-retriever-v1**: can be used for ingest/retrieval of texts, suggested to provide at least **4GiB** RAM and **A10/L4** GPU
 - **doclayout_parser**: can be used to generate images for answers, suggested to provide at least **4GiB** RAM and **A10/L4** GPU
+- **qwen_06B**: can be used for ingest/retrieval, suggested to provide at least **4GiB** RAM and **A10/L4** GPU
 
 For both helm chart and docker-compose cases default configuration should be reviewed or adjusted to use models.
 
