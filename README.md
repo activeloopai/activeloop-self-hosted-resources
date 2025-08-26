@@ -28,8 +28,10 @@
 
 ### Models usage
 
-Neohorizon works with triton served models for embedding generation both for queries and ingestion. Both helm chart and docker-compose are providing options to run models that [Activeloop](chat.activeloop.ai) uses.
+Neohorizon works with triton served models for embedding generation both for queries and ingestion. Both helm chart and docker-compose are providing options to run models.
 Here are descriptions of models:
+
+#### Models that [Activeloop](chat.activeloop.ai) uses
 
 - **colnomic**: can be used for ingest/retrieval of images, suggested to provide at least **16GiB** RAM and **A100** GPU
 - **inf-retriever-v1**: can be used for ingest/retrieval of texts, suggested to provide at least **4GiB** RAM and **A10/L4** GPU
