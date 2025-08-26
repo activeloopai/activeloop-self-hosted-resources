@@ -41,6 +41,8 @@ Here are descriptions of models:
 
 - **qwen_06B**: can be used for ingest/retrieval, suggested to provide at least **4GiB** RAM and **A10/L4** GPU
 
+> Note. Any custom models can be used with neohorizon, only requirement is that models must be served with triton and full URLs must be set in deployment environment variables.
+
 For both helm chart and docker-compose cases default configuration should be reviewed or adjusted to use models.
 
 - case 1: deployed only image model, then values override yaml would look like
