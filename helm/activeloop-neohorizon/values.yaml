@@ -7,7 +7,7 @@ global:
   image:
     registry: quay.io
     repository: activeloopai/neohorizon-main
-    tag: v0.1.12
+    tag: v0.1.16
 
   ## @param global.nodeSelector Global node selector for all pods
   nodeSelector: {}
