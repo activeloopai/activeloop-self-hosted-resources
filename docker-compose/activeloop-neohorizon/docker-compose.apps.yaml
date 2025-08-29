@@ -18,7 +18,7 @@ x-environment: &environment
   TEXT_IMAGE__EMBEDDING__QUERY_URL: "${TEXT_IMAGE__EMBEDDING__QUERY_URL:?}"
   TEXT__EMBEDDING__INGESTION_URL: "${TEXT__EMBEDDING__INGESTION_URL:?}"
   TEXT__EMBEDDING__QUERY_URL: "${TEXT__EMBEDDING__QUERY_URL:?}"
-  # DEEPLAKE_CREDS: "${DEEPLAKE_CREDS}"
+  # DEEPLAKE_CREDS: "${DEEPLAKE_CREDS}" // Fore more details refer to https://github.com/activeloopai/activeloop-self-hosted-resources?tab=readme-ov-file#deeplake-storage-credentials
   # Uncomment this if you want to use google application credentials
   # GOOGLE_APPLICATION_CREDENTIALS: "/creds/google-application-credentials.json"
 
