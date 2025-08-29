@@ -2,11 +2,12 @@
 
 ## Available Deployments
 
-- **Activeloop Neohorizon**
-  - [K8s](./helm/activeloop-neohorizon/)
-  - [docker-compose](./docker-compose/activeloop-neohorizon/)
+### Activeloop Neohorizon
 
-### Parameters
+- [K8s](./helm/activeloop-neohorizon/)
+- [docker-compose](./docker-compose/activeloop-neohorizon/)
+
+#### Parameters
 
 | Helm Parameter                                  | Environment Variable                            | Default Value                                                | Descriptoin                                                                       |
 | ----------------------------------------------- | ----------------------------------------------- | ------------------------------------------------------------ | --------------------------------------------------------------------------------- |
@@ -28,18 +29,18 @@
 | text__embedding__ingestion_url                  | TEXT__EMBEDDING__INGESTION_URL                  | -                                                            | should be full path to endpoint triton inference endpoint                         |
 | text__embedding__query_url                      | TEXT__EMBEDDING__QUERY_URL                      | -                                                            | should be full path to endpoint triton inference endpoint                         |
 
-### Models usage
+#### Models usage
 
 Neohorizon works with triton served models for embedding generation both for queries and ingestion. Both helm chart and docker-compose are providing options to run models.
 Here are descriptions of models:
 
-#### Models that [Activeloop](chat.activeloop.ai) uses
+##### Models that [Activeloop](chat.activeloop.ai) uses
 
 - **colnomic**: can be used for ingest/retrieval of images, suggested to provide at least **16GiB** RAM and **A100** GPU
 - **inf-retriever-v1**: can be used for ingest/retrieval of texts, suggested to provide at least **4GiB** RAM and **A10/L4** GPU
 - **doclayout_parser**: can be used to generate images for answers, suggested to provide at least **4GiB** RAM and **A10/L4** GPU
 
-#### Additional models we provide
+##### Additional models we provide
 
 - **qwen_06B**: can be used for ingest/retrieval, suggested to provide at least **4GiB** RAM and **A10/L4** GPU
 
