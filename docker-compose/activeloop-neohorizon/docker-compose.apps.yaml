@@ -8,7 +8,6 @@ x-environment: &environment
   POSTGRES_PORT: "${POSTGRES_PORT:?}"
   POSTGRES_USER: "${POSTGRES_USER:?}"
   RABBITMQ_URL: "${RABBITMQ_URL:?}"
-  DEEPLAKE_CREDS: "${DEEPLAKE_CREDS:-{}}"
   DEEPLAKE_ROOT_DIR: "${DEEPLAKE_ROOT_DIR:-/var/lib/deeplake}"
   AL_API_TOKEN: "${AL_API_TOKEN:?}"
   GEMINI_API_KEY: "${GEMINI_API_KEY}"
@@ -19,7 +18,7 @@ x-environment: &environment
   TEXT_IMAGE__EMBEDDING__QUERY_URL: "${TEXT_IMAGE__EMBEDDING__QUERY_URL:?}"
   TEXT__EMBEDDING__INGESTION_URL: "${TEXT__EMBEDDING__INGESTION_URL:?}"
   TEXT__EMBEDDING__QUERY_URL: "${TEXT__EMBEDDING__QUERY_URL:?}"
-
+  # DEEPLAKE_CREDS: "${DEEPLAKE_CREDS}"
   # Uncomment this if you want to use google application credentials
   # GOOGLE_APPLICATION_CREDENTIALS: "/creds/google-application-credentials.json"
 

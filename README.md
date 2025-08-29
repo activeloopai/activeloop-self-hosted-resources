@@ -104,3 +104,20 @@ For both helm chart and docker-compose cases default configuration should be rev
       load_models:
         - inf-retriever-v1
   ```
+
+#### Deeplake storage credentials
+
+In the case cloud storage is used (s3, gs, azure blob storage) and underlaying infrastructure does not provide out of the box authentication to the storage,
+static credentials should be applied as enviornment variable so deeplake can do storge operations.
+To give credentials to deeplake, use `DEEPLAKE_CREDS` environment variable or corresponding Cloud SKD Environment variables.
+`DEEPLAKE_CREDS` must be an string serialized dictionary with cloud credentials, examples below.
+
+- **AWS**:
+  - **DEEPLAKE_CREDS**: `{"aws_access_key_id": "ASIA...", "aws_secret_access_key": "So0z...", "aws_session_token": "TIAC...", "endpoint_url": "https://s3.customerendpoint.com", "region_name": "custom-region-name"}`
+
+- **AZURE**:
+  - `{"azure_client_id": "CLIENT_ID", "azure_client_secret": "CLIENT_SECRET", "azure_tenant_id": "AZURE_TENANT"}`
+  - `{"sas_token": "SAS_TOKEN"}`
+
+- **GCP**:
+  - `{"gcs_oauth_token": "ya29.....", "expiration": "UNIX_TIMESTAMP"}`
