@@ -114,7 +114,7 @@ To give credentials to deeplake, use `DEEPLAKE_CREDS` environment variable or co
 
 - **AWS**:
 
-    ```json
+    ```jsonc
     {
       "aws_access_key_id": "ASIA...",
       "aws_secret_access_key": "So0z...",
@@ -126,7 +126,7 @@ To give credentials to deeplake, use `DEEPLAKE_CREDS` environment variable or co
 
 - **AZURE**:
 
-  ```json
+  ```jsonc
   {
     "azure_client_id": "CLIENT_ID",
     "azure_client_secret": "CLIENT_SECRET",
@@ -136,7 +136,7 @@ To give credentials to deeplake, use `DEEPLAKE_CREDS` environment variable or co
 
   or
 
-  ```json
+  ```jsonc
   {
     "sas_token": "SAS_TOKEN"
   }
@@ -144,7 +144,7 @@ To give credentials to deeplake, use `DEEPLAKE_CREDS` environment variable or co
 
 - **GCP**:
 
-  ```json
+  ```jsonc
   {
     "gcs_oauth_token": "ya29.....",
     "expiration": "UNIX_TIMESTAMP" // optional
@@ -153,7 +153,7 @@ To give credentials to deeplake, use `DEEPLAKE_CREDS` environment variable or co
 
   or
 
-  ```json
+  ```jsonc
   {
     "json_credentials": "SERVICE_ACCOUNT_JSON_KEY"
   }
