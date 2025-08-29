@@ -2,7 +2,7 @@ apiVersion: v2
 name: activeloop-neohorizon
 description: Activeloop NeoHorizon Deployment Chart
 type: application
-version: 0.2.3
+version: 0.2.4
 appVersion: "v0.1.16"
 kubeVersion: ">= 1.24.0-0"
 
