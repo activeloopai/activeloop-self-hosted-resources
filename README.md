@@ -119,20 +119,51 @@ To give credentials to deeplake, use `DEEPLAKE_CREDS` environment variable or co
 
     ```jsonc
     {
-      "aws_access_key_id": "ASIA...",
-      "aws_secret_access_key": "So0z...",
-      "aws_session_token": "TIAC...",                     // Optional
-      "endpoint_url": "https://s3.customerendpoint.com",  // OPTIONAL
-      "region_name": "custom-region-name"                 // OPTIONAL
+      "aws_access_key_id": "AWS_ACCESS_KEY_ID",
+      "aws_secret_access_key": "AWS_SECRET_ACCESS_KEY",
+      "aws_session_token": "AWS_SESSION_TOKEN",          // Optional
+      "endpoint_url": "https://s3.customerendpoint.com", // OPTIONAL
+      "region_name": "AWS_REGION"                       // OPTIONAL
     }
     ```
+
+    or
+
+    ```jsonc
+    {
+      "profile_name": "AWS_PROFILE",
+      "endpoint_url": "https://s3.customerendpoint.com",  // OPTIONAL
+      "region_name": "AWS_REGION"                 // OPTIONAL
+    }
+    ```
+
+    or
+
+    ```jsonc
+    {
+      "profile_name": "AWS_PROFILE",
+      "endpoint_url": "https://s3.customerendpoint.com",  // OPTIONAL
+      "region_name": "AWS_REGION"                         // OPTIONAL
+    }
+    ```
+
+    or
+
+    ```jsonc
+    {
+      "aws_role_arn": "AWS_ROLE_ARN",
+      "aws_session_name": "session-name-for-assume-role",
+      "aws_external_id": "external-id-for-assume-role",
+      "endpoint_url": "https://s3.customerendpoint.com",  // OPTIONAL
+      "region_name": "AWS_REGION"                         // OPTIONAL
+    }
 
 - **AZURE**:
 
   ```jsonc
   {
-    "azure_client_id": "CLIENT_ID",
-    "azure_client_secret": "CLIENT_SECRET",
+    "azure_client_id": "AZURE_CLIENT_ID",
+    "azure_client_secret": "AZURE_CLIENT_SECRET",
     "azure_tenant_id": "AZURE_TENANT"
   }
   ```
@@ -141,20 +172,21 @@ To give credentials to deeplake, use `DEEPLAKE_CREDS` environment variable or co
 
   ```jsonc
   {
-    "sas_token": "SAS_TOKEN"
-  }
-  ```
-
-- **GCP**:
-
-  ```jsonc
-  {
-    "gcs_oauth_token": "ya29.....",
-    "expiration": "UNIX_TIMESTAMP" // optional
+    "sas_token": "azure-storage-sas-token"
   }
   ```
 
   or
+
+  ```jsonc
+  {
+    "account_name": "...",
+    "container_name": "...",
+    "account_key": "...",
+  }
+  ```
+
+- **GCP**:
 
   ```jsonc
   {
