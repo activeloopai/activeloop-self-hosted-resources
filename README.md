@@ -16,7 +16,7 @@
 | postgres_user                                   | POSTGRES_USER                                   | postgres                                | postgres database username                                                       |
 | postgres_port                                   | POSTGRES_PORT                                   | 5432                                    | postgres database port                                                           |
 | rabbitmq_url                                    | RABBITMQ_URL                                    | -                                       | rabbitmq ampq url, default will be built from dependency installation (required) |
-| al_api_token          ****                          | AL_API_TOKEN                                    |                                         |                                                                                  |
+| al_api_token          ****                      | AL_API_TOKEN                                    |                                         |                                                                                  |
 | gemini_api_key                                  | GEMINI_API_KEY                                  | -                                       | optional to run geminy requests                                                  |
 | openai_api_key                                  | OPENAI_API_KEY                                  | -                                       | needed for query generation                                                      |
 | text_image__matrix_of_embeddings__ingestion_url | TEXT_IMAGE__MATRIX_OF_EMBEDDINGS__INGESTION_URL | ""                                      | should be full path to endpoint triton inference endpoint                        |
@@ -113,11 +113,48 @@ To give credentials to deeplake, use `DEEPLAKE_CREDS` environment variable or co
 `DEEPLAKE_CREDS` must be an string serialized dictionary with cloud credentials, examples below.
 
 - **AWS**:
-  - **DEEPLAKE_CREDS**: `{"aws_access_key_id": "ASIA...", "aws_secret_access_key": "So0z...", "aws_session_token": "TIAC...", "endpoint_url": "https://s3.customerendpoint.com", "region_name": "custom-region-name"}`
+
+    ```json
+    {
+      "aws_access_key_id": "ASIA...",
+      "aws_secret_access_key": "So0z...",
+      "aws_session_token": "TIAC...",                     // Optional
+      "endpoint_url": "https://s3.customerendpoint.com",  // OPTIONAL
+      "region_name": "custom-region-name"                 // OPTIONAL
+    }
+    ```
 
 - **AZURE**:
-  - `{"azure_client_id": "CLIENT_ID", "azure_client_secret": "CLIENT_SECRET", "azure_tenant_id": "AZURE_TENANT"}`
-  - `{"sas_token": "SAS_TOKEN"}`
+
+  ```json
+  {
+    "azure_client_id": "CLIENT_ID",
+    "azure_client_secret": "CLIENT_SECRET",
+    "azure_tenant_id": "AZURE_TENANT"
+  }
+  ```
+
+  or
+
+  ```json
+  {
+    "sas_token": "SAS_TOKEN"
+  }
+  ```
 
 - **GCP**:
-  - `{"gcs_oauth_token": "ya29.....", "expiration": "UNIX_TIMESTAMP"}`
+
+  ```json
+  {
+    "gcs_oauth_token": "ya29.....",
+    "expiration": "UNIX_TIMESTAMP" // optional
+  }
+  ```
+
+  or
+
+  ```json
+  {
+    "json_credentials": "SERVICE_ACCOUNT_JSON_KEY"
+  }
+  ```
