@@ -3,7 +3,7 @@ entries:
   activeloop-neohorizon:
   - apiVersion: v2
     appVersion: v0.1.16
-    created: "2025-09-04T11:13:24.71715806+04:00"
+    created: "2025-09-04T12:30:16.208899751+04:00"
     dependencies:
     - condition: postgresql.create
       name: postgresql
@@ -14,7 +14,7 @@ entries:
       repository: oci://registry-1.docker.io/bitnamicharts
       version: 16.0.10
     description: Activeloop NeoHorizon Deployment Chart
-    digest: c5d344311bc21f583e0df09f23d818f9b5cbd61a19b3cd8adf3c7f4bb78a402c
+    digest: de4e47bf3f748c9e52d58a73dbc6b111fde19afac252cc9e501559c0db1935b8
     home: https://activeloop.ai
     icon: https://static.activeloop.io/logos/SVG/activeloop-logo-256x256.svg
     keywords:
@@ -34,7 +34,7 @@ entries:
     version: 0.2.5
   - apiVersion: v2
     appVersion: v0.1.16
-    created: "2025-09-04T11:13:24.705594433+04:00"
+    created: "2025-09-04T12:30:16.198071454+04:00"
     dependencies:
     - condition: postgresql.create
       name: postgresql
@@ -65,7 +65,7 @@ entries:
     version: 0.2.4
   - apiVersion: v2
     appVersion: v0.1.16
-    created: "2025-09-04T11:13:24.69595267+04:00"
+    created: "2025-09-04T12:30:16.185099789+04:00"
     dependencies:
     - condition: postgresql.create
       name: postgresql
@@ -96,7 +96,7 @@ entries:
     version: 0.2.3
   - apiVersion: v2
     appVersion: v0.1.12
-    created: "2025-09-04T11:13:24.685234109+04:00"
+    created: "2025-09-04T12:30:16.17293979+04:00"
     dependencies:
     - condition: postgresql.create
       name: postgresql
@@ -127,7 +127,7 @@ entries:
     version: 0.2.2
   - apiVersion: v2
     appVersion: v0.1.12
-    created: "2025-09-04T11:13:24.674304763+04:00"
+    created: "2025-09-04T12:30:16.1577008+04:00"
     dependencies:
     - condition: postgresql.create
       name: postgresql
@@ -158,7 +158,7 @@ entries:
     version: 0.2.1
   - apiVersion: v2
     appVersion: v0.1.12
-    created: "2025-09-04T11:13:24.664829703+04:00"
+    created: "2025-09-04T12:30:16.146950527+04:00"
     dependencies:
     - condition: postgresql.create
       name: postgresql
@@ -189,7 +189,7 @@ entries:
     version: 0.2.0
   - apiVersion: v2
     appVersion: v0.1.12
-    created: "2025-09-04T11:13:24.643664881+04:00"
+    created: "2025-09-04T12:30:16.122775541+04:00"
     dependencies:
     - condition: postgresql.create
       name: postgresql
@@ -220,7 +220,7 @@ entries:
     version: 0.1.14
   - apiVersion: v2
     appVersion: v0.1.12
-    created: "2025-09-04T11:13:24.633976387+04:00"
+    created: "2025-09-04T12:30:16.112068793+04:00"
     dependencies:
     - condition: postgresql.create
       name: postgresql
@@ -251,7 +251,7 @@ entries:
     version: 0.1.13
   - apiVersion: v2
     appVersion: v0.1.12
-    created: "2025-09-04T11:13:24.623389068+04:00"
+    created: "2025-09-04T12:30:16.10197104+04:00"
     dependencies:
     - condition: postgresql.create
       name: postgresql
@@ -282,7 +282,7 @@ entries:
     version: 0.1.12
   - apiVersion: v2
     appVersion: v0.0.4
-    created: "2025-09-04T11:13:24.652686021+04:00"
+    created: "2025-09-04T12:30:16.137245471+04:00"
     dependencies:
     - condition: postgresql.create
       name: postgresql
@@ -313,7 +313,7 @@ entries:
     version: 0.1.2
   - apiVersion: v2
     appVersion: v0.0.4
-    created: "2025-09-04T11:13:24.614746409+04:00"
+    created: "2025-09-04T12:30:16.092121012+04:00"
     dependencies:
     - condition: postgresql.create
       name: postgresql
@@ -342,4 +342,4 @@ entries:
     urls:
     - activeloop-neohorizon-0.1.1.tgz
     version: 0.1.1
-generated: "2025-09-04T11:13:24.603646656+04:00"
+generated: "2025-09-04T12:30:16.081025554+04:00"
