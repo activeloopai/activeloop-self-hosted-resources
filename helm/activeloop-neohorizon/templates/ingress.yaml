@@ -27,7 +27,7 @@ spec:
     - host: {{ .Values.ingress.host }}
       http:
         paths:
-          {{- if .Values.apis.files_service }}
+          {{- if .Values.apis.files_service.enabled }}
           - path: /files
             pathType: Prefix
             backend:
@@ -36,7 +36,16 @@ spec:
                 port:
                   number: {{ .Values.apis.files_service.service.port }}
           {{- end }}
-          {{- if .Values.apis.lightweight_service }}
+          {{- if .Values.apis.lightweight_service.enabled }}
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ printf "%s-%s-svc" (include "chart.name" $) "lightweight-service" }}
+                port:
+                  number: {{ .Values.apis.lightweight_service.service.port }}
+          {{- end }}
+          {{- if .Values.apis.lightweight_service.enabled }}
           - path: /
             pathType: Prefix
             backend:

@@ -71,7 +71,7 @@ Create the name of the service account to use
 {{- else if .Values.rabbitmq.create }}
 amqp://{{ .Values.rabbitmq.auth.username }}:{{ .Values.rabbitmq.auth.password }}@{{ .Release.Name }}-rabbitmq.{{ $.Release.Namespace }}:5672
 {{- else }}
-{{ fail "rabbitmq_url is required or rabbitmq.create is true" }}
+{{ fail "rabbitmq_url is required or rabbitmq.create is false" }}
 {{- end }}
 {{- end }}
 
@@ -82,6 +82,15 @@ amqp://{{ .Values.rabbitmq.auth.username }}:{{ .Values.rabbitmq.auth.password }}
 {{- else if .Values.postgresql.create }}
 {{ .Release.Name }}-postgresql.{{ $.Release.Namespace }}
 {{- else }}
-{{ fail "postgresql_host is required or postgresql.create is true" }}
+{{ fail "postgresql_host is required or postgresql.create is false" }}
+{{- end }}
+{{- end }}
+
+{{/* Return Gotenberg endpoint */}}
+{{- define "activeloop-neohorizon.gotenbergEndpoint" -}}
+{{- if .Values.gotenberg.enabled }}
+{{- printf "http://%s-%s.%s.svc.cluster.local" .Release.Name "gotenberg" .Release.Namespace }}
+{{- else }}
+{{ .Values.global.config.gotenberg_endpoint }}
 {{- end }}
 {{- end }}

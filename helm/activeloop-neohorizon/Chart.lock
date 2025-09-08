@@ -5,5 +5,8 @@ dependencies:
 - name: rabbitmq
   repository: oci://registry-1.docker.io/bitnamicharts
   version: 16.0.10
-digest: sha256:abf273a1b71ac9837ee0e6573d63ade977fd28a88dc6583bbb766c785749fffd
-generated: "2025-07-11T18:41:47.356935751+04:00"
+- name: gotenberg
+  repository: https://maikumori.github.io/helm-charts
+  version: 1.12.0
+digest: sha256:8033fcbb8e0af8db49dcd50a2f36649bf7cad2577a898d01c27f4bf6030e056a
+generated: "2025-09-08T17:02:51.738698561+04:00"

@@ -7,7 +7,7 @@ global:
   image:
     registry: quay.io
     repository: activeloopai/neohorizon-main
-    tag: v2.1.0
+    tag: v2.1.2
 
   ## @param global.nodeSelector Global node selector for all pods
   nodeSelector: {}
@@ -36,6 +36,8 @@ global:
   ## @param global.config.text__embedding__query_url Text embedding query model URL
   ## @param global.config.text__summary_embedding__query_url summary embedding query model URL
   ## @param global.config.text__summary_embedding__ingestion_url summary embedding ingestion model URL
+  ## @param global.config.gotenberg_endpoint Gotenberg endpoint, disabled by default (needed for office files processing)
+  ## @param global.config.chunkr_api_key Chunkr API key, disabled by default (needed for xlsx files processing)
   config:
     postgres_database: "neohorizon"
     postgres_password: "postgres"
@@ -56,6 +58,8 @@ global:
     text__embedding__query_url: ""
     text__summary_embedding__query_url: ""
     text__summary_embedding__ingestion_url: ""
+    gotenberg_endpoint: ""
+    chunkr_api_key: ""
 
   ## @param global.useExistingSecret Use existing secret for the config, if set config will be ignored
   # -- secret will be referenced as envFrom, make sure keys are uppercase like POSTGRES_PASSWORD, etc.
@@ -195,6 +199,66 @@ apis:
       requests:
         cpu: "2"
         memory: 4Gi
+      #limits:
+      #  cpu: "3"
+      #  memory: 8Gi
+    serviceAccount:
+      create: false
+      name: ""
+      labels: {}
+      annotations: {}
+    enableHealthProbes: true
+    nodeSelector: {}
+    tolerations: []
+    affinity: {}
+
+  ## @param apis.nango_webhook_service.enabled Enable nango webhook service deployment
+  ## @param apis.nango_webhook_service.replicas Number of files service replicas to deploy
+  ## @param apis.nango_webhook_service.port Port for the nango webhook service
+  ## @param apis.nango_webhook_service.strategy.type Deployment strategy type
+  ## @param apis.nango_webhook_service.scaling Horizontal Pod Autoscaler configuration
+  ## @param apis.nango_webhook_service.image.repository Docker image repository for files service
+  ## @param apis.nango_webhook_service.command Override default container command
+  ## @param apis.nango_webhook_service.args Override default container args
+  ## @param apis.nango_webhook_service.service.type Kubernetes service type
+  ## @param apis.nango_webhook_service.service.port Service port
+  ## @param apis.nango_webhook_service.env Environment variables for the files service
+  ## @param apis.nango_webhook_service.envFrom Environment variables from ConfigMap/Secret
+  ## @skip apis.nango_webhook_service.resources.requests.cpu
+  ## @skip apis.nango_webhook_service.resources.requests.memory
+  ## @param apis.nango_webhook_service.serviceAccount.create Specifies whether a service account should be created
+  ## @param apis.nango_webhook_service.serviceAccount.name The name of the service account to use
+  ## @param apis.nango_webhook_service.serviceAccount.labels Additional labels for the service account
+  ## @param apis.nango_webhook_service.serviceAccount.annotations Additional annotations for the service account
+  ## @param apis.nango_webhook_service.enableHealthProbes Enable health probes for the files service
+  ## @param apis.nango_webhook_service.nodeSelector Node selector for files service pods
+  ## @param apis.nango_webhook_service.tolerations Tolerations for files service pods
+  ## @param apis.nango_webhook_service.affinity Affinity for files service pods
+  nango_webhook_service:
+    enabled: false
+    replicas: 1
+    port: 8080
+    strategy:
+      type: RollingUpdate
+    scaling: {}
+      # minReplicas: 3
+      # maxReplicas: 6
+      # metrics:
+      #   cpu: 80
+      #   memory: 80
+    image:
+      repository: activeloopai/neohorizon-nango
+    command: []
+    args: []
+    service:
+      type: ClusterIP
+      port: 80
+    env: {}
+    envFrom: []
+    resources:
+      requests:
+        cpu: "100m"
+        memory: "256Mi"
       #limits:
       #  cpu: "3"
       #  memory: 8Gi
@@ -454,7 +518,7 @@ models:
       type: ClusterIP
       port: 80
     ingress:
-      enabled: true
+      enabled: false
       className: ""
       annotations: {}
       host: "api.example.com"
@@ -519,3 +583,24 @@ rabbitmq:
     enabled: true
     size: 20Gi
   resources: {}
+
+## @section Gotenberg parameters -- [source](https://github.com/MaikuMori/helm-charts/tree/master/charts/gotenberg)
+## @param gotenberg.enabled Enable Gotenberg
+## @param gotenberg.replicaCount Number of Gotenberg replicas
+## @param gotenberg.api.timeout Gotenberg API timeout
+## @skip gotenberg.resources.requests.cpu
+## @skip gotenberg.resources.requests.memory
+## @skip gotenberg.resources.limits.cpu
+## @skip gotenberg.resources.limits.memory
+gotenberg:
+  enabled: true
+  replicaCount: 1
+  api:
+    timeout: 120s
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    # limits:
+    #   cpu: '2'
+    #   memory: 4Gi
