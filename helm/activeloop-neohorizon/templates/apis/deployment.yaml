@@ -98,7 +98,7 @@ spec:
           livenessProbe:
             httpGet:
               path: /health
-              port: 8000
+              port: {{ $val.port }}
             initialDelaySeconds: 30
             periodSeconds: 20
             timeoutSeconds: 3
@@ -106,7 +106,7 @@ spec:
           readinessProbe:
             httpGet:
               path: /health
-              port: 8000
+              port: {{ $val.port }}
             initialDelaySeconds: 10
             periodSeconds: 10
             timeoutSeconds: 3
@@ -115,7 +115,7 @@ spec:
           startupProbe:
             httpGet:
               path: /health
-              port: 8000
+              port: {{ $val.port }}
             failureThreshold: 20
             periodSeconds: 5
             timeoutSeconds: 3
