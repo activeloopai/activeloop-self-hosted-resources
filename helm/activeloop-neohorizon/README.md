@@ -273,8 +273,8 @@ helm upgrade -i -n activeloop neohorizon activeloop/activeloop-neohorizon
 
 ### Gotenberg parameters -- [source](https://github.com/MaikuMori/helm-charts/tree/master/charts/gotenberg)
 
-| Name                     | Description                  | Value  |
-| ------------------------ | ---------------------------- | ------ |
-| `gotenberg.enabled`      | Enable Gotenberg             | `true` |
-| `gotenberg.replicaCount` | Number of Gotenberg replicas | `1`    |
-| `gotenberg.api.timeout`  | Gotenberg API timeout        | `120s` |
+| Name                     | Description                  | Value   |
+| ------------------------ | ---------------------------- | ------- |
+| `gotenberg.enabled`      | Enable Gotenberg             | `false` |
+| `gotenberg.replicaCount` | Number of Gotenberg replicas | `1`     |
+| `gotenberg.api.timeout`  | Gotenberg API timeout        | `120s`  |
