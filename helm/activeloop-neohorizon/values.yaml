@@ -34,6 +34,8 @@ global:
   ## @param global.config.text_image__embedding__query_url Text image embedding query model URL
   ## @param global.config.text__embedding__ingestion_url Text embedding ingestion model URL
   ## @param global.config.text__embedding__query_url Text embedding query model URL
+  ## @param global.config.text__summary_embedding__query_url summary embedding query model URL
+  ## @param global.config.text__summary_embedding__ingestion_url summary embedding ingestion model URL
   config:
     postgres_database: "neohorizon"
     postgres_password: "postgres"
@@ -52,6 +54,8 @@ global:
     text_image__embedding__query_url: ""
     text__embedding__ingestion_url: ""
     text__embedding__query_url: ""
+    text__summary_embedding__query_url: ""
+    text__summary_embedding__ingestion_url: ""
 
   ## @param global.useExistingSecret Use existing secret for the config, if set config will be ignored
   # -- secret will be referenced as envFrom, make sure keys are uppercase like POSTGRES_PASSWORD, etc.
