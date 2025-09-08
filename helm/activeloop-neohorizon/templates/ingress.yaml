@@ -45,14 +45,14 @@ spec:
                 port:
                   number: {{ .Values.apis.lightweight_service.service.port }}
           {{- end }}
-          {{- if .Values.apis.lightweight_service.enabled }}
-          - path: /
-            pathType: Prefix
+          {{- if .Values.apis.nango_webhook_service.enabled }}
+          - path: /nango/webhook
+            pathType: Exact
             backend:
               service:
-                name: {{ printf "%s-%s-svc" (include "chart.name" $) "lightweight-service" }}
+                name: {{ printf "%s-%s-svc" (include "chart.name" $) "nango-webhook-service" }}
                 port:
-                  number: {{ .Values.apis.lightweight_service.service.port }}
+                  number: {{ .Values.apis.nango_webhook_service.service.port }}
           {{- end }}
   {{- if .Values.ingress.tls }}
   tls:
