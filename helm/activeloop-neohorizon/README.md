@@ -221,32 +221,32 @@ helm upgrade -i -n activeloop neohorizon activeloop/activeloop-neohorizon
 
 ### Models parameters
 
-| Name                                   | Description                                             | Value                        |
-| -------------------------------------- | ------------------------------------------------------- | ---------------------------- |
-| `models[0].name`                       | Model name for the visual model                         | `models`                     |
-| `models[0].load_models`                | List of models to load                                  | `["colnomic"]`               |
-| `models[0].replicas`                   | Number of visual model replicas to deploy               | `1`                          |
-| `models[0].port`                       | Port for the visual model service                       | `8000`                       |
-| `models[0].strategy.type`              | Deployment strategy type                                | `RollingUpdate`              |
-| `models[0].scaling`                    | Horizontal Pod Autoscaler configuration                 | `{}`                         |
-| `models[0].image.repository`           | Docker image repository for visual model                | `activeloopai/models-triton` |
-| `models[0].service.type`               | Kubernetes service type                                 | `ClusterIP`                  |
-| `models[0].service.port`               | Service port                                            | `80`                         |
-| `models[0].ingress.enabled`            | Enable ingress record generation for visual model       | `false`                      |
-| `models[0].ingress.className`          | IngressClass that will be used to implement the Ingress | `""`                         |
-| `models[0].ingress.annotations`        | Additional custom annotations for the ingress record    | `{}`                         |
-| `models[0].ingress.host`               | Default host for the ingress record                     | `api.example.com`            |
-| `models[0].ingress.tls`                | Enable TLS configuration for the hostname               | `[]`                         |
-| `models[0].env`                        | Environment variables for the visual model              | `{}`                         |
-| `models[0].envFrom`                    | Environment variables from ConfigMap/Secret             | `[]`                         |
-| `models[0].serviceAccount.create`      | Specifies whether a service account should be created   | `false`                      |
-| `models[0].serviceAccount.name`        | The name of the service account to use                  | `""`                         |
-| `models[0].serviceAccount.labels`      | Additional labels for the service account               | `{}`                         |
-| `models[0].serviceAccount.annotations` | Additional annotations for the service account          | `{}`                         |
-| `models[0].enableHealthProbes`         | Enable health probes for the visual model               | `false`                      |
-| `models[0].nodeSelector`               | Node selector for visual model pods                     | `{}`                         |
-| `models[0].tolerations`                | Tolerations for visual model pods                       | `[]`                         |
-| `models[0].affinity`                   | Affinity for visual model pods                          | `{}`                         |
+| Name                                   | Description                                             | Value                                   |
+| -------------------------------------- | ------------------------------------------------------- | --------------------------------------- |
+| `models[0].name`                       | Model name for the visual model                         | `models`                                |
+| `models[0].load_models`                | List of models to load                                  | `["colnomic"]`                          |
+| `models[0].replicas`                   | Number of visual model replicas to deploy               | `1`                                     |
+| `models[0].port`                       | Port for the visual model service                       | `8000`                                  |
+| `models[0].strategy.type`              | Deployment strategy type                                | `RollingUpdate`                         |
+| `models[0].scaling`                    | Horizontal Pod Autoscaler configuration                 | `{}`                                    |
+| `models[0].image.repository`           | Docker image repository for visual model                | `activeloopai/neohorizon-models-triton` |
+| `models[0].service.type`               | Kubernetes service type                                 | `ClusterIP`                             |
+| `models[0].service.port`               | Service port                                            | `80`                                    |
+| `models[0].ingress.enabled`            | Enable ingress record generation for visual model       | `false`                                 |
+| `models[0].ingress.className`          | IngressClass that will be used to implement the Ingress | `""`                                    |
+| `models[0].ingress.annotations`        | Additional custom annotations for the ingress record    | `{}`                                    |
+| `models[0].ingress.host`               | Default host for the ingress record                     | `api.example.com`                       |
+| `models[0].ingress.tls`                | Enable TLS configuration for the hostname               | `[]`                                    |
+| `models[0].env`                        | Environment variables for the visual model              | `{}`                                    |
+| `models[0].envFrom`                    | Environment variables from ConfigMap/Secret             | `[]`                                    |
+| `models[0].serviceAccount.create`      | Specifies whether a service account should be created   | `false`                                 |
+| `models[0].serviceAccount.name`        | The name of the service account to use                  | `""`                                    |
+| `models[0].serviceAccount.labels`      | Additional labels for the service account               | `{}`                                    |
+| `models[0].serviceAccount.annotations` | Additional annotations for the service account          | `{}`                                    |
+| `models[0].enableHealthProbes`         | Enable health probes for the visual model               | `false`                                 |
+| `models[0].nodeSelector`               | Node selector for visual model pods                     | `{}`                                    |
+| `models[0].tolerations`                | Tolerations for visual model pods                       | `[]`                                    |
+| `models[0].affinity`                   | Affinity for visual model pods                          | `{}`                                    |
 
 ### PostgreSQL parameters
 

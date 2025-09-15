@@ -513,7 +513,7 @@ models:
       #   cpu: 70
       #   memory: 70
     image:
-      repository: activeloopai/models-triton
+      repository: activeloopai/neohorizon-models-triton
     service:
       type: ClusterIP
       port: 80
