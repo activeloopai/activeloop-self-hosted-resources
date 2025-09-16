@@ -118,6 +118,15 @@ services:
     environment:
       <<: *environment
     <<: *shared-apps
+  file_status_worker:
+    container_name: al-neohorizon-file-status-worker
+    image: quay.io/activeloopai/neohorizon-main:${AL_IMAGE_TAG:-latest}
+    entrypoint:
+      - python3
+      - file_status_worker.py
+    environment:
+      <<: *environment
+    <<: *shared-apps
   model:
     container_name: al-neohorizon-model
     image: quay.io/activeloopai/models-triton:${AL_IMAGE_TAG_MODEL:-latest}
