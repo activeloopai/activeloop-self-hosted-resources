@@ -239,7 +239,7 @@ configs:
         }
 
         location /nango/webhook {
-          proxy_pass http://al-neohorizon-nango-webhook-service:8000;
+          proxy_pass http://al-neohorizon-nango-webhook-service:8080;
         }
 
         location / {
