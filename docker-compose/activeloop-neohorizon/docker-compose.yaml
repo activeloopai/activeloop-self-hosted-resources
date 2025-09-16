@@ -20,6 +20,7 @@ x-environment: &environment
   TEXT__EMBEDDING__QUERY_URL: "${TEXT__EMBEDDING__QUERY_URL:-http://al-neohorizon-model:8000/v2/models/${AL_MODEL_NAME:?}/infer}"
   TEXT__SUMMARY_EMBEDDING__QUERY_URL: "${TEXT__SUMMARY_EMBEDDING__QUERY_URL:-http://al-neohorizon-model:8000/v2/models/${AL_MODEL_NAME:?}/infer}"
   TEXT__SUMMARY_EMBEDDING__INGESTION_URL: "${TEXT__SUMMARY_EMBEDDING__INGESTION_URL:-http://al-neohorizon-model:8000/v2/models/${AL_MODEL_NAME:?}/infer}"
+  GOTENBERG_ENDPOINT: "${RABBITMQ_URL:-http://al-neohorizon-gotenberg:3000}"
   # DEEPLAKE_CREDS: "${DEEPLAKE_CREDS}" // Fore more details refer to https://github.com/activeloopai/activeloop-self-hosted-resources?tab=readme-ov-file#deeplake-storage-credentials
   # Uncomment this if you want to use google application credentials
   # GOOGLE_APPLICATION_CREDENTIALS: "/creds/google-application-credentials.json"
@@ -142,6 +143,12 @@ services:
           - driver: nvidia
             device_ids: ["0"]
             capabilities: [gpu]
+
+  gotenberg:
+    image: gotenberg/gotenberg:8
+    container_name: al-neohorizon-gotenberg
+    ports:
+      - "127.0.0.1:3000:3000"
 
   rabbitmq:
     image: rabbitmq:3-management

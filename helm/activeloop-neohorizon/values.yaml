@@ -641,7 +641,7 @@ rabbitmq:
 ## @skip gotenberg.resources.limits.cpu
 ## @skip gotenberg.resources.limits.memory
 gotenberg:
-  enabled: false
+  enabled: true
   replicaCount: 1
   api:
     timeout: 120s
