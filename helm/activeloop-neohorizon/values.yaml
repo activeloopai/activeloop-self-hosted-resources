@@ -499,7 +499,7 @@ workers:
     envFrom: []
     resources:
       requests:
-        cpu: "1500"
+        cpu: "1500m"
         memory: 2Gi
       #limits:
       #  cpu: "8"
