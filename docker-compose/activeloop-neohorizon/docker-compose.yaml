@@ -83,6 +83,16 @@ services:
       retries: 3
       start_period: 40s
     <<: *shared-apps
+  nango-webhook-service:
+    container_name: al-neohorizon-nango-webhook-service
+    image: quay.io/activeloopai/neohorizon-nango:${AL_IMAGE_TAG:-latest}
+    entrypoint:
+      - python3
+      - nango_webhook_service.py
+    environment:
+      PORT: 8000
+      <<: *environment
+    <<: *shared-apps
   vector_search_worker:
     container_name: al-neohorizon-vector-search-worker
     image: quay.io/activeloopai/neohorizon-main:${AL_IMAGE_TAG:-latest}
@@ -192,6 +202,7 @@ services:
     depends_on:
       - main-api
       - files-api
+      - nango-webhook-service
     ports:
       - "${LISTEN_HOST:-0.0.0.0}:${LISTEN_PORT:-80}:80"
     configs:
@@ -225,6 +236,10 @@ configs:
 
         location /files {
           proxy_pass http://al-neohorizon-files-api:8000;
+        }
+
+        location /nango/webhook {
+          proxy_pass http://al-neohorizon-nango-webhook-service:8000;
         }
 
         location / {

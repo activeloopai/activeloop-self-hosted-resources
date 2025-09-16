@@ -66,6 +66,16 @@ services:
       PORT: 8000
       <<: *environment
     <<: *shared-config
+  nango-webhook-service:
+    container_name: al-neohorizon-nango-webhook-service
+    image: quay.io/activeloopai/neohorizon-nango:${AL_IMAGE_TAG:-latest}
+    entrypoint:
+      - python3
+      - nango_webhook_service.py
+    environment:
+      PORT: 8000
+      <<: *environment
+    <<: *shared-config
   vector_search_worker:
     container_name: al-neohorizon-vector-search-worker
     image: quay.io/activeloopai/neohorizon-main:${AL_IMAGE_TAG:-latest}
@@ -124,6 +134,7 @@ services:
     depends_on:
       - main-api
       - files-api
+      - nango-webhook-service
     networks:
       - al-neohorizon-apps-network
 
@@ -145,6 +156,10 @@ configs:
 
         location /files {
           proxy_pass http://al-neohorizon-files-api:8000;
+        }
+
+        location /nango/webhook {
+          proxy_pass http://al-neohorizon-nango-webhook-service:8000;
         }
 
         location / {
