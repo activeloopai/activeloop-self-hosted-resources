@@ -466,6 +466,54 @@ workers:
     tolerations: []
     affinity: {}
 
+  ## @param workers.file_status_worker.enabled Enable summary generation worker deployment
+  ## @param workers.file_status_worker.replicas Number of summary generation worker replicas to deploy
+  ## @param workers.file_status_worker.annotations Annotations for the summary generation worker deployment
+  ## @param workers.file_status_worker.strategy.type Deployment strategy type
+  ## @param workers.file_status_worker.scaling Horizontal Pod Autoscaler configuration
+  ## @param workers.file_status_worker.env Environment variables for the summary generation worker
+  ## @param workers.file_status_worker.envFrom Environment variables from ConfigMap/Secret
+  ## @skip workers.file_status_worker.resources.requests.cpu
+  ## @skip workers.file_status_worker.resources.requests.memory
+  ## @param workers.file_status_worker.serviceAccount.create Specifies whether a service account should be created
+  ## @param workers.file_status_worker.serviceAccount.name The name of the service account to use
+  ## @param workers.file_status_worker.serviceAccount.labels Additional labels for the service account
+  ## @param workers.file_status_worker.serviceAccount.annotations Additional annotations for the service account
+  ## @param workers.file_status_worker.enableHealthProbes Enable health probes for the summary generation worker
+  ## @param workers.file_status_worker.nodeSelector Node selector for summary generation worker pods
+  ## @param workers.file_status_worker.tolerations Tolerations for summary generation worker pods
+  ## @param workers.file_status_worker.affinity Affinity for summary generation worker pods
+  file_status_worker:
+    enabled: true
+    replicas: 1
+    annotations: {}
+    strategy:
+      type: RollingUpdate
+    scaling: {}
+      # minReplicas: 1
+      # maxReplicas: 5
+      # metrics:
+      #   cpu: 70
+      #   memory: 70
+    env: {}
+    envFrom: []
+    resources:
+      requests:
+        cpu: "1500"
+        memory: 2Gi
+      #limits:
+      #  cpu: "8"
+      #  memory: 15Gi
+    serviceAccount:
+      create: false
+      name: ""
+      labels: {}
+      annotations: {}
+    enableHealthProbes: true
+    nodeSelector: {}
+    tolerations: []
+    affinity: {}
+
 ## @section Models parameters
 
 models:

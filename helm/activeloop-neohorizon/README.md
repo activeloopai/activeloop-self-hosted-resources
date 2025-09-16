@@ -218,6 +218,21 @@ helm upgrade -i -n activeloop neohorizon activeloop/activeloop-neohorizon
 | `workers.summary_generation_worker.nodeSelector`               | Node selector for summary generation worker pods         | `{}`            |
 | `workers.summary_generation_worker.tolerations`                | Tolerations for summary generation worker pods           | `[]`            |
 | `workers.summary_generation_worker.affinity`                   | Affinity for summary generation worker pods              | `{}`            |
+| `workers.file_status_worker.enabled`                           | Enable summary generation worker deployment              | `true`          |
+| `workers.file_status_worker.replicas`                          | Number of summary generation worker replicas to deploy   | `1`             |
+| `workers.file_status_worker.annotations`                       | Annotations for the summary generation worker deployment | `{}`            |
+| `workers.file_status_worker.strategy.type`                     | Deployment strategy type                                 | `RollingUpdate` |
+| `workers.file_status_worker.scaling`                           | Horizontal Pod Autoscaler configuration                  | `{}`            |
+| `workers.file_status_worker.env`                               | Environment variables for the summary generation worker  | `{}`            |
+| `workers.file_status_worker.envFrom`                           | Environment variables from ConfigMap/Secret              | `[]`            |
+| `workers.file_status_worker.serviceAccount.create`             | Specifies whether a service account should be created    | `false`         |
+| `workers.file_status_worker.serviceAccount.name`               | The name of the service account to use                   | `""`            |
+| `workers.file_status_worker.serviceAccount.labels`             | Additional labels for the service account                | `{}`            |
+| `workers.file_status_worker.serviceAccount.annotations`        | Additional annotations for the service account           | `{}`            |
+| `workers.file_status_worker.enableHealthProbes`                | Enable health probes for the summary generation worker   | `true`          |
+| `workers.file_status_worker.nodeSelector`                      | Node selector for summary generation worker pods         | `{}`            |
+| `workers.file_status_worker.tolerations`                       | Tolerations for summary generation worker pods           | `[]`            |
+| `workers.file_status_worker.affinity`                          | Affinity for summary generation worker pods              | `{}`            |
 
 ### Models parameters
 
