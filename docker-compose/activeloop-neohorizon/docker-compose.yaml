@@ -234,6 +234,10 @@ configs:
         listen 80;
         server_name _;
 
+        location / {
+          proxy_pass http://al-neohorizon-main-api:8000;
+        }
+
         location /files {
           proxy_pass http://al-neohorizon-files-api:8000;
         }
@@ -242,7 +246,4 @@ configs:
           proxy_pass http://al-neohorizon-nango-webhook-service:8080;
         }
 
-        location / {
-          proxy_pass http://al-neohorizon-main-api:8000;
-        }
       }
