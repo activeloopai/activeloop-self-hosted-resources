@@ -7,15 +7,13 @@ global:
   image:
     registry: quay.io
     repository: activeloopai/neohorizon-main
-    tag: v2.2.0
-
+    tag: v2.3.0
   ## @param global.nodeSelector Global node selector for all pods
   nodeSelector: {}
   ## @param global.tolerations Global tolerations for all pods
   tolerations: []
   ## @param global.affinity Global affinity for all pods
   affinity: {}
-
   ## @section Global configuration parameters [Description of the parameters](https://github.com/activeloopai/activeloop-self-hosted-resources/blob/main/README.md#Parameters)
   ## @param global.config.postgres_database PostgreSQL database name (default: see `postgresql.auth.database`)
   ## @param global.config.postgres_host PostgreSQL host address (default: see `postgresql.primary.persistence.host`)
@@ -60,7 +58,6 @@ global:
     text__summary_embedding__ingestion_url: ""
     gotenberg_endpoint: ""
     chunkr_api_key: ""
-
   ## @param global.useExistingSecret Use existing secret for the config, if set config will be ignored
   # -- secret will be referenced as envFrom, make sure keys are uppercase like POSTGRES_PASSWORD, etc.
   # -- make sure to set following values as well
@@ -71,7 +68,6 @@ global:
   #   EMBEDDING_PROVIDER_TYPE: "TRITON"
   #   CORS_ALLOW_ORIGINS: "*"
   useExistingSecret: ""
-
 ## @section Ingress parameters
 ## @param ingress.enabled Enable ingress record generation for the application
 ## @param ingress.className IngressClass that will be used to implement the Ingress
@@ -90,7 +86,6 @@ ingress:
   #   - hosts:
   #       - "api.example.com"
   #     secretName: "neohorizon-tls"
-
 ## @section API Services parameters
 apis:
   ## @param apis.lightweight_service.enabled Enable lightweight service deployment
@@ -123,11 +118,11 @@ apis:
     strategy:
       type: RollingUpdate
     scaling: {}
-      # minReplicas: 2
-      # maxReplicas: 5
-      # metrics:
-      #   cpu: 70
-      #   memory: 50
+    # minReplicas: 2
+    # maxReplicas: 5
+    # metrics:
+    #   cpu: 70
+    #   memory: 50
     command: []
     args: []
     service:
@@ -139,9 +134,9 @@ apis:
       requests:
         cpu: "1"
         memory: "1Gi"
-      #limits:
-      #  cpu: "2"
-      #  memory: "2Gi"
+        #limits:
+        #  cpu: "2"
+        #  memory: "2Gi"
     serviceAccount:
       create: false
       name: ""
@@ -151,7 +146,6 @@ apis:
     nodeSelector: {}
     tolerations: []
     affinity: {}
-
   ## @param apis.files_service.enabled Enable files service deployment
   ## @param apis.files_service.replicas Number of files service replicas to deploy
   ## @param apis.files_service.port Port for the files service
@@ -181,11 +175,11 @@ apis:
     strategy:
       type: RollingUpdate
     scaling: {}
-      # minReplicas: 3
-      # maxReplicas: 6
-      # metrics:
-      #   cpu: 80
-      #   memory: 80
+    # minReplicas: 3
+    # maxReplicas: 6
+    # metrics:
+    #   cpu: 80
+    #   memory: 80
     image:
       repository: activeloopai/neohorizon-files
     command: []
@@ -199,9 +193,9 @@ apis:
       requests:
         cpu: "2"
         memory: 4Gi
-      #limits:
-      #  cpu: "3"
-      #  memory: 8Gi
+        #limits:
+        #  cpu: "3"
+        #  memory: 8Gi
     serviceAccount:
       create: false
       name: ""
@@ -211,7 +205,6 @@ apis:
     nodeSelector: {}
     tolerations: []
     affinity: {}
-
   ## @param apis.nango_webhook_service.enabled Enable nango webhook service deployment
   ## @param apis.nango_webhook_service.replicas Number of files service replicas to deploy
   ## @param apis.nango_webhook_service.port Port for the nango webhook service
@@ -241,11 +234,11 @@ apis:
     strategy:
       type: RollingUpdate
     scaling: {}
-      # minReplicas: 3
-      # maxReplicas: 6
-      # metrics:
-      #   cpu: 80
-      #   memory: 80
+    # minReplicas: 3
+    # maxReplicas: 6
+    # metrics:
+    #   cpu: 80
+    #   memory: 80
     image:
       repository: activeloopai/neohorizon-nango
     command: []
@@ -259,9 +252,9 @@ apis:
       requests:
         cpu: "100m"
         memory: "256Mi"
-      #limits:
-      #  cpu: "3"
-      #  memory: 8Gi
+        #limits:
+        #  cpu: "3"
+        #  memory: 8Gi
     serviceAccount:
       create: false
       name: ""
@@ -271,7 +264,6 @@ apis:
     nodeSelector: {}
     tolerations: []
     affinity: {}
-
 ## @section Workers parameters
 workers:
   ## @param workers.vector_search_worker.enabled Enable vector search worker deployment
@@ -298,20 +290,20 @@ workers:
     strategy:
       type: RollingUpdate
     scaling: {}
-      # minReplicas: 1
-      # maxReplicas: 5
-      # metrics:
-      #   cpu: 70
-      #   memory: 70
+    # minReplicas: 1
+    # maxReplicas: 5
+    # metrics:
+    #   cpu: 70
+    #   memory: 70
     env: {}
     envFrom: []
     resources:
       requests:
         cpu: "12"
         memory: 24Gi
-      #limits:
-      #  cpu: "15"
-      #  memory: 30Gi
+        #limits:
+        #  cpu: "15"
+        #  memory: 30Gi
     serviceAccount:
       create: false
       name: ""
@@ -321,7 +313,6 @@ workers:
     nodeSelector: {}
     tolerations: []
     affinity: {}
-
   ## @param workers.file_processor_worker.enabled Enable file processor worker deployment
   ## @param workers.file_processor_worker.replicas Number of file processor worker replicas to deploy
   ## @param workers.file_processor_worker.annotations Annotations for the file processor worker deployment
@@ -346,20 +337,20 @@ workers:
     strategy:
       type: RollingUpdate
     scaling: {}
-      # minReplicas: 1
-      # maxReplicas: 5
-      # metrics:
-      #   cpu: 70
-      #   memory: 70
+    # minReplicas: 1
+    # maxReplicas: 5
+    # metrics:
+    #   cpu: 70
+    #   memory: 70
     env: {}
     envFrom: []
     resources:
       requests:
         cpu: "4"
         memory: 8Gi
-      #limits:
-      #  cpu: "8"
-      #  memory: 15Gi
+        #limits:
+        #  cpu: "8"
+        #  memory: 15Gi
     serviceAccount:
       create: false
       name: ""
@@ -369,7 +360,6 @@ workers:
     nodeSelector: {}
     tolerations: []
     affinity: {}
-
   ## @param workers.embedding_worker.enabled Enable embedding worker deployment
   ## @param workers.embedding_worker.replicas Number of embedding worker replicas to deploy
   ## @param workers.embedding_worker.annotations Annotations for the embedding worker deployment
@@ -394,20 +384,20 @@ workers:
     strategy:
       type: RollingUpdate
     scaling: {}
-      # minReplicas: 1
-      # maxReplicas: 5
-      # metrics:
-      #   cpu: 70
-      #   memory: 70
+    # minReplicas: 1
+    # maxReplicas: 5
+    # metrics:
+    #   cpu: 70
+    #   memory: 70
     env: {}
     envFrom: []
     resources:
       requests:
         cpu: "4"
         memory: 8Gi
-      #limits:
-      #  cpu: "8"
-      #  memory: 15Gi
+        #limits:
+        #  cpu: "8"
+        #  memory: 15Gi
     serviceAccount:
       create: false
       name: ""
@@ -417,7 +407,6 @@ workers:
     nodeSelector: {}
     tolerations: []
     affinity: {}
-
   ## @param workers.summary_generation_worker.enabled Enable summary generation worker deployment
   ## @param workers.summary_generation_worker.replicas Number of summary generation worker replicas to deploy
   ## @param workers.summary_generation_worker.annotations Annotations for the summary generation worker deployment
@@ -442,20 +431,20 @@ workers:
     strategy:
       type: RollingUpdate
     scaling: {}
-      # minReplicas: 1
-      # maxReplicas: 5
-      # metrics:
-      #   cpu: 70
-      #   memory: 70
+    # minReplicas: 1
+    # maxReplicas: 5
+    # metrics:
+    #   cpu: 70
+    #   memory: 70
     env: {}
     envFrom: []
     resources:
       requests:
         cpu: "4"
         memory: 8Gi
-      #limits:
-      #  cpu: "8"
-      #  memory: 15Gi
+        #limits:
+        #  cpu: "8"
+        #  memory: 15Gi
     serviceAccount:
       create: false
       name: ""
@@ -465,7 +454,6 @@ workers:
     nodeSelector: {}
     tolerations: []
     affinity: {}
-
   ## @param workers.file_status_worker.enabled Enable summary generation worker deployment
   ## @param workers.file_status_worker.replicas Number of summary generation worker replicas to deploy
   ## @param workers.file_status_worker.annotations Annotations for the summary generation worker deployment
@@ -490,20 +478,20 @@ workers:
     strategy:
       type: RollingUpdate
     scaling: {}
-      # minReplicas: 1
-      # maxReplicas: 5
-      # metrics:
-      #   cpu: 70
-      #   memory: 70
+    # minReplicas: 1
+    # maxReplicas: 5
+    # metrics:
+    #   cpu: 70
+    #   memory: 70
     env: {}
     envFrom: []
     resources:
       requests:
         cpu: "1500m"
         memory: 2Gi
-      #limits:
-      #  cpu: "8"
-      #  memory: 15Gi
+        #limits:
+        #  cpu: "8"
+        #  memory: 15Gi
     serviceAccount:
       create: false
       name: ""
@@ -513,9 +501,7 @@ workers:
     nodeSelector: {}
     tolerations: []
     affinity: {}
-
 ## @section Models parameters
-
 models:
   ## @param models[0].name Model name for the visual model
   ## @param models[0].load_models List of models to load
@@ -548,18 +534,18 @@ models:
   - name: models
     replicas: 1
     load_models:
-      - colnomic          # can be used for ingest/retrieval of images,  suggested to provide at least 16GiB RAM and A100 GPU
+      - colnomic # can be used for ingest/retrieval of images,  suggested to provide at least 16GiB RAM and A100 GPU
       # - inf-retriever-v1  # can be used for ingest/retrieval of texts,   suggested to provide at least 4GiB  RAM and A10/L4 GPU
       # - doclayout_parser  # can be used to generate images for answers,  suggested to provide at least 4GiB  RAM and A10/L4 GPU
     port: 8000
     strategy:
       type: RollingUpdate
     scaling: {}
-      # minReplicas: 1
-      # maxReplicas: 5
-      # metrics:
-      #   cpu: 70
-      #   memory: 70
+    # minReplicas: 1
+    # maxReplicas: 5
+    # metrics:
+    #   cpu: 70
+    #   memory: 70
     image:
       repository: activeloopai/neohorizon-models-triton
     service:
@@ -581,10 +567,10 @@ models:
         cpu: "1"
         memory: 4Gi
         nvidia.com/gpu: "1"
-      #limits:
-      #  cpu: "2"
-      #  memory: 16Gi
-      #  nvidia.com/gpu: "1"
+        #limits:
+        #  cpu: "2"
+        #  memory: 16Gi
+        #  nvidia.com/gpu: "1"
     serviceAccount:
       create: false
       name: ""
@@ -594,7 +580,6 @@ models:
     nodeSelector: {}
     tolerations: []
     affinity: {}
-
 ## @section PostgreSQL parameters
 ## @param postgresql.create Whether to create a PostgreSQL instance
 ## @param postgresql.auth.username PostgreSQL username
@@ -614,7 +599,6 @@ postgresql:
       enabled: true
       size: 10Gi
   resources: {}
-
 ## @section RabbitMQ parameters
 ## @param rabbitmq.create Whether to create a RabbitMQ instance
 ## @param rabbitmq.auth.username RabbitMQ username
@@ -631,7 +615,6 @@ rabbitmq:
     enabled: true
     size: 20Gi
   resources: {}
-
 ## @section Gotenberg parameters -- [source](https://github.com/MaikuMori/helm-charts/tree/master/charts/gotenberg)
 ## @param gotenberg.enabled Enable Gotenberg
 ## @param gotenberg.replicaCount Number of Gotenberg replicas
