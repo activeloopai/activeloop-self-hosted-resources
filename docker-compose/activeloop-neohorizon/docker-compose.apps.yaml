@@ -29,6 +29,7 @@ x-shared-config: &shared-config
   restart: always
   depends_on:
     - change_vol_ownership
+    - migrate_db
   networks:
     - al-neohorizon-apps-network
   volumes:
@@ -46,6 +47,17 @@ services:
     restart: "no"
     volumes:
       - al_neohorizon_deeplake_data:/var/lib/deeplake
+  migrate_db:
+    container_name: al-neohorizon-migrate-db
+    image: quay.io/activeloopai/neohorizon-main:${AL_IMAGE_TAG:-latest}
+    entrypoint:
+      - /bin/bash
+      - -c
+      - |-
+        export DATABASE_URL="postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DATABASE}" && \
+        python3 scripts/migrate.py upgrade
+    environment:
+      <<: *environment
   main-api:
     container_name: al-neohorizon-main-api
     image: quay.io/activeloopai/neohorizon-main:${AL_IMAGE_TAG:-latest}
@@ -120,7 +132,7 @@ services:
       - file_status_worker.py
     environment:
       <<: *environment
-    <<: *shared-apps
+    <<: *shared-config
 
   proxy:
     container_name: al-neohorizon-proxy
