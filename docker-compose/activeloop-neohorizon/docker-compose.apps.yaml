@@ -120,7 +120,15 @@ services:
       - file_status_worker.py
     environment:
       <<: *environment
-    <<: *shared-apps
+
+  skywell_worker:
+    container_name: al-neohorizon-skywell-worker
+    image: quay.io/activeloopai/neohorizon-main:${AL_IMAGE_TAG:-latest}
+    entrypoint:
+      - python3
+      - skywell_worker.py
+    environment:
+      <<: *environment
 
   proxy:
     container_name: al-neohorizon-proxy
