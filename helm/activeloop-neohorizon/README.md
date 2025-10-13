@@ -46,7 +46,7 @@ helm upgrade -i -n activeloop neohorizon activeloop/activeloop-neohorizon
 | ------------------------- | -------------------------------------------------------- | ------------------------------ |
 | `global.image.registry`   | Global Docker image registry                             | `quay.io`                      |
 | `global.image.repository` | Global Docker image repository                           | `activeloopai/neohorizon-main` |
-| `global.image.tag`        | Global Docker image tag (immutable tags are recommended) | `v2.4.1`                       |
+| `global.image.tag`        | Global Docker image tag (immutable tags are recommended) | `v2.5.1`                       |
 | `global.nodeSelector`     | Global node selector for all pods                        | `{}`                           |
 | `global.tolerations`      | Global tolerations for all pods                          | `[]`                           |
 | `global.affinity`         | Global affinity for all pods                             | `{}`                           |
