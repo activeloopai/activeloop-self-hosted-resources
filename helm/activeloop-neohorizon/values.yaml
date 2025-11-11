@@ -501,6 +501,53 @@ workers:
     nodeSelector: {}
     tolerations: []
     affinity: {}
+  ## @param workers.skywell_worker.enabled Enable summary generation worker deployment
+  ## @param workers.skywell_worker.replicas Number of summary generation worker replicas to deploy
+  ## @param workers.skywell_worker.annotations Annotations for the summary generation worker deployment
+  ## @param workers.skywell_worker.strategy.type Deployment strategy type
+  ## @param workers.skywell_worker.scaling Horizontal Pod Autoscaler configuration
+  ## @param workers.skywell_worker.env Environment variables for the summary generation worker
+  ## @param workers.skywell_worker.envFrom Environment variables from ConfigMap/Secret
+  ## @skip workers.skywell_worker.resources.requests.cpu
+  ## @skip workers.skywell_worker.resources.requests.memory
+  ## @param workers.skywell_worker.serviceAccount.create Specifies whether a service account should be created
+  ## @param workers.skywell_worker.serviceAccount.name The name of the service account to use
+  ## @param workers.skywell_worker.serviceAccount.labels Additional labels for the service account
+  ## @param workers.skywell_worker.serviceAccount.annotations Additional annotations for the service account
+  ## @param workers.skywell_worker.enableHealthProbes Enable health probes for the summary generation worker
+  ## @param workers.skywell_worker.nodeSelector Node selector for summary generation worker pods
+  ## @param workers.skywell_worker.tolerations Tolerations for summary generation worker pods
+  ## @param workers.skywell_worker.affinity Affinity for summary generation worker pods
+  skywell_worker:
+    enabled: true
+    replicas: 1
+    annotations: {}
+    strategy:
+      type: RollingUpdate
+    scaling: {}
+    # minReplicas: 1
+    # maxReplicas: 5
+    # metrics:
+    #   cpu: 70
+    #   memory: 70
+    env: {}
+    envFrom: []
+    resources:
+      requests:
+        cpu: "100m"
+        memory: 2Gi
+        #limits:
+        #  cpu: "8"
+        #  memory: 15Gi
+    serviceAccount:
+      create: false
+      name: ""
+      labels: {}
+      annotations: {}
+    enableHealthProbes: true
+    nodeSelector: {}
+    tolerations: []
+    affinity: {}
 ## @section Models parameters
 models:
   ## @param models[0].name Model name for the visual model
@@ -580,41 +627,6 @@ models:
     nodeSelector: {}
     tolerations: []
     affinity: {}
-## @section PostgreSQL parameters
-## @param postgresql.create Whether to create a PostgreSQL instance
-## @param postgresql.auth.username PostgreSQL username
-## @param postgresql.auth.password PostgreSQL password
-## @param postgresql.auth.database PostgreSQL database name
-## @param postgresql.primary.persistence.enabled Enable PostgreSQL persistence using PVC
-## @param postgresql.primary.persistence.size PVC Storage Request for PostgreSQL data volume
-## @param postgresql.resources CPU/Memory resource requests/limits for PostgreSQL
-postgresql:
-  create: true
-  auth:
-    username: "postgres"
-    password: "postgres"
-    database: "neohorizon"
-  primary:
-    persistence:
-      enabled: true
-      size: 10Gi
-  resources: {}
-## @section RabbitMQ parameters
-## @param rabbitmq.create Whether to create a RabbitMQ instance
-## @param rabbitmq.auth.username RabbitMQ username
-## @param rabbitmq.auth.password RabbitMQ password
-## @param rabbitmq.persistence.enabled Enable RabbitMQ persistence using PVC
-## @param rabbitmq.persistence.size PVC Storage Request for RabbitMQ data volume
-## @param rabbitmq.resources CPU/Memory resource requests/limits for RabbitMQ
-rabbitmq:
-  create: true
-  auth:
-    username: "user"
-    password: "password"
-  persistence:
-    enabled: true
-    size: 20Gi
-  resources: {}
 ## @section Gotenberg parameters -- [source](https://github.com/MaikuMori/helm-charts/tree/master/charts/gotenberg)
 ## @param gotenberg.enabled Enable Gotenberg
 ## @param gotenberg.replicaCount Number of Gotenberg replicas

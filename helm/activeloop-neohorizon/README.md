@@ -233,6 +233,21 @@ helm upgrade -i -n activeloop neohorizon activeloop/activeloop-neohorizon
 | `workers.file_status_worker.nodeSelector`                      | Node selector for summary generation worker pods         | `{}`            |
 | `workers.file_status_worker.tolerations`                       | Tolerations for summary generation worker pods           | `[]`            |
 | `workers.file_status_worker.affinity`                          | Affinity for summary generation worker pods              | `{}`            |
+| `workers.skywell_worker.enabled`                               | Enable summary generation worker deployment              | `true`          |
+| `workers.skywell_worker.replicas`                              | Number of summary generation worker replicas to deploy   | `1`             |
+| `workers.skywell_worker.annotations`                           | Annotations for the summary generation worker deployment | `{}`            |
+| `workers.skywell_worker.strategy.type`                         | Deployment strategy type                                 | `RollingUpdate` |
+| `workers.skywell_worker.scaling`                               | Horizontal Pod Autoscaler configuration                  | `{}`            |
+| `workers.skywell_worker.env`                                   | Environment variables for the summary generation worker  | `{}`            |
+| `workers.skywell_worker.envFrom`                               | Environment variables from ConfigMap/Secret              | `[]`            |
+| `workers.skywell_worker.serviceAccount.create`                 | Specifies whether a service account should be created    | `false`         |
+| `workers.skywell_worker.serviceAccount.name`                   | The name of the service account to use                   | `""`            |
+| `workers.skywell_worker.serviceAccount.labels`                 | Additional labels for the service account                | `{}`            |
+| `workers.skywell_worker.serviceAccount.annotations`            | Additional annotations for the service account           | `{}`            |
+| `workers.skywell_worker.enableHealthProbes`                    | Enable health probes for the summary generation worker   | `true`          |
+| `workers.skywell_worker.nodeSelector`                          | Node selector for summary generation worker pods         | `{}`            |
+| `workers.skywell_worker.tolerations`                           | Tolerations for summary generation worker pods           | `[]`            |
+| `workers.skywell_worker.affinity`                              | Affinity for summary generation worker pods              | `{}`            |
 
 ### Models parameters
 
@@ -262,29 +277,6 @@ helm upgrade -i -n activeloop neohorizon activeloop/activeloop-neohorizon
 | `models[0].nodeSelector`               | Node selector for visual model pods                     | `{}`                                    |
 | `models[0].tolerations`                | Tolerations for visual model pods                       | `[]`                                    |
 | `models[0].affinity`                   | Affinity for visual model pods                          | `{}`                                    |
-
-### PostgreSQL parameters
-
-| Name                                     | Description                                        | Value        |
-| ---------------------------------------- | -------------------------------------------------- | ------------ |
-| `postgresql.create`                      | Whether to create a PostgreSQL instance            | `true`       |
-| `postgresql.auth.username`               | PostgreSQL username                                | `postgres`   |
-| `postgresql.auth.password`               | PostgreSQL password                                | `postgres`   |
-| `postgresql.auth.database`               | PostgreSQL database name                           | `neohorizon` |
-| `postgresql.primary.persistence.enabled` | Enable PostgreSQL persistence using PVC            | `true`       |
-| `postgresql.primary.persistence.size`    | PVC Storage Request for PostgreSQL data volume     | `10Gi`       |
-| `postgresql.resources`                   | CPU/Memory resource requests/limits for PostgreSQL | `{}`         |
-
-### RabbitMQ parameters
-
-| Name                           | Description                                      | Value      |
-| ------------------------------ | ------------------------------------------------ | ---------- |
-| `rabbitmq.create`              | Whether to create a RabbitMQ instance            | `true`     |
-| `rabbitmq.auth.username`       | RabbitMQ username                                | `user`     |
-| `rabbitmq.auth.password`       | RabbitMQ password                                | `password` |
-| `rabbitmq.persistence.enabled` | Enable RabbitMQ persistence using PVC            | `true`     |
-| `rabbitmq.persistence.size`    | PVC Storage Request for RabbitMQ data volume     | `20Gi`     |
-| `rabbitmq.resources`           | CPU/Memory resource requests/limits for RabbitMQ | `{}`       |
 
 ### Gotenberg parameters -- [source](https://github.com/MaikuMori/helm-charts/tree/master/charts/gotenberg)
 
