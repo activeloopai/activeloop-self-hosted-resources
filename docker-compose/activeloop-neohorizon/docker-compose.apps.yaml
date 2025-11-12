@@ -21,6 +21,14 @@ x-environment: &environment
   TEXT__SUMMARY_EMBEDDING__QUERY_URL: "${TEXT__SUMMARY_EMBEDDING__QUERY_URL:-http://al-neohorizon-model:8000/v2/models/${AL_MODEL_NAME:?}/infer}"
   TEXT__SUMMARY_EMBEDDING__INGESTION_URL: "${TEXT__SUMMARY_EMBEDDING__INGESTION_URL:-http://al-neohorizon-model:8000/v2/models/${AL_MODEL_NAME:?}/infer}"
   GOTENBERG_ENDPOINT: "${RABBITMQ_URL:?}"
+  AUTH_ISSUER: https://auth-${AL_HOSTNAME:?AL_HOSTNAME is required}/
+  AUTH_AUDIENCE: auth.neohorizon.activeloop.ai
+  AUTH0_DOMAIN: https://auth-${AL_HOSTNAME:?AL_HOSTNAME is required}
+  AUTH0_AUDIENCE: auth.neohorizon.activeloop.ai
+  CORS_ALLOW_ORIGINS: https://${AL_HOSTNAME}
+  PORT: "8000"
+  HOST: "0.0.0.0"
+  MONGO_DB_URL: ${MONGO_DB_URL:-mongodb://${MONGO_INITDB_ROOT_USERNAME:-mongo}:${MONGO_INITDB_ROOT_USERNAME:-mongo}@al-neohorizon-mongo:27017/neohorizon?authSource=admin}
   # DEEPLAKE_CREDS: "${DEEPLAKE_CREDS}" // Fore more details refer to https://github.com/activeloopai/activeloop-self-hosted-resources?tab=readme-ov-file#deeplake-storage-credentials
   # Uncomment this if you want to use google application credentials
   # GOOGLE_APPLICATION_CREDENTIALS: "/creds/google-application-credentials.json"
@@ -53,7 +61,6 @@ services:
       - python3
       - lightweight_service.py
     environment:
-      PORT: 8000
       <<: *environment
     <<: *shared-config
   files-api:
@@ -63,7 +70,6 @@ services:
       - python3
       - files_service.py
     environment:
-      PORT: 8000
       <<: *environment
     <<: *shared-config
   nango-webhook-service:
@@ -73,7 +79,6 @@ services:
       - python3
       - nango_webhook_service.py
     environment:
-      PORT: 8000
       <<: *environment
     <<: *shared-config
   vector_search_worker:
@@ -120,7 +125,7 @@ services:
       - file_status_worker.py
     environment:
       <<: *environment
-
+    <<: *shared-config
   skywell_worker:
     container_name: al-neohorizon-skywell-worker
     image: quay.io/activeloopai/neohorizon-main:${AL_IMAGE_TAG:-latest}
@@ -129,6 +134,18 @@ services:
       - skywell_worker.py
     environment:
       <<: *environment
+    <<: *shared-config
+  auth:
+    container_name: al-neohorizon-auth
+    image: quay.io/activeloopai/neohorizon-auth:${AL_IMAGE_TAG:-latest}
+    environment:
+      POSTGRES_DB: "${POSTGRES_DB:-neohorizon}"
+      <<: *environment
+    <<: *shared-config
+  ui:
+    container_name: al-neohorizon-ui
+    image: quay.io/activeloopai/neohorizon-ui:${AL_IMAGE_TAG:-latest}
+    <<: *shared-config
 
   proxy:
     container_name: al-neohorizon-proxy
@@ -138,6 +155,8 @@ services:
     configs:
       - source: al-proxy-config
         target: /etc/nginx/conf.d/default.conf
+    environment:
+      AL_HOSTNAME: ${AL_HOSTNAME:?AL_HOSTNAME is rquired, it will be used for UI requests}
     restart: always
     depends_on:
       - main-api
@@ -158,9 +177,23 @@ configs:
   al-proxy-config:
     content: |
       server {
+        listen 80;
+        server_name ${AL_HOSTNAME};
+        location / {
+          proxy_pass http://al-neohorizon-ui:80;
+        }
+      }
+      server {
+        listen 80;
+        server_name auth-${AL_HOSTNAME};
+        location / {
+          proxy_pass http://al-neohorizon-auth:8000;
+        }
+      }
+      server {
         client_max_body_size 512m;
         listen 80;
-        server_name _;
+        server_name api-${AL_HOSTNAME};
 
         location / {
           proxy_pass http://al-neohorizon-main-api:8000;
