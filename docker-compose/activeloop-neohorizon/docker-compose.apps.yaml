@@ -175,6 +175,10 @@ networks:
   al-neohorizon-apps-network:
     driver: bridge
 
+volumes:
+  al_neohorizon_deeplake_data:
+    driver: local
+
 configs:
   # Uncomment this if you want to use google application credentials
   # google-application-credentials:
@@ -215,6 +219,3 @@ configs:
 
       }
 
-volumes:
-  al_neohorizon_deeplake_data:
-    driver: local

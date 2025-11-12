@@ -241,22 +241,22 @@ configs:
     content: |
       server {
         listen 80;
-        server_name ${AL_UI_HOSTNAME};
+        server_name ${AL_HOSTNAME};
         location / {
           proxy_pass http://al-neohorizon-ui:80;
         }
       }
       server {
         listen 80;
-        server_name auth-${AL_UI_HOSTNAME};
+        server_name auth-${AL_HOSTNAME};
         location / {
-          proxy_pass http://al-neohorizon-auth:80;
+          proxy_pass http://al-neohorizon-auth:8000;
         }
       }
       server {
         client_max_body_size 512m;
         listen 80;
-        server_name _;
+        server_name api-${AL_HOSTNAME};
 
         location / {
           proxy_pass http://al-neohorizon-main-api:8000;
