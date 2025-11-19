@@ -146,6 +146,16 @@ services:
       - MONGO_INITDB_ROOT_PASSWORD=${MONGO_INITDB_ROOT_PASSWORD:-mongo}
     <<: *shared-deps
 
+  redis:
+   image: redis:7-alpine
+   container_name: al-neohorizon-redis
+   hostname: redis
+   ports:
+     - "127.0.0.1:6379:6379"
+   entrypoint:
+     - redis-server
+   !!merge <<: *shared-deps
+
   proxy:
     container_name: al-neohorizon-proxy
     image: nginx:latest
