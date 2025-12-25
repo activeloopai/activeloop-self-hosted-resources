@@ -124,7 +124,7 @@
         <h1 class="title">Helm Charts</h1>
         
         <div class="code-block">
-            <div class="code-content">helm repo add activeloop https://charts.cloudchipr.ai
+            <div class="code-content">helm repo add activeloop https://charts.activeloop.ai
 helm repo update activeloop</div>
             <button class="copy-button" onclick="copyToClipboard()">Copy</button>
         </div>
@@ -132,7 +132,7 @@ helm repo update activeloop</div>
 
     <script>
         function copyToClipboard() {
-            const text = `helm repo add activeloop https://charts.cloudchipr.ai
+            const text = `helm repo add activeloop https://charts.activeloop.ai
 helm repo update activeloop`;
             
             navigator.clipboard.writeText(text).then(function() {
