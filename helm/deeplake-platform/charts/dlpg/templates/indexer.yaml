@@ -28,6 +28,25 @@ spec:
         runAsUser: 999
         runAsGroup: 999
       terminationGracePeriodSeconds: {{ $v.pool.terminationGracePeriodSeconds }}
+      initContainers:
+        # Same reason as the pool: pgdata is a root-owned emptyDir and postgres
+        # refuses to start unless the data directory is owned by uid 999.
+        - name: prepare-pgdata
+          image: {{ include "deeplake.image" (dict "ctx" . "image" $v.pool.image) }}
+          imagePullPolicy: {{ $v.pool.image.pullPolicy }}
+          command:
+            - bash
+            - -c
+            - |
+              set -eu
+              chmod 700 /var/lib/postgresql/data
+              chown -R 999:999 /var/lib/postgresql/data
+          securityContext:
+            runAsUser: 0
+            allowPrivilegeEscalation: false
+          volumeMounts:
+            - name: pgdata
+              mountPath: /var/lib/postgresql/data
       containers:
         - name: postgres
           image: {{ include "deeplake.image" (dict "ctx" . "image" $v.pool.image) }}
