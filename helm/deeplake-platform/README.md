@@ -100,10 +100,14 @@ These are real, and tracked rather than hidden.
   runtime-overridable key set in `app/lib/env/publicEnv.ts`, so a per-customer
   site URL still needs `--build-arg` at image build. Everything else the chart
   sets is runtime-overridable.
-- **`dlpg.proxy.snapshotRestoreOnClaim` must stay `false` on Azure and GCP.**
-  `dlsnap` (`indra/postgres/dlsnap/main.go`) only parses `s3://` and only links
-  the AWS SDK. With a non-S3 root the entrypoint guard fails and every org claim
-  pays a full catalog rebuild instead of a snapshot restore. Correct, but slow.
+- **`dlpg.proxy.snapshotRestoreOnClaim` defaults to `false`, but no longer for
+  cloud reasons.** `dlsnap` was S3-only; it was replaced by `dlstorage`
+  (`indra/cpp/dlstorage`) in `1879baf1a`, which speaks `s3://`, `az://`, `gs://`
+  and local paths through the same storage layer as the extension. Verified on
+  Azure: `dlstorage list_dirs az://…` succeeds from a 4.7.1 pool pod. It stays
+  off by default because re-enabling has its own operational gate — see
+  `indra/postgres/FINDINGS_restore_on_claim_reenable.md`. Requires a pool image
+  at 4.7.1 or newer.
 - **`dlpg.pgPilot` requires Kubernetes ≥ 1.33** with `InPlacePodVerticalScaling`
   for the `pods/resize` subresource. Off by default; verify before enabling.
 - **The device grant always shows an approval page.** `consentRequired` is false
