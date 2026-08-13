@@ -28,7 +28,7 @@ spec:
       {{- include "deeplake.imagePullSecrets" . | nindent 6 }}
       securityContext:
         runAsNonRoot: true
-        # Matches the distroless nonroot image.
+        # Matches the distroless nonroot image (gcr.io/distroless/nodejs20-debian12:nonroot).
         runAsUser: 65532
         fsGroup: 65532
       containers:
@@ -47,10 +47,11 @@ spec:
             - name: NODE_ENV
               value: production
 
-            # Plain names only; NEXT_PUBLIC_* is inlined at build time.
+            # --- Browser-facing config (plain names -> window.__ENV) ---
             - name: API_BASE_URL
               value: {{ printf "%s://api.%s" $scheme $g.domain | quote }}
 
+            # --- Auth provider selection (server-side only) ---
             {{- if eq $g.auth.provider "oidc" }}
             - name: AUTH_PROVIDER
               value: "oidc"
@@ -73,6 +74,7 @@ spec:
               value: {{ . | quote }}
             {{- end }}
             {{- with $g.auth.oidc.idpHintParam }}
+            # Keycloak uses kc_idp_hint (the default); other providers differ.
             - name: OIDC_IDP_HINT_PARAM
               value: {{ . | quote }}
             {{- end }}
@@ -81,6 +83,9 @@ spec:
               value: {{ . | quote }}
             {{- end }}
             {{- else }}
+            # Auth0 (legacy). These are NEXT_PUBLIC_* and are normally inlined
+            # at image build time; set here only if the image was built without
+            # them baked in.
             - name: AUTH_PROVIDER
               value: "auth0"
             {{- end }}

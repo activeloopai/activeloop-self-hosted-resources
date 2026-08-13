@@ -1,10 +1,3 @@
-{{/*
-Non-secret environment shared by server, worker, and the migration job.
-Defined once so the three can never drift — a worker running against a
-different storage root or issuer than the server is a silent data bug.
-
-Secrets are NOT here; they arrive via envFrom -> global.secrets.api.
-*/}}
 {{- define "deeplake-api.env" -}}
 {{- $g := .Values.global -}}
 {{- $v := .Values -}}
@@ -164,8 +157,6 @@ Secrets are NOT here; they arrive via envFrom -> global.secrets.api.
 {{- end }}
 {{- end -}}
 
-{{/* FGA ids come from the bootstrap Job's Secret. Deliberately excluded from
-deeplake-api.env: the migration hook runs pre-install, before that Job. */}}
 {{- define "deeplake-api.fgaEnv" -}}
 {{- $g := .Values.global -}}
 {{- if $g.openfga.bootstrap.enabled }}

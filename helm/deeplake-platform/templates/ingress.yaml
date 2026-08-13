@@ -1,14 +1,5 @@
 {{- $g := .Values.global -}}
 {{- if $g.ingress.enabled }}
-{{- /*
-One Ingress for the whole platform, defined at the umbrella level.
-
-Both the UI and the API are routed here rather than each subchart declaring its
-own. On clouds where an Ingress provisions a real load balancer (AWS ALB, Azure
-Application Gateway) two Ingress objects means two load balancers and two bills
-unless they are explicitly grouped — and the grouping annotations differ per
-cloud. One object sidesteps that entirely.
-*/}}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:

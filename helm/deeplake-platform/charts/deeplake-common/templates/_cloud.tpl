@@ -1,17 +1,4 @@
-{{/*
-Cloud portability layer.
 
-The entire AWS/Azure/GCP delta for this platform lives in this file plus the
-values-<cloud>.yaml overlays. Resist adding per-cloud subcharts — the
-difference is four things: workload-identity wiring, object-storage URL scheme,
-ingress/cert plumbing, and StorageClass names.
-*/}}
-
-{{/*
-Fail fast on an unsupported or unset cloud, and on a storage root that doesn't
-match it. A typo'd scheme here surfaces as a confusing pg_deeplake runtime
-error hours later, so it's worth catching at template time.
-*/}}
 {{- define "deeplake.validateCloud" -}}
 {{- $cloud := .Values.global.cloud -}}
 {{- if not (has $cloud (list "azure" "aws" "gcp")) -}}
@@ -28,11 +15,6 @@ error hours later, so it's worth catching at template time.
 {{- end -}}
 {{- end -}}
 
-{{/*
-ServiceAccount annotations that bind the pod to a cloud identity.
-Takes root context. Emits nothing when workload identity is disabled — which is
-the right default for kind/minikube trials using static credentials.
-*/}}
 {{- define "deeplake.serviceAccountAnnotations" -}}
 {{- $wi := .Values.global.workloadIdentity -}}
 {{- if $wi.enabled -}}
@@ -47,25 +29,12 @@ iam.gke.io/gcp-service-account: {{ required "global.workloadIdentity.gcp.service
 {{- end }}
 {{- end -}}
 
-{{/*
-Pod labels required by the cloud's identity webhook.
-
-Azure is the only one that needs a pod-level opt-in: the AKS workload-identity
-webhook only injects AZURE_CLIENT_ID / AZURE_TENANT_ID /
-AZURE_FEDERATED_TOKEN_FILE into pods carrying this label. pg_deeplake's
-credential chain (cpp/platform/common/storage/azure_utils.hpp) probes exactly
-those three env vars to select WorkloadIdentityCredential, so without this label
-the pool pods silently fall back to failing anonymous blob access.
-*/}}
 {{- define "deeplake.workloadIdentityPodLabels" -}}
 {{- if and .Values.global.workloadIdentity.enabled (eq .Values.global.cloud "azure") }}
 azure.workload.identity/use: "true"
 {{- end }}
 {{- end -}}
 
-{{/*
-Ingress class. Explicit value wins; otherwise a sane per-cloud default.
-*/}}
 {{- define "deeplake.ingressClassName" -}}
 {{- if .Values.global.ingress.className -}}
 {{- .Values.global.ingress.className -}}
@@ -78,10 +47,6 @@ gce
 {{- end -}}
 {{- end -}}
 
-{{/*
-Storage class for any PVC the platform creates. The stateless pool uses
-emptyDir by design, so today this only affects bundled Postgres/Keycloak.
-*/}}
 {{- define "deeplake.storageClassName" -}}
 {{- if .Values.global.storageClass -}}
 {{- .Values.global.storageClass -}}

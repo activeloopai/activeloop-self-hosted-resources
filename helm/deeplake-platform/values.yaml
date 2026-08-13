@@ -128,3 +128,28 @@ dlpg:
   enabled: true
 
 # =============================================================================
+
+# In-cluster Postgres for control-plane metadata. Off by default; point
+# global.database at your own server instead. Not the pg-deeplake data plane,
+# which always runs in-cluster.
+postgres:
+  enabled: false
+  image: postgres:18
+  storage: 32Gi
+  databases: [deeplake, keycloak, openfga]
+  resources:
+    requests:
+      cpu: "250m"
+      memory: 512Mi
+    limits:
+      memory: 2Gi
+  nodeSelector: {}
+
+# Bundled ingress controller. Off by default; set global.ingress.className to
+# your existing one.
+ingress-nginx:
+  enabled: false
+
+# Your own resources, rendered as-is. Values are templated, so {{ }} works.
+extraManifests: []
+extraManifestsRaw: []

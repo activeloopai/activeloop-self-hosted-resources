@@ -18,7 +18,7 @@ spec:
   {{- if ne $t.tier "stable" }}
   replicas: {{ $t.replicas }}
   {{- end }}
-    minReadySeconds: 30
+  minReadySeconds: 30
   strategy:
     type: RollingUpdate
     rollingUpdate:
@@ -46,6 +46,11 @@ spec:
       terminationGracePeriodSeconds: {{ $v.pool.terminationGracePeriodSeconds }}
       initContainers:
         # Always required, not just for TLS: pgdata is an emptyDir, which
+        # Kubernetes creates root-owned, and postgres refuses to start unless
+        # the data directory is owned by the running user (uid 999). An fsGroup
+        # is not sufficient — it sets the group only, and postgres checks the
+        # owner. Verified on AKS: without this the pod crash-loops with
+        # 'data directory "/var/lib/postgresql/data" has wrong ownership'.
         - name: prepare-pgdata
           image: {{ include "deeplake.image" (dict "ctx" $ "image" (dict "registry" $v.pool.image.registry "repository" $v.pool.image.repository "tag" $t.tag)) }}
           command:
@@ -82,6 +87,8 @@ spec:
           image: {{ include "deeplake.image" (dict "ctx" $ "image" (dict "registry" $v.pool.image.registry "repository" $v.pool.image.repository "tag" $t.tag)) }}
           imagePullPolicy: {{ $v.pool.image.pullPolicy }}
           # Pool pods serve queries only. Sync and indexing run in the
+          # dedicated indexer Deployment so a heavy index build can't starve
+          # an org's interactive session.
           command:
             - bash
             - -c
@@ -101,6 +108,11 @@ spec:
             - name: DEEPLAKE_MAX_CONNECTIONS
               value: {{ $v.pool.maxConnections | quote }}
             # Enables pg_deeplake's workspace_storage_resolver /
+            # creds_key_resolver: each connection calls back into deeplake-api
+            # to resolve its org's storage root and scoped credentials, which
+            # is what lets one shared pod serve bring-your-own-cloud orgs.
+            # Empty disables the resolver and everything falls back to
+            # DEEPLAKE_ROOT_PATH.
             - name: DEEPLAKE_API_URL
               value: {{ printf "http://%s.%s.svc.cluster.local:%v" (include "deeplake.componentName" (dict "ctx" $ "component" "api-server")) $.Release.Namespace $.Values.global.api.servicePort | quote }}
             - name: POSTGRES_PASSWORD
@@ -138,6 +150,8 @@ spec:
                 - bash
                 - -c
                 # The sentinel file lets the pod fail readiness the instant a
+                # drain begins, so pg-proxy stops routing new claims to it
+                # while existing sessions finish.
                 - "[ ! -f /tmp/shutting-down ] && pg_isready -h 127.0.0.1 -U postgres"
             periodSeconds: 1
             failureThreshold: 3

@@ -1,15 +1,5 @@
 {{- if .Values.global.openfga.bootstrap.enabled }}
 {{- $name := printf "%s-fga-bootstrap" (include "deeplake.fullname" .) }}
-{{- /*
-OpenFGA generates store and model IDs at creation time and deeplake-api needs
-them as config, so they cannot be shipped as values. This Job creates them and
-writes the result into a Secret the API reads.
-
-Not a Helm hook: when OpenFGA is installed by this same release it does not
-exist during the pre-install phase. Runs in the main phase and waits instead.
-The API pod stays in CreateContainerConfigError until the Secret appears, then
-starts on its own.
-*/}}
 apiVersion: v1
 kind: ConfigMap
 metadata:
