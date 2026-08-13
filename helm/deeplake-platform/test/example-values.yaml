@@ -13,18 +13,20 @@ global:
     audience: "https://api.deeplake.acme.internal"
   database:
     host: pg.acme.internal
+# Branch builds: `main` images predate the OIDC contract and start with
+# authentication disabled. Repin after #307 and #330 merge.
 deeplake-api:
   image:
-    serverTag: server-v0.37.0-ac87593
-    workerTag: worker-v0.37.0-ac87593
-    setupTag: setup-v0.37.0-ac87593
+    serverTag: server-v0.50.0-3d6f312
+    workerTag: worker-v0.50.0-3d6f312
+    setupTag: setup-v0.50.0-3d6f312
 deeplake-ui:
   image:
-    tag: v0.37.0-ac87593
+    tag: v0.44.0-3f291307
 dlpg:
   proxy:
     image:
       tag: e867fc24c201807f06e2748085966e1b96fb2336
   pool:
     image:
-      tag: 18_4.7.0_9871d4dfa152ec6b0bc93f4d1a089281fea249de
+      tag: 18_4.7.1_52f0d91f3b40fd869c6dcd35ff2b7ea955299982
