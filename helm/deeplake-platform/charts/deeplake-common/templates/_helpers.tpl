@@ -49,6 +49,26 @@ imagePullSecrets:
 {{- .Values.global.serviceAccount.name | default (printf "%s-workload" (include "deeplake.fullname" .)) -}}
 {{- end -}}
 
+{{- define "deeplake.keycloakHost" -}}
+{{- $kc := .Values.global.keycloak -}}
+{{- $kc.hostname | default (printf "kc.%s" .Values.global.domain) -}}
+{{- end -}}
+
+{{/*
+Resolved OIDC issuer. Explicit value always wins, so a customer can enable the
+bundled Keycloak and still point the platform at a different provider.
+*/}}
+{{- define "deeplake.issuerUrl" -}}
+{{- if .Values.global.auth.issuerUrl -}}
+{{- .Values.global.auth.issuerUrl -}}
+{{- else if .Values.global.keycloak.enabled -}}
+{{- $scheme := ternary "https" "http" .Values.global.ingress.tls.enabled -}}
+{{- printf "%s://%s/realms/%s" $scheme (include "deeplake.keycloakHost" .) .Values.global.keycloak.realm -}}
+{{- else -}}
+{{- fail "global.auth.issuerUrl is required (or set global.keycloak.enabled=true to bundle one)" -}}
+{{- end -}}
+{{- end -}}
+
 {{- define "deeplake.openfgaUrl" -}}
 {{- if .Values.global.openfga.url -}}
 {{- .Values.global.openfga.url -}}

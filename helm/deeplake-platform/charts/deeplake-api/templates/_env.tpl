@@ -52,7 +52,7 @@
 
 # --- OIDC ---
 - name: OIDC_ISSUER
-  value: {{ required "global.auth.issuerUrl is required" $g.auth.issuerUrl | quote }}
+  value: {{ include "deeplake.issuerUrl" . | quote }}
 - name: OIDC_AUDIENCE
   value: {{ $g.auth.audience | quote }}
 - name: OIDC_CLI_CLIENT_ID

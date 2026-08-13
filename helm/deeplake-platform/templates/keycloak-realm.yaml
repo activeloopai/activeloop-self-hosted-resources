@@ -1,0 +1,66 @@
+{{- $g := .Values.global -}}
+{{- $kc := $g.keycloak -}}
+{{- if eq $g.auth.provider "oidc" }}
+{{- $scheme := ternary "https" "http" $g.ingress.tls.enabled -}}
+{{- $uiUrl := printf "%s://%s" $scheme $g.domain -}}
+{{- $audience := $g.auth.audience | default (printf "%s://api.%s" $scheme $g.domain) -}}
+{{- $mappers := list (dict
+      "name" "deeplake-audience"
+      "protocol" "openid-connect"
+      "protocolMapper" "oidc-audience-mapper"
+      "config" (dict
+        "included.client.audience" $audience
+        "access.token.claim" "true"
+        "id.token.claim" "false")) -}}
+{{- if $kc.forceEmailVerified -}}
+{{- $mappers = append $mappers (dict
+      "name" "email-verified-true"
+      "protocol" "openid-connect"
+      "protocolMapper" "oidc-hardcoded-claim-mapper"
+      "config" (dict
+        "claim.name" "email_verified"
+        "claim.value" "true"
+        "jsonType.label" "boolean"
+        "access.token.claim" "true"
+        "id.token.claim" "true"
+        "userinfo.token.claim" "true")) -}}
+{{- end -}}
+{{- $realm := dict
+      "realm" $kc.realm
+      "enabled" true
+      "registrationAllowed" $kc.registrationAllowed
+      "resetPasswordAllowed" $kc.resetPasswordAllowed
+      "loginWithEmailAllowed" true
+      "verifyEmail" false
+      "clients" (list
+        (dict
+          "clientId" $g.auth.uiClientId
+          "enabled" true
+          "publicClient" true
+          "standardFlowEnabled" true
+          "directAccessGrantsEnabled" false
+          "consentRequired" false
+          "redirectUris" (list (printf "%s/*" $uiUrl) "http://localhost:3000/*")
+          "webOrigins" (list $uiUrl)
+          "attributes" (dict "pkce.code.challenge.method" "S256")
+          "protocolMappers" $mappers)
+        (dict
+          "clientId" $g.auth.cliClientId
+          "enabled" true
+          "publicClient" true
+          "standardFlowEnabled" false
+          "directAccessGrantsEnabled" false
+          "consentRequired" false
+          "attributes" (dict "oauth2.device.authorization.grant.enabled" "true")
+          "protocolMappers" $mappers)) -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ printf "%s-keycloak-realm" (include "deeplake.fullname" .) }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "deeplake.labels" . | nindent 4 }}
+data:
+  realm.json: |
+    {{- $realm | toPrettyJson | nindent 4 }}
+{{- end }}

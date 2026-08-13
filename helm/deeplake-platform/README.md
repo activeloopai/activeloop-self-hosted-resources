@@ -55,6 +55,26 @@ plus the `values-<cloud>.yaml` overlays. It covers workload-identity wiring,
 storage URL scheme, ingress class, and StorageClass. Do not fork the chart per
 cloud.
 
+**Identity is bring-your-own, with Keycloak as a convenience.** Any OIDC
+provider works — set `global.auth.issuerUrl` and the two client IDs. For
+customers without one, `global.keycloak.enabled=true` deploys Keycloak and
+imports a realm with both clients preconfigured (UI client with PKCE, CLI client
+with the device grant, and the audience mapper the API's token validation
+depends on). `global.auth.issuerUrl` is then derived and can stay empty; setting
+it explicitly always wins, so you can bundle Keycloak and still point the
+platform elsewhere.
+
+The realm ConfigMap renders whether or not Keycloak is bundled, so a customer
+running their own Keycloak can import the same realm:
+
+```bash
+kubectl get cm <release>-keycloak-realm -o jsonpath='{.data.realm\.json}' > realm.json
+# then: admin console -> Create realm -> Browse -> realm.json
+```
+
+Import happens once, at first startup, and skips a realm that already exists —
+edit clients in the admin console after that, not by reinstalling.
+
 **The chart never creates a secret.** You supply Secret names via
 `global.secrets.*`. Generate them yourself or sync them with External Secrets
 Operator from Key Vault / Secrets Manager / Secret Manager.
@@ -86,6 +106,15 @@ These are real, and tracked rather than hidden.
   pays a full catalog rebuild instead of a snapshot restore. Correct, but slow.
 - **`dlpg.pgPilot` requires Kubernetes ≥ 1.33** with `InPlacePodVerticalScaling`
   for the `pods/resize` subresource. Off by default; verify before enabling.
+- **The device grant always shows an approval page.** `consentRequired` is false
+  on both clients, but Keycloak still renders a confirm step for the device flow
+  — the user is approving the device, not the client's scopes. `hivemind` users
+  see it after login. This is correct OAuth behaviour, not a misconfiguration.
+- **Bundled Keycloak runs a single replica.** Clustering it means configuring
+  jgroups discovery; `keycloak.replicas > 1` is not wired up.
+- **Users need first and last name.** Keycloak forces an "Update Account
+  Information" step otherwise, which stalls the device flow. Self-registration
+  collects both; users created through the admin API must set them too.
 - **Pool sizing needs review per customer.** Requests are 2Gi/0.5cpu but limits
   are 32Gi/8cpu, and the tail genuinely reaches it. Nodes must be able to
   schedule a pod at the limit.

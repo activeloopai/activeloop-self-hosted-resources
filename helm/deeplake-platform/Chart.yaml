@@ -3,8 +3,7 @@ name: deeplake-platform
 description: Self-hosted Activeloop Deep Lake — API, UI, and the pg-deeplake data plane.
 type: application
 
-# Chart version is the platform release: api and pg-deeplake must ship together.
-# versions independently — bump this instead.
+# Chart version is the platform release: api and pg-deeplake ship together.
 version: 0.1.0
 appVersion: "0.37.0"
 
