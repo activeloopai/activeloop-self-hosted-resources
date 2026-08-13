@@ -39,4 +39,4 @@ credentials from the secret named in global.secrets.api. Acceptable for a
 trial; do not run production this way.
 {{- end }}
 
-Next steps: docs/post-install.md
+Setup guide: docs/install.md

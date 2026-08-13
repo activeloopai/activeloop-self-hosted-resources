@@ -15,6 +15,7 @@ deeplake-platform/
 ├── values-azure.yaml       # per-cloud overlays
 ├── values-aws.yaml
 ├── values-gcp.yaml
+├── docs/install.md         # setup guide: prerequisites, install, verify
 └── charts/
     ├── deeplake-common/    # library chart — shared helpers, renders nothing
     ├── deeplake-api/       # api-server, api-worker, migration hook
@@ -24,6 +25,10 @@ deeplake-platform/
 
 ## Install
 
+Full walkthrough in [docs/install.md](docs/install.md) — object storage,
+workload identity, secrets, DNS, and a verification checklist. Once the
+prerequisites are in place:
+
 ```bash
 helm install deeplake oci://quay.io/activeloopai/charts/deeplake-platform \
   --version 0.1.0 \
@@ -31,6 +36,10 @@ helm install deeplake oci://quay.io/activeloopai/charts/deeplake-platform \
   -f values-azure.yaml \
   -f my-values.yaml
 ```
+
+Workload identity is the step to get right: a missing or mismatched federated
+credential makes `pg_deeplake` abort the Postgres backend on the first
+storage-touching statement, rather than returning an error.
 
 ## Design decisions worth knowing
 
