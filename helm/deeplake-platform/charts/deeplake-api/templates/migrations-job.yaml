@@ -10,7 +10,10 @@ metadata:
     {{- include "deeplake.labels" . | nindent 4 }}
     app.kubernetes.io/component: migrate
   annotations:
-    "helm.sh/hook": pre-install,pre-upgrade
+    # pre-install normally, so the schema is ready before anything serves. With
+    # the bundled Postgres there is nothing to migrate yet at pre-install time —
+    # it is a main-phase resource — so run after it exists and wait for it.
+    "helm.sh/hook": {{ if $g.postgres.enabled }}post-install,post-upgrade{{ else }}pre-install,pre-upgrade{{ end }}
     "helm.sh/hook-weight": "-10"
     "helm.sh/hook-delete-policy": before-hook-creation
 spec:
@@ -28,6 +31,27 @@ spec:
         runAsNonRoot: true
         runAsUser: 10001
         fsGroup: 10001
+      {{- if $g.postgres.enabled }}
+      initContainers:
+        - name: wait-for-db
+          image: {{ include "deeplake.image" (dict "ctx" . "image" (dict "registry" $v.image.registry "repository" $v.image.repository "tag" $v.image.setupTag)) }}
+          imagePullPolicy: {{ $v.image.pullPolicy }}
+          command:
+            - sh
+            - -c
+            - |
+              for i in $(seq 1 120); do
+                nc -z {{ $g.database.host }} {{ $g.database.port }} && exit 0
+                sleep 2
+              done
+              echo "timed out waiting for {{ $g.database.host }}:{{ $g.database.port }}" >&2
+              exit 1
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+      {{- end }}
       containers:
         - name: migrate
           image: {{ include "deeplake.image" (dict "ctx" . "image" (dict "registry" $v.image.registry "repository" $v.image.repository "tag" $v.image.setupTag)) }}

@@ -1,4 +1,4 @@
-{{- if .Values.postgres.enabled }}
+{{- if .Values.global.postgres.enabled }}
 {{- $name := printf "%s-postgres" (include "deeplake.fullname" .) }}
 apiVersion: v1
 kind: ConfigMap

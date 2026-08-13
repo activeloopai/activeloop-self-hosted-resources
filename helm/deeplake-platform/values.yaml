@@ -83,6 +83,12 @@ global:
     deviceAuthUrl: ""
     tokenUrl: ""
 
+  # -- Bundled control-plane Postgres. Off by default; point global.database at
+  # your own server instead. Not the pg-deeplake data plane, which is always
+  # in-cluster. Tuning lives in the top-level `postgres:` section.
+  postgres:
+    enabled: false
+
   # -- Bundled Keycloak. Off by default: point global.auth.issuerUrl at your
   # existing Keycloak, Entra ID, Okta or any other OIDC provider instead.
   # When enabled, global.auth.issuerUrl is derived and may be left empty.
@@ -149,11 +155,8 @@ dlpg:
 
 # =============================================================================
 
-# In-cluster Postgres for control-plane metadata. Off by default; point
-# global.database at your own server instead. Not the pg-deeplake data plane,
-# which always runs in-cluster.
+# Bundled Postgres tuning. Enable it via global.postgres.enabled.
 postgres:
-  enabled: false
   image: postgres:18
   storage: 32Gi
   databases: [deeplake, keycloak, openfga]

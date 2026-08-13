@@ -3,9 +3,9 @@
 {{- $v := .Values.keycloak -}}
 {{- $name := printf "%s-keycloak" (include "deeplake.fullname" .) -}}
 {{- $scheme := ternary "https" "http" $g.ingress.tls.enabled -}}
-{{- $dbHost := $v.database.host | default (ternary (printf "%s-postgres" (include "deeplake.fullname" .)) $g.database.host .Values.postgres.enabled) -}}
+{{- $dbHost := $v.database.host | default (ternary (printf "%s-postgres" (include "deeplake.fullname" .)) $g.database.host .Values.global.postgres.enabled) -}}
 {{- if not $dbHost }}
-{{- fail "keycloak.database.host is required (or enable postgres.enabled, or set global.database.host)" }}
+{{- fail "keycloak.database.host is required (or enable global.postgres.enabled, or set global.database.host)" }}
 {{- end }}
 apiVersion: apps/v1
 kind: Deployment
