@@ -23,11 +23,13 @@ Verify
   kubectl -n {{ .Release.Namespace }} get pods
   kubectl -n {{ .Release.Namespace }} logs -l app.kubernetes.io/component=api-server --tail=50
 
-{{- if not .Values.global.auth.issuerUrl }}
+OIDC issuer: {{ include "deeplake.issuerUrl" . }}
+{{- if and (not .Values.global.auth.issuerUrl) .Values.global.keycloak.enabled }}
+  (derived from the bundled Keycloak; set global.auth.issuerUrl to override)
 
-WARNING: global.auth.issuerUrl is empty. The API will start but reject every
-request with 401. Set it to your OIDC issuer, e.g.
-  https://keycloak.{{ .Values.global.domain }}/realms/deeplake
+{{ include "deeplake.keycloakHost" . }} must resolve from inside the cluster —
+the API fetches the discovery document over that hostname and will crash-loop
+until it does.
 {{- end }}
 
 {{- if not .Values.global.workloadIdentity.enabled }}
