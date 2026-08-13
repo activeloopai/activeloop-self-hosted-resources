@@ -93,9 +93,9 @@ These are real, and tracked rather than hidden.
   not work against `main` until both land. Specifically it needs `OIDC_ISSUER`
   on the API, and on the UI the `AUTH_PROVIDER`/`OIDC_*` server config plus
   plain-name runtime env (`API_BASE_URL`) — none of which exist on `main`.
-- **`deeplake-ui` image must be published.** PR #330 adds the Dockerfile
-  (distroless, port 3000, uid 65532) but no CI job pushes it yet. Set
-  `deeplake-ui.image.tag` once `quay.io/activeloopai/deeplake-ui` has one.
+- **`deeplake-ui` images are built from the PR branch, not `main`.** The newest
+  tag is `v0.44.0-3f291307` (PR #330 head, multi-arch). Anything built from
+  `main` lacks the runtime env contract this chart sets.
 - **`NEXT_PUBLIC_SITE_URL` is build-time only.** It is not in the
   runtime-overridable key set in `app/lib/env/publicEnv.ts`, so a per-customer
   site URL still needs `--build-arg` at image build. Everything else the chart
