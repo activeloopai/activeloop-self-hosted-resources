@@ -1,0 +1,45 @@
+# Azure / AKS overlay.
+#
+#   helm install deeplake . -f values-azure.yaml -f my-values.yaml
+#
+# Prerequisites (see terraform/azure/):
+#   - AKS with OIDC issuer + workload identity enabled:
+#       az aks update -g <rg> -n <cluster> \
+#         --enable-oidc-issuer --enable-workload-identity
+#   - A storage account + container, with the managed identity granted
+#     "Storage Blob Data Contributor" on it
+#   - A federated credential on that identity for
+#     system:serviceaccount:<namespace>:<release>-workload
+
+global:
+  cloud: azure
+
+  # Mirror images here for air-gapped installs.
+  # imageRegistry: mycompany.azurecr.io
+
+  storage:
+    # az://<storage-account>/<container>/<prefix>
+    rootPath: ""
+
+  workloadIdentity:
+    enabled: true
+    azure:
+      clientId: ""
+      tenantId: ""
+
+  ingress:
+    # AKS app routing add-on. Use "nginx" if you run ingress-nginx yourself,
+    # or "azure-application-gateway" for AGIC.
+    className: webapprouting.kubernetes.azure.com
+    annotations:
+      cert-manager.io/cluster-issuer: letsencrypt-prod
+    tls:
+      enabled: true
+
+  storageClass: managed-csi
+
+dlpg:
+  pool:
+    # Images are multi-arch; x86 node pools are fine.
+    nodeSelector: {}
+    tolerations: []

@@ -1,0 +1,48 @@
+apiVersion: v2
+name: deeplake-platform
+description: Self-hosted Activeloop Deep Lake — API, UI, and the pg-deeplake data plane.
+type: application
+
+# Chart version is the platform release: api and pg-deeplake must ship together.
+# versions independently — bump this instead.
+version: 0.1.0
+appVersion: "0.37.0"
+
+kubeVersion: ">= 1.29.0-0"
+
+keywords:
+  - activeloop
+  - deeplake
+  - vector-database
+  - self-hosted
+home: https://deeplake.ai
+sources:
+  - https://github.com/activeloopai/deeplake-api
+  - https://github.com/activeloopai/deeplake-ui
+
+maintainers:
+  - name: Activeloop
+    email: support@activeloop.ai
+
+dependencies:
+  # Library chart: shared helpers, renders nothing.
+  - name: deeplake-common
+    version: 0.1.0
+    repository: file://charts/deeplake-common
+
+  - name: deeplake-api
+    version: 0.1.0
+    repository: file://charts/deeplake-api
+    condition: deeplake-api.enabled
+
+  - name: deeplake-ui
+    version: 0.1.0
+    repository: file://charts/deeplake-ui
+    condition: deeplake-ui.enabled
+
+  - name: dlpg
+    version: 0.1.0
+    repository: file://charts/dlpg
+    condition: dlpg.enabled
+
+  # NOTE: OpenFGA, Keycloak, and Postgres are deliberately NOT dependencies.

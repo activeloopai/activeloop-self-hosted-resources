@@ -1,0 +1,5 @@
+apiVersion: v2
+name: deeplake-common
+description: Shared template helpers for the deeplake-platform chart. Renders nothing.
+type: library
+version: 0.1.0

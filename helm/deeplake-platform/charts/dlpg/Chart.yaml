@@ -1,0 +1,10 @@
+apiVersion: v2
+name: dlpg
+description: pg-deeplake data plane — pg-proxy router, stateless pod pool, and indexer.
+type: application
+version: 0.1.0
+appVersion: "4.7.0"
+dependencies:
+  - name: deeplake-common
+    version: 0.1.0
+    repository: file://../deeplake-common

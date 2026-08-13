@@ -1,0 +1,178 @@
+{{- $v := .Values -}}
+{{- $g := .Values.global -}}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ include "deeplake.componentName" (dict "ctx" . "component" "pg-proxy") }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "deeplake.labels" . | nindent 4 }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "deeplake.componentName" (dict "ctx" . "component" "pg-proxy") }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "deeplake.labels" . | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources: ["pods"]
+    # Lists the pool to discover candidates, then compare-and-swaps the
+    # `deeplake.ai/org` label (via resourceVersion) to claim one.
+    verbs: ["get", "list", "watch", "patch", "update"]
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    # Scales the pool Deployment to hold minIdle..maxIdle warm pods.
+    verbs: ["get", "list", "watch", "update", "patch"]
+  - apiGroups: ["coordination.k8s.io"]
+    resources: ["leases"]
+    # Leader election plus one Lease per org to serialize concurrent claims.
+    # "delete" is required — the claim lock releases by deleting its Lease.
+    verbs: ["get", "create", "update", "watch", "list", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "deeplake.componentName" (dict "ctx" . "component" "pg-proxy") }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "deeplake.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "deeplake.componentName" (dict "ctx" . "component" "pg-proxy") }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "deeplake.componentName" (dict "ctx" . "component" "pg-proxy") }}
+    namespace: {{ .Release.Namespace }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "deeplake.componentName" (dict "ctx" . "component" "pg-proxy") }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "deeplake.labels" . | nindent 4 }}
+    app.kubernetes.io/component: pg-proxy
+spec:
+  replicas: {{ $v.proxy.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "deeplake.selectorLabels" (dict "ctx" . "component" "pg-proxy") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "deeplake.selectorLabels" (dict "ctx" . "component" "pg-proxy") | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "deeplake.componentName" (dict "ctx" . "component" "pg-proxy") }}
+      {{- include "deeplake.imagePullSecrets" . | nindent 6 }}
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    {{- include "deeplake.selectorLabels" (dict "ctx" . "component" "pg-proxy") | nindent 20 }}
+                topologyKey: kubernetes.io/hostname
+      containers:
+        - name: pg-proxy
+          image: {{ include "deeplake.image" (dict "ctx" . "image" $v.proxy.image) }}
+          imagePullPolicy: {{ $v.proxy.image.pullPolicy }}
+          ports:
+            - name: postgresql
+              containerPort: 5432
+            - name: health
+              containerPort: 8080
+          env:
+            - name: MY_POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: PROXY_MODE
+              value: {{ $v.proxy.mode | quote }}
+            - name: LISTEN_ADDR
+              value: ":5432"
+            - name: NAMESPACE
+              value: {{ .Release.Namespace | quote }}
+            - name: DEPLOY_NAME
+              value: {{ include "deeplake.componentName" (dict "ctx" . "component" "pool") | quote }}
+            # Matches the stable pool and, when enabled, the canary pool.
+            - name: POD_LABEL_SELECTOR
+              value: "deeplake-stateless=true"
+            - name: PG_USER
+              value: "postgres"
+            - name: PG_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ required "global.secrets.dlpg is required" $g.secrets.dlpg }}
+                  key: password
+            - name: MIN_IDLE
+              value: {{ $v.proxy.pool.minIdle | quote }}
+            - name: MAX_IDLE
+              value: {{ $v.proxy.pool.maxIdle | quote }}
+            - name: MAX_CONNS_PER_POD
+              value: {{ $v.proxy.pool.maxConnsPerPod | quote }}
+            - name: MAX_PODS_PER_ORG
+              value: {{ $v.proxy.pool.maxPodsPerOrg | quote }}
+            - name: CHECK_INTERVAL
+              value: {{ $v.proxy.pool.checkInterval | quote }}
+            - name: IDLE_TIMEOUT
+              value: {{ $v.proxy.pool.idleTimeout | quote }}
+            - name: SCALE_DOWN_GRACE_PERIOD
+              value: {{ $v.proxy.pool.scaleDownGracePeriod | quote }}
+            - name: DEEPLAKE_SNAPSHOT_RESTORE_ON_CLAIM
+              value: {{ ternary "1" "0" $v.proxy.snapshotRestoreOnClaim | quote }}
+            - name: TXN_POOLING
+              value: {{ ternary "1" "0" $v.proxy.txnPooling | quote }}
+            {{- if $v.pool.canary.enabled }}
+            - name: DEEPLAKE_CANARY_ORGS
+              value: {{ $v.pool.canary.orgs | quote }}
+            {{- end }}
+          resources:
+            {{- toYaml $v.proxy.resources | nindent 12 }}
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: health
+            initialDelaySeconds: 2
+            periodSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: health
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            failureThreshold: 3
+      {{- with $v.proxy.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $v.proxy.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "deeplake.componentName" (dict "ctx" . "component" "pg-proxy") }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "deeplake.labels" . | nindent 4 }}
+    app.kubernetes.io/component: pg-proxy
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "deeplake.selectorLabels" (dict "ctx" . "component" "pg-proxy") | nindent 4 }}
+  ports:
+    - name: postgresql
+      port: 5432
+      targetPort: postgresql
+      protocol: TCP
+    - name: health
+      port: 8080
+      targetPort: health
+      protocol: TCP

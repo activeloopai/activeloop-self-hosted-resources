@@ -1,0 +1,10 @@
+apiVersion: v2
+name: deeplake-api
+description: Deep Lake control-plane API (server + worker) and schema migrations.
+type: application
+version: 0.1.0
+appVersion: "0.37.0"
+dependencies:
+  - name: deeplake-common
+    version: 0.1.0
+    repository: file://../deeplake-common

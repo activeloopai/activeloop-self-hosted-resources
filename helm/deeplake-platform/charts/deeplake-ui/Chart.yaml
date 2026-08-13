@@ -1,0 +1,10 @@
+apiVersion: v2
+name: deeplake-ui
+description: Deep Lake web UI (Next.js).
+type: application
+version: 0.1.0
+appVersion: "0.37.0"
+dependencies:
+  - name: deeplake-common
+    version: 0.1.0
+    repository: file://../deeplake-common

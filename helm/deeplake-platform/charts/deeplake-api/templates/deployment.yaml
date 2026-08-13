@@ -1,0 +1,101 @@
+{{- $v := .Values -}}
+{{- $g := .Values.global -}}
+{{- range $component, $cfg := (dict "api-server" $v.server "api-worker" $v.worker) }}
+{{- $isServer := eq $component "api-server" }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "deeplake.componentName" (dict "ctx" $ "component" $component) }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    {{- include "deeplake.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: {{ $component }}
+spec:
+  {{- if not (and $isServer $v.server.autoscaling.enabled) }}
+  replicas: {{ $cfg.replicaCount }}
+  {{- end }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 50%
+  selector:
+    matchLabels:
+      {{- include "deeplake.selectorLabels" (dict "ctx" $ "component" $component) | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "deeplake.selectorLabels" (dict "ctx" $ "component" $component) | nindent 8 }}
+        {{- include "deeplake.workloadIdentityPodLabels" $ | nindent 8 }}
+      {{- with $cfg.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      serviceAccountName: {{ include "deeplake.serviceAccountName" $ }}
+      {{- include "deeplake.imagePullSecrets" $ | nindent 6 }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        fsGroup: 10001
+      containers:
+        - name: {{ $component }}
+          image: {{ include "deeplake.image" (dict "ctx" $ "image" (dict "registry" $v.image.registry "repository" $v.image.repository "tag" (ternary $v.image.serverTag $v.image.workerTag $isServer))) }}
+          imagePullPolicy: {{ $v.image.pullPolicy }}
+          {{- if $isServer }}
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          {{- end }}
+          env:
+            {{- include "deeplake-api.env" $ | nindent 12 }}
+            {{- include "deeplake-api.fgaEnv" $ | nindent 12 }}
+          envFrom:
+            - secretRef:
+                name: {{ required "global.secrets.api is required" $g.secrets.api }}
+          {{- if $isServer }}
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 20
+            timeoutSeconds: 3
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          {{- end }}
+          resources:
+            {{- toYaml $cfg.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
+      {{- with $cfg.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $cfg.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $cfg.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}

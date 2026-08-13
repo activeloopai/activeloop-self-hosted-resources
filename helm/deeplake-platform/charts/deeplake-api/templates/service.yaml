@@ -1,0 +1,36 @@
+{{- $v := .Values -}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "deeplake.componentName" (dict "ctx" . "component" "api-server") }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "deeplake.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api-server
+spec:
+  type: {{ $v.service.type }}
+  ports:
+    - name: http
+      port: {{ .Values.global.api.servicePort }}
+      targetPort: http
+      protocol: TCP
+  selector:
+    {{- include "deeplake.selectorLabels" (dict "ctx" . "component" "api-server") | nindent 4 }}
+{{- if $v.serviceMonitor.enabled }}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "deeplake.componentName" (dict "ctx" . "component" "api-server") }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "deeplake.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "deeplake.selectorLabels" (dict "ctx" . "component" "api-server") | nindent 6 }}
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 30s
+{{- end }}

@@ -1,0 +1,161 @@
+{{- if .Values.global.openfga.bootstrap.enabled }}
+{{- $name := printf "%s-fga-bootstrap" (include "deeplake.fullname" .) }}
+{{- /*
+OpenFGA generates store and model IDs at creation time and deeplake-api needs
+them as config, so they cannot be shipped as values. This Job creates them and
+writes the result into a Secret the API reads.
+
+Not a Helm hook: when OpenFGA is installed by this same release it does not
+exist during the pre-install phase. Runs in the main phase and waits instead.
+The API pod stays in CreateContainerConfigError until the Secret appears, then
+starts on its own.
+*/}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $name }}-model
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "deeplake.labels" . | nindent 4 }}
+data:
+  model.json: |
+{{ .Files.Get "files/openfga-model.json" | indent 4 }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ $name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "deeplake.labels" . | nindent 4 }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ $name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "deeplake.labels" . | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get", "create", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ $name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "deeplake.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ $name }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ $name }}
+    namespace: {{ .Release.Namespace }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ $name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "deeplake.labels" . | nindent 4 }}
+spec:
+  backoffLimit: 6
+  template:
+    metadata:
+      labels:
+        {{- include "deeplake.selectorLabels" (dict "ctx" . "component" "fga-bootstrap") | nindent 8 }}
+    spec:
+      restartPolicy: OnFailure
+      serviceAccountName: {{ $name }}
+      containers:
+        - name: bootstrap
+          image: {{ .Values.global.openfga.bootstrap.image }}
+          env:
+            - name: FGA_URL
+              value: {{ include "deeplake.openfgaUrl" . | quote }}
+            - name: SECRET_NAME
+              value: {{ .Values.global.openfga.bootstrap.secretName | quote }}
+            - name: NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            {{- with .Values.global.openfga.apiToken }}
+            - name: FGA_TOKEN
+              value: {{ . | quote }}
+            {{- end }}
+          volumeMounts:
+            - name: model
+              mountPath: /model
+          command:
+            - sh
+            - -c
+            - |
+              set -eu
+              KUBE=https://kubernetes.default.svc
+              SA=/var/run/secrets/kubernetes.io/serviceaccount
+              TOKEN=$(cat $SA/token)
+              AUTH=""
+              [ -n "${FGA_TOKEN:-}" ] && AUTH="-H \"Authorization: Bearer $FGA_TOKEN\""
+
+              echo "waiting for OpenFGA at $FGA_URL"
+              i=0
+              until curl -sf -m 5 "$FGA_URL/healthz" >/dev/null 2>&1; do
+                i=$((i+1)); [ $i -gt 60 ] && { echo "openfga not ready after 5m"; exit 1; }
+                sleep 5
+              done
+
+              # Idempotent: if the Secret already carries a store id, leave it be.
+              EXISTING=$(curl -sk -H "Authorization: Bearer $TOKEN" \
+                "$KUBE/api/v1/namespaces/$NAMESPACE/secrets/$SECRET_NAME" 2>/dev/null || true)
+              case "$EXISTING" in
+                *FGA_STORE_ID*) echo "already bootstrapped; nothing to do"; exit 0 ;;
+              esac
+
+              echo "creating store"
+              STORE=$(curl -sf -m 30 -X POST "$FGA_URL/stores" \
+                ${FGA_TOKEN:+-H "Authorization: Bearer $FGA_TOKEN"} \
+                -H 'Content-Type: application/json' -d '{"name":"deeplake"}' \
+                | sed -n 's/.*"id"[ ]*:[ ]*"\([^"]*\)".*/\1/p')
+              [ -n "$STORE" ] || { echo "failed to create store"; exit 1; }
+
+              echo "writing authorization model"
+              MODEL=$(curl -sf -m 60 -X POST "$FGA_URL/stores/$STORE/authorization-models" \
+                ${FGA_TOKEN:+-H "Authorization: Bearer $FGA_TOKEN"} \
+                -H 'Content-Type: application/json' --data-binary @/model/model.json \
+                | sed -n 's/.*"authorization_model_id"[ ]*:[ ]*"\([^"]*\)".*/\1/p')
+              [ -n "$MODEL" ] || { echo "failed to write model"; exit 1; }
+
+              echo "store=$STORE model=$MODEL"
+              B64_STORE=$(printf '%s' "$STORE" | base64 | tr -d '\n')
+              B64_MODEL=$(printf '%s' "$MODEL" | base64 | tr -d '\n')
+
+              BODY="{\"apiVersion\":\"v1\",\"kind\":\"Secret\",\"metadata\":{\"name\":\"$SECRET_NAME\"},\"data\":{\"FGA_STORE_ID\":\"$B64_STORE\",\"FGA_AUTHORIZATION_MODEL_ID\":\"$B64_MODEL\"}}"
+              CODE=$(curl -sk -o /tmp/out -w '%{http_code}' -X POST \
+                -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+                "$KUBE/api/v1/namespaces/$NAMESPACE/secrets" -d "$BODY")
+              if [ "$CODE" = "409" ]; then
+                CODE=$(curl -sk -o /tmp/out -w '%{http_code}' -X PATCH \
+                  -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/merge-patch+json' \
+                  "$KUBE/api/v1/namespaces/$NAMESPACE/secrets/$SECRET_NAME" -d "$BODY")
+              fi
+              case "$CODE" in
+                2*) echo "wrote $SECRET_NAME" ;;
+                *)  echo "failed to write secret: $CODE"; cat /tmp/out; exit 1 ;;
+              esac
+          resources:
+            requests:
+              cpu: "50m"
+              memory: 64Mi
+            limits:
+              memory: 256Mi
+      volumes:
+        - name: model
+          configMap:
+            name: {{ $name }}-model
+{{- end }}

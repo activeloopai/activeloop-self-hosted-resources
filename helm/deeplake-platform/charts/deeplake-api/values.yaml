@@ -1,0 +1,118 @@
+enabled: true
+
+image:
+  # Registry falls back to global.imageRegistry.
+  registry: ""
+  repository: activeloopai/deeplake-api
+  pullPolicy: IfNotPresent
+  # Tags are per-binary: the Dockerfile builds cmd/{server,worker,setup} and
+  # publishes them as separate tags. All three MUST come from the same build.
+  serverTag: ""
+  workerTag: ""
+  setupTag: ""
+
+server:
+  replicaCount: 2
+  resources:
+    requests:
+      cpu: "500m"
+      memory: 512Mi
+    limits:
+      memory: 1Gi
+  autoscaling:
+    enabled: false
+    minReplicas: 2
+    maxReplicas: 6
+    targetCPUUtilizationPercentage: 80
+  podAnnotations: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+worker:
+  replicaCount: 1
+  resources:
+    requests:
+      cpu: "250m"
+      memory: 512Mi
+    limits:
+      memory: 2Gi
+  podAnnotations: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+service:
+  type: ClusterIP
+  port: 80
+
+# Schema migrations run as a Helm pre-install/pre-upgrade hook using the
+# `setup` binary. Disable only if you apply migrations out of band.
+migrations:
+  enabled: true
+  backoffLimit: 2
+  resources:
+    requests:
+      cpu: "250m"
+      memory: 256Mi
+    limits:
+      memory: 512Mi
+
+# Cross-namespace read on dlpg pool pods, used by the pod-uptime poller to bill
+podUptimeRbac:
+  enabled: false
+
+serviceMonitor:
+  enabled: false
+
+# --- Feature toggles -------------------------------------------------------
+features:
+  billing:
+    # Requires Stripe. Almost always false for self-hosted.
+    enabled: false
+  analytics:
+    # PostHog.
+    enabled: false
+  email:
+    # Empty apiKey -> the API runs its NoOp mailer and skips invites/welcome.
+    enabled: false
+    fromAddress: "Deep Lake <noreply@deeplake.example.com>"
+  telemetry:
+    # OpenTelemetry traces. Point at an in-cluster collector.
+    enabled: false
+    endpoint: ""
+    sampleRate: "1.0"
+
+# --- Inference backends ----------------------------------------------------
+embedding:
+  # http | openai | litellm | triton
+  provider: http
+  url: ""
+  model: nomic-ai/colnomic-embed-multimodal-7b
+  timeout: 60s
+
+vision:
+  # Leave disabled to store images/PDFs without OCR text extraction.
+  enabled: false
+  # gemini | bedrock | azure
+  provider: azure
+  model: ""
+  baseUrl: ""
+  timeout: 120s
+
+# Unauthenticated read-only access to a designated showcase workspace.
+# Off by default — most self-hosted installs do not want anonymous reads.
+publicTables:
+  enabled: false
+  orgId: ""
+  workspaceId: default
+  rateLimitRPM: 60
+  queryTimeout: 10s
+
+# Extra env vars appended verbatim to both server and worker.
+extraEnv: []
+# - name: LOG_LEVEL
+#   value: debug
+
+logLevel: info
+logFormat: json

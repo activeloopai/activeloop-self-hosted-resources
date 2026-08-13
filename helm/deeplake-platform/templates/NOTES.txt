@@ -1,0 +1,40 @@
+deeplake-platform {{ .Chart.Version }} (Deep Lake {{ .Chart.AppVersion }})
+installed as "{{ .Release.Name }}" in namespace "{{ .Release.Namespace }}".
+
+  Cloud:        {{ .Values.global.cloud }}
+  Storage root: {{ .Values.global.storage.rootPath }}
+  Registry:     {{ .Values.global.imageRegistry | default "(docker hub)" }}
+
+Endpoints
+---------
+{{- if .Values.global.ingress.enabled }}
+  UI:   http{{ if .Values.global.ingress.tls.enabled }}s{{ end }}://{{ .Values.global.domain }}
+  API:  http{{ if .Values.global.ingress.tls.enabled }}s{{ end }}://api.{{ .Values.global.domain }}
+{{- else }}
+  Ingress is disabled. Port-forward to reach the services:
+    kubectl -n {{ .Release.Namespace }} port-forward svc/{{ .Release.Name }}-api-server 8080:80
+{{- end }}
+
+  Postgres (SDK clients connect here, not to the control-plane DB):
+    kubectl -n {{ .Release.Namespace }} port-forward svc/{{ .Release.Name }}-pg-proxy 5432:5432
+
+Verify
+------
+  kubectl -n {{ .Release.Namespace }} get pods
+  kubectl -n {{ .Release.Namespace }} logs -l app.kubernetes.io/component=api-server --tail=50
+
+{{- if not .Values.global.auth.issuerUrl }}
+
+WARNING: global.auth.issuerUrl is empty. The API will start but reject every
+request with 401. Set it to your OIDC issuer, e.g.
+  https://keycloak.{{ .Values.global.domain }}/realms/deeplake
+{{- end }}
+
+{{- if not .Values.global.workloadIdentity.enabled }}
+
+WARNING: workload identity is disabled. Pods will fall back to static
+credentials from the secret named in global.secrets.api. Acceptable for a
+trial; do not run production this way.
+{{- end }}
+
+Next steps: docs/post-install.md

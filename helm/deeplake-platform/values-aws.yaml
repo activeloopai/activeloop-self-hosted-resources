@@ -1,0 +1,39 @@
+# AWS / EKS overlay.
+#
+#   helm install deeplake . -f values-aws.yaml -f my-values.yaml
+#
+# Prerequisites (see terraform/aws/):
+#   - EKS with an OIDC provider, and an IAM role trusting
+#     system:serviceaccount:<namespace>:<release>-workload
+#   - An S3 bucket the role can read/write
+
+global:
+  cloud: aws
+
+  storage:
+    # s3://<bucket>/<prefix>
+    rootPath: ""
+
+  workloadIdentity:
+    enabled: true
+    aws:
+      roleArn: ""
+
+  ingress:
+    className: alb
+    annotations:
+      alb.ingress.kubernetes.io/scheme: internal
+      alb.ingress.kubernetes.io/target-type: ip
+      alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
+      alb.ingress.kubernetes.io/ssl-redirect: "443"
+      # alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:...
+    tls:
+      enabled: true
+
+  storageClass: gp3
+
+dlpg:
+  proxy:
+    # dlsnap speaks S3 natively, so snapshot restore-on-claim is available
+    # here. It is the only cloud where this can be enabled today.
+    snapshotRestoreOnClaim: true

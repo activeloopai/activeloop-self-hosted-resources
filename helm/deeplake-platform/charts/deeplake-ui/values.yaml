@@ -1,0 +1,36 @@
+enabled: true
+
+image:
+  registry: ""
+  repository: activeloopai/deeplake-ui
+  tag: ""
+  pullPolicy: IfNotPresent
+
+replicaCount: 2
+
+resources:
+  requests:
+    cpu: "250m"
+    memory: 512Mi
+  limits:
+    memory: 1Gi
+
+service:
+  type: ClusterIP
+  port: 80
+  # The distroless image defaults to PORT=3000 (see deeplake-ui Dockerfile).
+  targetPort: 3000
+
+autoscaling:
+  enabled: false
+  minReplicas: 2
+  maxReplicas: 6
+  targetCPUUtilizationPercentage: 80
+
+# Extra env appended verbatim. Runtime browser config uses PLAIN names
+extraEnv: []
+
+podAnnotations: {}
+nodeSelector: {}
+tolerations: []
+affinity: {}

@@ -1,0 +1,203 @@
+{{- $v := .Values -}}
+{{- $g := .Values.global -}}
+{{- $tiers := list (dict "name" "pool" "tier" "stable" "replicas" $v.pool.replicaCount "tag" $v.pool.image.tag) -}}
+{{- if $v.pool.canary.enabled -}}
+{{- $tiers = append $tiers (dict "name" "pool-canary" "tier" "canary" "replicas" $v.pool.canary.replicaCount "tag" (default $v.pool.image.tag $v.pool.canary.tag)) -}}
+{{- end -}}
+{{- range $t := $tiers }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "deeplake.componentName" (dict "ctx" $ "component" $t.name) }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    {{- include "deeplake.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: {{ $t.name }}
+spec:
+  {{- if ne $t.tier "stable" }}
+  replicas: {{ $t.replicas }}
+  {{- end }}
+    minReadySeconds: 30
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 25%
+      # Never take a warm pod away before its replacement is ready — an
+      # in-flight org claim would be dropped.
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      {{- include "deeplake.selectorLabels" (dict "ctx" $ "component" $t.name) | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "deeplake.selectorLabels" (dict "ctx" $ "component" $t.name) | nindent 8 }}
+        {{- include "deeplake.workloadIdentityPodLabels" $ | nindent 8 }}
+        # pg-proxy discovers claimable pods by this label, across both tiers.
+        deeplake-stateless: "true"
+        deeplake.ai/pool-tier: {{ $t.tier }}
+    spec:
+      serviceAccountName: {{ include "deeplake.serviceAccountName" $ }}
+      {{- include "deeplake.imagePullSecrets" $ | nindent 6 }}
+      securityContext:
+        runAsUser: 999
+        runAsGroup: 999
+      terminationGracePeriodSeconds: {{ $v.pool.terminationGracePeriodSeconds }}
+      initContainers:
+        # Always required, not just for TLS: pgdata is an emptyDir, which
+        - name: prepare-pgdata
+          image: {{ include "deeplake.image" (dict "ctx" $ "image" (dict "registry" $v.pool.image.registry "repository" $v.pool.image.repository "tag" $t.tag)) }}
+          command:
+            - bash
+            - -c
+            - |
+              set -eu
+              {{- if $v.pool.tls.enabled }}
+              # Postgres rejects a server key that is group- or world-readable,
+              # and the projected secret is mode 0444.
+              cp /var/lib/postgresql/tls.crt /var/lib/postgresql/data/server.crt
+              cp /var/lib/postgresql/tls.key /var/lib/postgresql/data/server.key
+              chmod 600 /var/lib/postgresql/data/server.key
+              {{- end }}
+              chmod 700 /var/lib/postgresql/data
+              chown -R 999:999 /var/lib/postgresql/data
+          securityContext:
+            runAsUser: 0
+          volumeMounts:
+            - name: pgdata
+              mountPath: /var/lib/postgresql/data
+            {{- if $v.pool.tls.enabled }}
+            - name: tls-certs
+              mountPath: /var/lib/postgresql/tls.key
+              subPath: tls.key
+              readOnly: true
+            - name: tls-certs
+              mountPath: /var/lib/postgresql/tls.crt
+              subPath: tls.crt
+              readOnly: true
+            {{- end }}
+      containers:
+        - name: postgres
+          image: {{ include "deeplake.image" (dict "ctx" $ "image" (dict "registry" $v.pool.image.registry "repository" $v.pool.image.repository "tag" $t.tag)) }}
+          imagePullPolicy: {{ $v.pool.image.pullPolicy }}
+          # Pool pods serve queries only. Sync and indexing run in the
+          command:
+            - bash
+            - -c
+            - >-
+              touch /tmp/.pg_deeplake_sync_disabled /tmp/.pg_deeplake_indexer_disabled &&
+              exec /usr/local/bin/stateless-entrypoint.sh
+          ports:
+            - name: postgresql
+              containerPort: 5432
+          env:
+            - name: PGDATA
+              value: /var/lib/postgresql/data
+            - name: DEEPLAKE_ROOT_PATH
+              value: {{ $g.storage.rootPath | quote }}
+            - name: DEEPLAKE_DATASET_WAL
+              value: {{ ternary "1" "0" $v.pool.datasetWal | quote }}
+            - name: DEEPLAKE_MAX_CONNECTIONS
+              value: {{ $v.pool.maxConnections | quote }}
+            # Enables pg_deeplake's workspace_storage_resolver /
+            - name: DEEPLAKE_API_URL
+              value: {{ printf "http://%s.%s.svc.cluster.local:%v" (include "deeplake.componentName" (dict "ctx" $ "component" "api-server")) $.Release.Namespace $.Values.global.api.servicePort | quote }}
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ required "global.secrets.dlpg is required" $g.secrets.dlpg }}
+                  key: password
+            {{- if eq $g.cloud "aws" }}
+            # Pods use IRSA; the IMDS fallback only adds latency on failure.
+            - name: AWS_EC2_METADATA_DISABLED
+              value: "true"
+            {{- end }}
+          resources:
+            {{- toYaml $v.pool.resources | nindent 12 }}
+          {{- if $.Values.pgPilot.enabled }}
+          # Consumed by pg-pilot for in-place resizing. Requires K8s >= 1.33
+          # with InPlacePodVerticalScaling.
+          resizePolicy:
+            - resourceName: cpu
+              restartPolicy: NotRequired
+            - resourceName: memory
+              restartPolicy: NotRequired
+          {{- end }}
+          volumeMounts:
+            - name: pgdata
+              mountPath: /var/lib/postgresql/data
+          startupProbe:
+            exec:
+              command: ["pg_isready", "-h", "127.0.0.1", "-U", "postgres"]
+            periodSeconds: 2
+            failureThreshold: 60
+          readinessProbe:
+            exec:
+              command:
+                - bash
+                - -c
+                # The sentinel file lets the pod fail readiness the instant a
+                - "[ ! -f /tmp/shutting-down ] && pg_isready -h 127.0.0.1 -U postgres"
+            periodSeconds: 1
+            failureThreshold: 3
+      volumes:
+        - name: pgdata
+          emptyDir:
+            sizeLimit: {{ $v.pool.pgdataSizeLimit }}
+        {{- if $v.pool.tls.enabled }}
+        - name: tls-certs
+          secret:
+            secretName: {{ required "dlpg.pool.tls.secretName is required when TLS is enabled" $v.pool.tls.secretName }}
+        {{- end }}
+      {{- with $v.pool.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $v.pool.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $v.pool.topologySpreadConstraints }}
+      topologySpreadConstraints:
+        {{- range . }}
+        - {{ toYaml . | nindent 10 | trim }}
+          labelSelector:
+            matchLabels:
+              {{- include "deeplake.selectorLabels" (dict "ctx" $ "component" $t.name) | nindent 14 }}
+        {{- end }}
+      {{- end }}
+{{- end }}
+{{- if $v.pgPilot.enabled }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "deeplake.componentName" (dict "ctx" . "component" "pg-pilot") }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "deeplake.labels" . | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "patch"]
+  - apiGroups: [""]
+    resources: ["pods/resize"]
+    verbs: ["patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "deeplake.componentName" (dict "ctx" . "component" "pg-pilot") }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "deeplake.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "deeplake.componentName" (dict "ctx" . "component" "pg-pilot") }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "deeplake.serviceAccountName" . }}
+    namespace: {{ .Release.Namespace }}
+{{- end }}

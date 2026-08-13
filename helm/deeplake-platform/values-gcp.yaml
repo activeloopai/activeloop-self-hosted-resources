@@ -1,0 +1,30 @@
+# GCP / GKE overlay.
+#
+#   helm install deeplake . -f values-gcp.yaml -f my-values.yaml
+#
+# Prerequisites (see terraform/gcp/):
+#   - GKE with Workload Identity enabled
+#   - A GCP service account bound to
+#     serviceAccount:<project>.svc.id.goog[<namespace>/<release>-workload]
+#   - A GCS bucket that service account can read/write
+
+global:
+  cloud: gcp
+
+  storage:
+    # gs://<bucket>/<prefix>
+    rootPath: ""
+
+  workloadIdentity:
+    enabled: true
+    gcp:
+      # <name>@<project>.iam.gserviceaccount.com
+      serviceAccount: ""
+
+  ingress:
+    className: gce
+    annotations: {}
+    tls:
+      enabled: true
+
+  storageClass: pd-balanced

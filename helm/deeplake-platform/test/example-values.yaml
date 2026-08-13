@@ -1,0 +1,30 @@
+global:
+  cloud: azure
+  domain: deeplake.acme.internal
+  storage:
+    rootPath: "az://acmedeeplake/datasets/prod"
+  workloadIdentity:
+    enabled: true
+    azure:
+      clientId: "11111111-2222-3333-4444-555555555555"
+      tenantId: "66666666-7777-8888-9999-000000000000"
+  auth:
+    issuerUrl: "https://keycloak.acme.internal/realms/deeplake"
+    audience: "https://api.deeplake.acme.internal"
+  database:
+    host: pg.acme.internal
+deeplake-api:
+  image:
+    serverTag: server-v0.37.0-ac87593
+    workerTag: worker-v0.37.0-ac87593
+    setupTag: setup-v0.37.0-ac87593
+deeplake-ui:
+  image:
+    tag: v0.37.0-ac87593
+dlpg:
+  proxy:
+    image:
+      tag: e867fc24c201807f06e2748085966e1b96fb2336
+  pool:
+    image:
+      tag: 18_4.7.0_9871d4dfa152ec6b0bc93f4d1a089281fea249de

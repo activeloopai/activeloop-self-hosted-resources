@@ -1,0 +1,124 @@
+enabled: true
+
+# =============================================================================
+# pg-proxy — Postgres wire-protocol router
+# =============================================================================
+# Claims a pool pod per org; SDK clients and the API connect here, never to a pod.
+# K8s API, and scales the pool Deployment to keep MIN_IDLE..MAX_IDLE pods warm.
+# SDK clients and deeplake-api both connect here, never to a pool pod directly.
+proxy:
+  replicaCount: 2
+  image:
+    registry: ""
+    repository: activeloopai/pg-proxy
+    tag: ""
+    pullPolicy: IfNotPresent
+
+  # active-active runs every replica as a router with per-org claim Leases.
+  mode: active-active
+
+  pool:
+    # Warm idle pods kept available for immediate claim.
+    minIdle: 3
+    maxIdle: 6
+    # Connections routed to a single pod before another is claimed.
+    maxConnsPerPod: 40
+    # Ceiling on pods one org can hold.
+    maxPodsPerOrg: 5
+    checkInterval: 2s
+    # Idle time before a claimed pod is released back to the pool.
+    idleTimeout: 15m
+    scaleDownGracePeriod: 5m
+
+  # Requires a dlstorage build supporting your object store.
+  snapshotRestoreOnClaim: false
+
+  # Transaction-level connection pooling. Scoped to the canary org set.
+  txnPooling: false
+
+  resources:
+    requests:
+      cpu: "500m"
+      memory: 256Mi
+    limits:
+      memory: 512Mi
+
+  nodeSelector: {}
+  tolerations: []
+
+# =============================================================================
+pool:
+  replicaCount: 4
+  image:
+    registry: ""
+    repository: activeloopai/pg-deeplake-stateless
+    tag: ""
+    pullPolicy: IfNotPresent
+
+  # emptyDir by design: durability comes from object storage, not the pod.
+  pgdataSizeLimit: 10Gi
+
+  maxConnections: 200
+
+  # Write-ahead log for datasets.
+  datasetWal: true
+
+  # Tail reaches the limit; nodes must be able to schedule a pod at 32Gi.
+  resources:
+    requests:
+      cpu: "500m"
+      memory: 2Gi
+    limits:
+      cpu: "8"
+      memory: 32Gi
+
+  # TLS for client connections to pool pods. Supply a secret with tls.crt and
+  # tls.key (cert-manager Certificate, or bring your own).
+  tls:
+    enabled: false
+    secretName: ""
+
+  terminationGracePeriodSeconds: 180
+
+  nodeSelector: {}
+  tolerations: []
+  topologySpreadConstraints:
+    - maxSkew: 2
+      topologyKey: kubernetes.io/hostname
+      whenUnsatisfiable: ScheduleAnyway
+
+  # Activeloop-internal canary tier; leave disabled.
+  canary:
+    enabled: false
+    replicaCount: 1
+    tag: ""
+    # Comma-separated org UUIDs pinned to the canary tier.
+    orgs: ""
+
+# =============================================================================
+indexer:
+  enabled: true
+  replicaCount: 1
+  resources:
+    requests:
+      cpu: "500m"
+      memory: 2Gi
+    limits:
+      memory: 8Gi
+  nodeSelector: {}
+  tolerations: []
+
+# =============================================================================
+pgPilot:
+  enabled: false
+
+metrics:
+  # Requires the Prometheus Operator CRDs.
+  podMonitor:
+    enabled: false
+  exporter:
+    enabled: false
+    image:
+      registry: ""
+      repository: prometheuscommunity/postgres-exporter
+      tag: v0.17.0

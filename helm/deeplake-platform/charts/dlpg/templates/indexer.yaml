@@ -1,0 +1,100 @@
+{{- $v := .Values -}}
+{{- $g := .Values.global -}}
+{{- if $v.indexer.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "deeplake.componentName" (dict "ctx" . "component" "indexer") }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "deeplake.labels" . | nindent 4 }}
+    app.kubernetes.io/component: indexer
+spec:
+  replicas: {{ $v.indexer.replicaCount }}
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "deeplake.selectorLabels" (dict "ctx" . "component" "indexer") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "deeplake.selectorLabels" (dict "ctx" . "component" "indexer") | nindent 8 }}
+        {{- include "deeplake.workloadIdentityPodLabels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "deeplake.serviceAccountName" . }}
+      {{- include "deeplake.imagePullSecrets" . | nindent 6 }}
+      securityContext:
+        runAsUser: 999
+        runAsGroup: 999
+      terminationGracePeriodSeconds: {{ $v.pool.terminationGracePeriodSeconds }}
+      containers:
+        - name: postgres
+          image: {{ include "deeplake.image" (dict "ctx" . "image" $v.pool.image) }}
+          imagePullPolicy: {{ $v.pool.image.pullPolicy }}
+          ports:
+            - name: postgresql
+              containerPort: 5432
+          env:
+            - name: PGDATA
+              value: /var/lib/postgresql/data
+            - name: DEEPLAKE_ROOT_PATH
+              value: {{ $g.storage.rootPath | quote }}
+            - name: DEEPLAKE_DATASET_WAL
+              value: {{ ternary "1" "0" $v.pool.datasetWal | quote }}
+            - name: DEEPLAKE_API_URL
+              value: {{ printf "http://%s.%s.svc.cluster.local:%v" (include "deeplake.componentName" (dict "ctx" . "component" "api-server")) .Release.Namespace .Values.global.api.servicePort | quote }}
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ required "global.secrets.dlpg is required" $g.secrets.dlpg }}
+                  key: password
+            {{- if eq $g.cloud "aws" }}
+            - name: AWS_EC2_METADATA_DISABLED
+              value: "true"
+            {{- end }}
+          resources:
+            {{- toYaml $v.indexer.resources | nindent 12 }}
+          volumeMounts:
+            - name: pgdata
+              mountPath: /var/lib/postgresql/data
+          startupProbe:
+            exec:
+              command: ["pg_isready", "-h", "127.0.0.1", "-U", "postgres"]
+            periodSeconds: 2
+            failureThreshold: 60
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-h", "127.0.0.1", "-U", "postgres"]
+            periodSeconds: 10
+            failureThreshold: 3
+      volumes:
+        - name: pgdata
+          emptyDir:
+            sizeLimit: {{ $v.pool.pgdataSizeLimit }}
+      {{- with $v.indexer.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $v.indexer.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}
+{{- if $v.metrics.podMonitor.enabled }}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: {{ include "deeplake.componentName" (dict "ctx" . "component" "dlpg") }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "deeplake.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  podMetricsEndpoints:
+    - port: metrics
+      interval: 30s
+{{- end }}

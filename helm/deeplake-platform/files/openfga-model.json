@@ -1,0 +1,1107 @@
+{
+  "schema_version": "1.1",
+  "type_definitions": [
+    {
+      "type": "user",
+      "relations": {},
+      "metadata": null
+    },
+    {
+      "type": "workload_identity",
+      "relations": {
+        "can_delete": {
+          "tupleToUserset": {
+            "tupleset": {
+              "object": "",
+              "relation": "parent"
+            },
+            "computedUserset": {
+              "object": "",
+              "relation": "admin"
+            }
+          }
+        },
+        "can_update": {
+          "tupleToUserset": {
+            "tupleset": {
+              "object": "",
+              "relation": "parent"
+            },
+            "computedUserset": {
+              "object": "",
+              "relation": "admin"
+            }
+          }
+        },
+        "can_view": {
+          "union": {
+            "child": [
+              {
+                "tupleToUserset": {
+                  "tupleset": {
+                    "object": "",
+                    "relation": "parent"
+                  },
+                  "computedUserset": {
+                    "object": "",
+                    "relation": "viewer"
+                  }
+                }
+              },
+              {
+                "tupleToUserset": {
+                  "tupleset": {
+                    "object": "",
+                    "relation": "parent"
+                  },
+                  "computedUserset": {
+                    "object": "",
+                    "relation": "contributor"
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "parent": {
+          "this": {}
+        }
+      },
+      "metadata": {
+        "relations": {
+          "can_delete": {
+            "directly_related_user_types": [],
+            "module": "",
+            "source_info": null
+          },
+          "can_update": {
+            "directly_related_user_types": [],
+            "module": "",
+            "source_info": null
+          },
+          "can_view": {
+            "directly_related_user_types": [],
+            "module": "",
+            "source_info": null
+          },
+          "parent": {
+            "directly_related_user_types": [
+              {
+                "type": "organization",
+                "condition": ""
+              }
+            ],
+            "module": "",
+            "source_info": null
+          }
+        },
+        "module": "",
+        "source_info": null
+      }
+    },
+    {
+      "type": "managed_credential",
+      "relations": {
+        "can_delete": {
+          "tupleToUserset": {
+            "tupleset": {
+              "object": "",
+              "relation": "parent"
+            },
+            "computedUserset": {
+              "object": "",
+              "relation": "admin"
+            }
+          }
+        },
+        "can_update": {
+          "tupleToUserset": {
+            "tupleset": {
+              "object": "",
+              "relation": "parent"
+            },
+            "computedUserset": {
+              "object": "",
+              "relation": "admin"
+            }
+          }
+        },
+        "can_view": {
+          "union": {
+            "child": [
+              {
+                "tupleToUserset": {
+                  "tupleset": {
+                    "object": "",
+                    "relation": "parent"
+                  },
+                  "computedUserset": {
+                    "object": "",
+                    "relation": "viewer"
+                  }
+                }
+              },
+              {
+                "tupleToUserset": {
+                  "tupleset": {
+                    "object": "",
+                    "relation": "parent"
+                  },
+                  "computedUserset": {
+                    "object": "",
+                    "relation": "contributor"
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "parent": {
+          "this": {}
+        }
+      },
+      "metadata": {
+        "relations": {
+          "can_delete": {
+            "directly_related_user_types": [],
+            "module": "",
+            "source_info": null
+          },
+          "can_update": {
+            "directly_related_user_types": [],
+            "module": "",
+            "source_info": null
+          },
+          "can_view": {
+            "directly_related_user_types": [],
+            "module": "",
+            "source_info": null
+          },
+          "parent": {
+            "directly_related_user_types": [
+              {
+                "type": "organization",
+                "condition": ""
+              }
+            ],
+            "module": "",
+            "source_info": null
+          }
+        },
+        "module": "",
+        "source_info": null
+      }
+    },
+    {
+      "type": "dataset",
+      "relations": {
+        "admin": {
+          "union": {
+            "child": [
+              {
+                "this": {}
+              },
+              {
+                "tupleToUserset": {
+                  "tupleset": {
+                    "object": "",
+                    "relation": "parent"
+                  },
+                  "computedUserset": {
+                    "object": "",
+                    "relation": "admin"
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "can_delete": {
+          "computedUserset": {
+            "object": "",
+            "relation": "writer"
+          }
+        },
+        "can_modify_readme": {
+          "computedUserset": {
+            "object": "",
+            "relation": "writer"
+          }
+        },
+        "can_save_query": {
+          "computedUserset": {
+            "object": "",
+            "relation": "writer"
+          }
+        },
+        "can_update": {
+          "computedUserset": {
+            "object": "",
+            "relation": "writer"
+          }
+        },
+        "can_update_user_access": {
+          "computedUserset": {
+            "object": "",
+            "relation": "admin"
+          }
+        },
+        "can_view": {
+          "computedUserset": {
+            "object": "",
+            "relation": "viewer"
+          }
+        },
+        "parent": {
+          "this": {}
+        },
+        "viewer": {
+          "union": {
+            "child": [
+              {
+                "this": {}
+              },
+              {
+                "computedUserset": {
+                  "object": "",
+                  "relation": "writer"
+                }
+              },
+              {
+                "tupleToUserset": {
+                  "tupleset": {
+                    "object": "",
+                    "relation": "parent"
+                  },
+                  "computedUserset": {
+                    "object": "",
+                    "relation": "viewer"
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "writer": {
+          "union": {
+            "child": [
+              {
+                "this": {}
+              },
+              {
+                "computedUserset": {
+                  "object": "",
+                  "relation": "admin"
+                }
+              },
+              {
+                "tupleToUserset": {
+                  "tupleset": {
+                    "object": "",
+                    "relation": "parent"
+                  },
+                  "computedUserset": {
+                    "object": "",
+                    "relation": "writer"
+                  }
+                }
+              }
+            ]
+          }
+        }
+      },
+      "metadata": {
+        "relations": {
+          "admin": {
+            "directly_related_user_types": [
+              {
+                "type": "user",
+                "condition": ""
+              }
+            ],
+            "module": "",
+            "source_info": null
+          },
+          "can_delete": {
+            "directly_related_user_types": [],
+            "module": "",
+            "source_info": null
+          },
+          "can_modify_readme": {
+            "directly_related_user_types": [],
+            "module": "",
+            "source_info": null
+          },
+          "can_save_query": {
+            "directly_related_user_types": [],
+            "module": "",
+            "source_info": null
+          },
+          "can_update": {
+            "directly_related_user_types": [],
+            "module": "",
+            "source_info": null
+          },
+          "can_update_user_access": {
+            "directly_related_user_types": [],
+            "module": "",
+            "source_info": null
+          },
+          "can_view": {
+            "directly_related_user_types": [],
+            "module": "",
+            "source_info": null
+          },
+          "parent": {
+            "directly_related_user_types": [
+              {
+                "type": "organization",
+                "condition": ""
+              }
+            ],
+            "module": "",
+            "source_info": null
+          },
+          "viewer": {
+            "directly_related_user_types": [
+              {
+                "type": "user",
+                "condition": ""
+              },
+              {
+                "type": "user",
+                "wildcard": {},
+                "condition": ""
+              },
+              {
+                "type": "workload_identity",
+                "condition": ""
+              },
+              {
+                "type": "workload_identity",
+                "wildcard": {},
+                "condition": ""
+              }
+            ],
+            "module": "",
+            "source_info": null
+          },
+          "writer": {
+            "directly_related_user_types": [
+              {
+                "type": "user",
+                "condition": ""
+              },
+              {
+                "type": "workload_identity",
+                "condition": ""
+              }
+            ],
+            "module": "",
+            "source_info": null
+          }
+        },
+        "module": "",
+        "source_info": null
+      }
+    },
+    {
+      "type": "organization",
+      "relations": {
+        "admin": {
+          "this": {}
+        },
+        "can_access_ai_knowledge_agent": {
+          "computedUserset": {
+            "object": "",
+            "relation": "can_create_datasets"
+          }
+        },
+        "can_access_assets": {
+          "union": {
+            "child": [
+              {
+                "computedUserset": {
+                  "object": "",
+                  "relation": "admin"
+                }
+              },
+              {
+                "computedUserset": {
+                  "object": "",
+                  "relation": "writer"
+                }
+              },
+              {
+                "computedUserset": {
+                  "object": "",
+                  "relation": "viewer"
+                }
+              },
+              {
+                "computedUserset": {
+                  "object": "",
+                  "relation": "contributor"
+                }
+              }
+            ]
+          }
+        },
+        "can_access_members": {
+          "union": {
+            "child": [
+              {
+                "computedUserset": {
+                  "object": "",
+                  "relation": "admin"
+                }
+              },
+              {
+                "computedUserset": {
+                  "object": "",
+                  "relation": "writer"
+                }
+              },
+              {
+                "computedUserset": {
+                  "object": "",
+                  "relation": "viewer"
+                }
+              },
+              {
+                "computedUserset": {
+                  "object": "",
+                  "relation": "contributor"
+                }
+              }
+            ]
+          }
+        },
+        "can_create_datasets": {
+          "union": {
+            "child": [
+              {
+                "computedUserset": {
+                  "object": "",
+                  "relation": "contributor"
+                }
+              },
+              {
+                "computedUserset": {
+                  "object": "",
+                  "relation": "writer"
+                }
+              }
+            ]
+          }
+        },
+        "can_create_managed_credentials": {
+          "computedUserset": {
+            "object": "",
+            "relation": "admin"
+          }
+        },
+        "can_create_workload_identities": {
+          "computedUserset": {
+            "object": "",
+            "relation": "admin"
+          }
+        },
+        "can_create_workspace": {
+          "computedUserset": {
+            "object": "",
+            "relation": "admin"
+          }
+        },
+        "can_delete": {
+          "computedUserset": {
+            "object": "",
+            "relation": "admin"
+          }
+        },
+        "can_delete_workspace": {
+          "computedUserset": {
+            "object": "",
+            "relation": "admin"
+          }
+        },
+        "can_invite_admin_users": {
+          "computedUserset": {
+            "object": "",
+            "relation": "admin"
+          }
+        },
+        "can_invite_non_admin_users": {
+          "computedUserset": {
+            "object": "",
+            "relation": "writer"
+          }
+        },
+        "can_make_admin": {
+          "computedUserset": {
+            "object": "",
+            "relation": "admin"
+          }
+        },
+        "can_modify_assets": {
+          "union": {
+            "child": [
+              {
+                "computedUserset": {
+                  "object": "",
+                  "relation": "admin"
+                }
+              },
+              {
+                "computedUserset": {
+                  "object": "",
+                  "relation": "writer"
+                }
+              }
+            ]
+          }
+        },
+        "can_modify_billing": {
+          "computedUserset": {
+            "object": "",
+            "relation": "admin"
+          }
+        },
+        "can_modify_members": {
+          "computedUserset": {
+            "object": "",
+            "relation": "admin"
+          }
+        },
+        "can_modify_storage": {
+          "computedUserset": {
+            "object": "",
+            "relation": "admin"
+          }
+        },
+        "can_remove_admin": {
+          "this": {}
+        },
+        "can_update": {
+          "computedUserset": {
+            "object": "",
+            "relation": "admin"
+          }
+        },
+        "can_update_organization": {
+          "computedUserset": {
+            "object": "",
+            "relation": "admin"
+          }
+        },
+        "can_update_user_access": {
+          "computedUserset": {
+            "object": "",
+            "relation": "admin"
+          }
+        },
+        "can_update_workspace": {
+          "computedUserset": {
+            "object": "",
+            "relation": "admin"
+          }
+        },
+        "can_view": {
+          "union": {
+            "child": [
+              {
+                "computedUserset": {
+                  "object": "",
+                  "relation": "viewer"
+                }
+              },
+              {
+                "computedUserset": {
+                  "object": "",
+                  "relation": "contributor"
+                }
+              }
+            ]
+          }
+        },
+        "can_view_users": {
+          "union": {
+            "child": [
+              {
+                "computedUserset": {
+                  "object": "",
+                  "relation": "viewer"
+                }
+              },
+              {
+                "computedUserset": {
+                  "object": "",
+                  "relation": "contributor"
+                }
+              }
+            ]
+          }
+        },
+        "contributor": {
+          "this": {}
+        },
+        "member": {
+          "union": {
+            "child": [
+              {
+                "computedUserset": {
+                  "object": "",
+                  "relation": "viewer"
+                }
+              },
+              {
+                "computedUserset": {
+                  "object": "",
+                  "relation": "contributor"
+                }
+              }
+            ]
+          }
+        },
+        "viewer": {
+          "union": {
+            "child": [
+              {
+                "this": {}
+              },
+              {
+                "computedUserset": {
+                  "object": "",
+                  "relation": "writer"
+                }
+              }
+            ]
+          }
+        },
+        "writer": {
+          "union": {
+            "child": [
+              {
+                "this": {}
+              },
+              {
+                "computedUserset": {
+                  "object": "",
+                  "relation": "admin"
+                }
+              }
+            ]
+          }
+        }
+      },
+      "metadata": {
+        "relations": {
+          "admin": {
+            "directly_related_user_types": [
+              {
+                "type": "user",
+                "condition": ""
+              }
+            ],
+            "module": "",
+            "source_info": null
+          },
+          "can_access_ai_knowledge_agent": {
+            "directly_related_user_types": [],
+            "module": "",
+            "source_info": null
+          },
+          "can_access_assets": {
+            "directly_related_user_types": [],
+            "module": "",
+            "source_info": null
+          },
+          "can_access_members": {
+            "directly_related_user_types": [],
+            "module": "",
+            "source_info": null
+          },
+          "can_create_datasets": {
+            "directly_related_user_types": [],
+            "module": "",
+            "source_info": null
+          },
+          "can_create_managed_credentials": {
+            "directly_related_user_types": [],
+            "module": "",
+            "source_info": null
+          },
+          "can_create_workload_identities": {
+            "directly_related_user_types": [],
+            "module": "",
+            "source_info": null
+          },
+          "can_create_workspace": {
+            "directly_related_user_types": [],
+            "module": "",
+            "source_info": null
+          },
+          "can_delete": {
+            "directly_related_user_types": [],
+            "module": "",
+            "source_info": null
+          },
+          "can_delete_workspace": {
+            "directly_related_user_types": [],
+            "module": "",
+            "source_info": null
+          },
+          "can_invite_admin_users": {
+            "directly_related_user_types": [],
+            "module": "",
+            "source_info": null
+          },
+          "can_invite_non_admin_users": {
+            "directly_related_user_types": [],
+            "module": "",
+            "source_info": null
+          },
+          "can_make_admin": {
+            "directly_related_user_types": [],
+            "module": "",
+            "source_info": null
+          },
+          "can_modify_assets": {
+            "directly_related_user_types": [],
+            "module": "",
+            "source_info": null
+          },
+          "can_modify_billing": {
+            "directly_related_user_types": [],
+            "module": "",
+            "source_info": null
+          },
+          "can_modify_members": {
+            "directly_related_user_types": [],
+            "module": "",
+            "source_info": null
+          },
+          "can_modify_storage": {
+            "directly_related_user_types": [],
+            "module": "",
+            "source_info": null
+          },
+          "can_remove_admin": {
+            "directly_related_user_types": [
+              {
+                "type": "organization",
+                "relation": "admin",
+                "condition": "at_least_two_admins"
+              }
+            ],
+            "module": "",
+            "source_info": null
+          },
+          "can_update": {
+            "directly_related_user_types": [],
+            "module": "",
+            "source_info": null
+          },
+          "can_update_organization": {
+            "directly_related_user_types": [],
+            "module": "",
+            "source_info": null
+          },
+          "can_update_user_access": {
+            "directly_related_user_types": [],
+            "module": "",
+            "source_info": null
+          },
+          "can_update_workspace": {
+            "directly_related_user_types": [],
+            "module": "",
+            "source_info": null
+          },
+          "can_view": {
+            "directly_related_user_types": [],
+            "module": "",
+            "source_info": null
+          },
+          "can_view_users": {
+            "directly_related_user_types": [],
+            "module": "",
+            "source_info": null
+          },
+          "contributor": {
+            "directly_related_user_types": [
+              {
+                "type": "user",
+                "condition": ""
+              },
+              {
+                "type": "workload_identity",
+                "condition": ""
+              }
+            ],
+            "module": "",
+            "source_info": null
+          },
+          "member": {
+            "directly_related_user_types": [],
+            "module": "",
+            "source_info": null
+          },
+          "viewer": {
+            "directly_related_user_types": [
+              {
+                "type": "user",
+                "condition": ""
+              },
+              {
+                "type": "workload_identity",
+                "condition": ""
+              }
+            ],
+            "module": "",
+            "source_info": null
+          },
+          "writer": {
+            "directly_related_user_types": [
+              {
+                "type": "user",
+                "condition": ""
+              },
+              {
+                "type": "workload_identity",
+                "condition": ""
+              }
+            ],
+            "module": "",
+            "source_info": null
+          }
+        },
+        "module": "",
+        "source_info": null
+      }
+    },
+    {
+      "type": "workspace",
+      "relations": {
+        "parent": {
+          "this": {}
+        },
+        "viewer": {
+          "union": {
+            "child": [
+              {
+                "this": {}
+              },
+              {
+                "computedUserset": {
+                  "object": "",
+                  "relation": "writer"
+                }
+              }
+            ]
+          }
+        },
+        "writer": {
+          "union": {
+            "child": [
+              {
+                "this": {}
+              },
+              {
+                "tupleToUserset": {
+                  "tupleset": {
+                    "object": "",
+                    "relation": "parent"
+                  },
+                  "computedUserset": {
+                    "object": "",
+                    "relation": "admin"
+                  }
+                }
+              }
+            ]
+          }
+        }
+      },
+      "metadata": {
+        "relations": {
+          "parent": {
+            "directly_related_user_types": [
+              {
+                "type": "organization",
+                "condition": ""
+              }
+            ],
+            "module": "",
+            "source_info": null
+          },
+          "viewer": {
+            "directly_related_user_types": [
+              {
+                "type": "user",
+                "condition": ""
+              }
+            ],
+            "module": "",
+            "source_info": null
+          },
+          "writer": {
+            "directly_related_user_types": [
+              {
+                "type": "user",
+                "condition": ""
+              }
+            ],
+            "module": "",
+            "source_info": null
+          }
+        },
+        "module": "",
+        "source_info": null
+      }
+    },
+    {
+      "type": "feature",
+      "relations": {
+        "associated_plan": {
+          "this": {}
+        },
+        "can_access": {
+          "tupleToUserset": {
+            "tupleset": {
+              "object": "",
+              "relation": "associated_plan"
+            },
+            "computedUserset": {
+              "object": "",
+              "relation": "subscriber"
+            }
+          }
+        }
+      },
+      "metadata": {
+        "relations": {
+          "associated_plan": {
+            "directly_related_user_types": [
+              {
+                "type": "plan",
+                "condition": ""
+              }
+            ],
+            "module": "",
+            "source_info": null
+          },
+          "can_access": {
+            "directly_related_user_types": [],
+            "module": "",
+            "source_info": null
+          }
+        },
+        "module": "",
+        "source_info": null
+      }
+    },
+    {
+      "type": "plan",
+      "relations": {
+        "_extends_features_from_plan": {
+          "tupleToUserset": {
+            "tupleset": {
+              "object": "",
+              "relation": "parent"
+            },
+            "computedUserset": {
+              "object": "",
+              "relation": "subscriber"
+            }
+          }
+        },
+        "parent": {
+          "this": {}
+        },
+        "subscriber": {
+          "union": {
+            "child": [
+              {
+                "this": {}
+              },
+              {
+                "computedUserset": {
+                  "object": "",
+                  "relation": "_extends_features_from_plan"
+                }
+              }
+            ]
+          }
+        }
+      },
+      "metadata": {
+        "relations": {
+          "_extends_features_from_plan": {
+            "directly_related_user_types": [],
+            "module": "",
+            "source_info": null
+          },
+          "parent": {
+            "directly_related_user_types": [
+              {
+                "type": "plan",
+                "condition": ""
+              }
+            ],
+            "module": "",
+            "source_info": null
+          },
+          "subscriber": {
+            "directly_related_user_types": [
+              {
+                "type": "organization",
+                "wildcard": {},
+                "condition": ""
+              },
+              {
+                "type": "organization",
+                "condition": "non_expired_grant"
+              }
+            ],
+            "module": "",
+            "source_info": null
+          }
+        },
+        "module": "",
+        "source_info": null
+      }
+    }
+  ],
+  "conditions": {
+    "at_least_two_admins": {
+      "name": "at_least_two_admins",
+      "expression": "1 < current_admin_count",
+      "parameters": {
+        "current_admin_count": {
+          "type_name": "TYPE_NAME_INT",
+          "generic_types": []
+        }
+      },
+      "metadata": null
+    },
+    "non_expired_grant": {
+      "name": "non_expired_grant",
+      "expression": "grant_time < current_time && current_time < grant_time + grant_duration",
+      "parameters": {
+        "current_time": {
+          "type_name": "TYPE_NAME_TIMESTAMP",
+          "generic_types": []
+        },
+        "grant_duration": {
+          "type_name": "TYPE_NAME_DURATION",
+          "generic_types": []
+        },
+        "grant_time": {
+          "type_name": "TYPE_NAME_TIMESTAMP",
+          "generic_types": []
+        }
+      },
+      "metadata": null
+    }
+  }
+}
