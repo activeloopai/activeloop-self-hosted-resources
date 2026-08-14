@@ -58,7 +58,7 @@ migrations:
     limits:
       memory: 512Mi
 
-# Cross-namespace read on dlpg pool pods, used by the pod-uptime poller to bill
+# Cross-namespace read on dlpg pool pods for the pod-uptime poller.
 podUptimeRbac:
   enabled: false
 

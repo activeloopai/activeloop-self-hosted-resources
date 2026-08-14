@@ -83,9 +83,7 @@ spec:
               value: {{ . | quote }}
             {{- end }}
             {{- else }}
-            # Auth0 (legacy). These are NEXT_PUBLIC_* and are normally inlined
-            # at image build time; set here only if the image was built without
-            # them baked in.
+            # Auth0 legacy: NEXT_PUBLIC_*, normally baked in at image build.
             - name: AUTH_PROVIDER
               value: "auth0"
             {{- end }}

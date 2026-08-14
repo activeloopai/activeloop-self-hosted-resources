@@ -1,11 +1,7 @@
 enabled: true
 
-# =============================================================================
-# pg-proxy — Postgres wire-protocol router
-# =============================================================================
-# Claims a pool pod per org; SDK clients and the API connect here, never to a pod.
-# K8s API, and scales the pool Deployment to keep MIN_IDLE..MAX_IDLE pods warm.
-# SDK clients and deeplake-api both connect here, never to a pool pod directly.
+# pg-proxy: claims a pool pod per org. SDK clients and deeplake-api connect
+# here, never to a pool pod directly.
 proxy:
   replicaCount: 2
   image:

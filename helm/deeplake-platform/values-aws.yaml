@@ -1,11 +1,4 @@
-# AWS / EKS overlay.
-#
-#   helm install deeplake . -f values-aws.yaml -f my-values.yaml
-#
-# Prerequisites (see terraform/aws/):
-#   - EKS with an OIDC provider, and an IAM role trusting
-#     system:serviceaccount:<namespace>:<release>-workload
-#   - An S3 bucket the role can read/write
+# AWS / EKS overlay. Prerequisites: docs/install.md
 
 global:
   cloud: aws

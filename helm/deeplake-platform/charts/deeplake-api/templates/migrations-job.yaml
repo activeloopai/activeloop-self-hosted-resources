@@ -10,9 +10,7 @@ metadata:
     {{- include "deeplake.labels" . | nindent 4 }}
     app.kubernetes.io/component: migrate
   annotations:
-    # pre-install normally, so the schema is ready before anything serves. With
-    # the bundled Postgres there is nothing to migrate yet at pre-install time —
-    # it is a main-phase resource — so run after it exists and wait for it.
+    # Bundled Postgres is a main-phase resource, so pre-install is too early.
     "helm.sh/hook": {{ if $g.postgres.enabled }}post-install,post-upgrade{{ else }}pre-install,pre-upgrade{{ end }}
     "helm.sh/hook-weight": "-10"
     "helm.sh/hook-delete-policy": before-hook-creation

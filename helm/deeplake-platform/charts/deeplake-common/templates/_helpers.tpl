@@ -54,10 +54,7 @@ imagePullSecrets:
 {{- $kc.hostname | default (printf "kc.%s" .Values.global.domain) -}}
 {{- end -}}
 
-{{/*
-Resolved OIDC issuer. Explicit value always wins, so a customer can enable the
-bundled Keycloak and still point the platform at a different provider.
-*/}}
+{{/* Resolved OIDC issuer; an explicit value always wins. */}}
 {{- define "deeplake.issuerUrl" -}}
 {{- if .Values.global.auth.issuerUrl -}}
 {{- .Values.global.auth.issuerUrl -}}

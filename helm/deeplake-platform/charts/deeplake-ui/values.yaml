@@ -27,7 +27,7 @@ autoscaling:
   maxReplicas: 6
   targetCPUUtilizationPercentage: 80
 
-# Extra env appended verbatim. Runtime browser config uses PLAIN names
+# Appended verbatim. Browser-visible vars use plain names, not NEXT_PUBLIC_*.
 extraEnv: []
 
 podAnnotations: {}
