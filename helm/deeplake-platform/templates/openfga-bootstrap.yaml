@@ -54,6 +54,13 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "deeplake.labels" . | nindent 4 }}
+  annotations:
+    # post-install so OpenFGA exists when it runs (it may be in this release),
+    # and a hook so a changed pod template replaces the Job instead of failing
+    # the upgrade on an immutable field.
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook-delete-policy": before-hook-creation
 spec:
   backoffLimit: 6
   template:
@@ -75,9 +82,12 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.namespace
-            {{- with .Values.global.openfga.apiToken }}
+            {{- with .Values.global.openfga.tokenSecret }}
             - name: FGA_TOKEN
-              value: {{ . | quote }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ . }}
+                  key: token
             {{- end }}
           volumeMounts:
             - name: model

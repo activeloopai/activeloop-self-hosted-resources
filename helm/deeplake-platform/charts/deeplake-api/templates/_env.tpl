@@ -76,10 +76,13 @@
 - name: FGA_API_URL
   value: {{ include "deeplake.openfgaUrl" . | quote }}
 - name: FGA_AUTHN_METHOD
-  value: {{ ternary "api_token" "none" (ne $g.openfga.apiToken "") | quote }}
-{{- with $g.openfga.apiToken }}
+  value: {{ ternary "api_token" "none" (ne $g.openfga.tokenSecret "") | quote }}
+{{- with $g.openfga.tokenSecret }}
 - name: FGA_API_TOKEN
-  value: {{ . | quote }}
+  valueFrom:
+    secretKeyRef:
+      name: {{ . }}
+      key: token
 {{- end }}
 
 
