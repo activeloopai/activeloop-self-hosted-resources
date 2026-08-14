@@ -96,6 +96,23 @@ Activeloop infrastructure.
 
 These are real, and tracked rather than hidden.
 
+- **The UI's "ingest COCO dataset" button cannot work off S3.** `deeplake-api`
+  only derives the signup seed source when `DEEPLAKE_ROOT_DIR` starts with
+  `s3://` (`cmd/server/main.go`), so on Azure and GCP the seeder is never
+  constructed and the endpoint returns 503. The copier itself is multi-cloud;
+  only the default derivation is S3-gated. The prebuilt dataset it copies from
+  (`<root>/_signup_seeds/`) is also operator-hosted content that no self-hosted
+  install has. Seeding is otherwise unused — user provisioning never calls it.
+- **"Ask AI" query suggestion needs `OPENAI_API_KEY`.** Not set by the chart;
+  the endpoint 404s without it. Billing endpoints 404 by design.
+- **The OpenFGA model is behind the API.** `deeplake-api` checks
+  `workspace#blocked` and `workspace#admin`, which the shipped model does not
+  define, so those checks fail as warnings and the request proceeds. The model
+  in `files/` is byte-identical to the one running in both Activeloop beta and
+  prod, and prod logs the same warnings — this is platform-wide, not a
+  packaging error. A chart upgrade carrying a changed model does not re-apply
+  it: the bootstrap Job short-circuits on the existing Secret.
+
 - **Depends on two unmerged PRs**: deeplake-api #307 (generic `OIDC_*` config
   with Auth0 back-compat) and deeplake-ui #330 (auth adapters, runtime public
   env, distroless Dockerfile). This chart targets those contracts, so it will

@@ -1,15 +1,16 @@
 # =============================================================================
 # deeplake-platform — self-hosted Deep Lake
 # =============================================================================
-# This file is the customer-facing contract. Everything a customer must set is
-# in `global`. Component sections below are tuning, not required reading.
+# Everything a customer must set is in `global`; sections below it are tuning.
+# Keys marked REQUIRED have no working default — the install fails without them.
 #
-# Start from one of the cloud overlays:
 #   helm install deeplake . -f values-azure.yaml -f my-values.yaml
+#
+# Full walkthrough, including the cloud prerequisites: docs/install.md
 # =============================================================================
 
 global:
-  # -- Target cloud. Drives workload identity, ingress class, and StorageClass.
+  # -- REQUIRED. Drives workload identity, ingress class, and StorageClass.
   # One of: azure | aws | gcp
   cloud: azure
 
@@ -20,14 +21,19 @@ global:
 
   fullnameOverride: ""
 
-  # -- Base domain. The UI is served at this host, the API at api.<domain>.
+  # -- REQUIRED. UI at this host, API at api.<domain>, Keycloak at kc.<domain>.
+  # All of them must resolve from inside the cluster too, not just publicly.
   domain: deeplake.example.com
 
   storage:
-    # -- Dataset root. Scheme must match `cloud`: az:// | s3:// | gs://
+    # -- REQUIRED. Dataset root; scheme must match `cloud`.
+    # az://<account>/<container>/<prefix> | s3://<bucket>/<prefix> | gs://<bucket>/<prefix>
     rootPath: ""
 
-  # -- Cloud identity for pods that touch object storage.
+  # -- Cloud identity for pods that touch object storage. Fill in the block
+  # matching `cloud`. The identity also needs a federated credential for
+  # system:serviceaccount:<namespace>:<release>-workload — without it, storage
+  # access fails at token exchange, not at startup. See docs/install.md step 2.
   workloadIdentity:
     enabled: true
     azure:
@@ -58,6 +64,8 @@ global:
   storageClass: ""
 
   # -- OIDC. Any compliant provider works; endpoints come from discovery.
+  # `audience` must match what the provider stamps into the token's aud claim,
+  # and normally tracks `domain` — change one, change the other.
   auth:
     # oidc | auth0. "oidc" drives the generic adapter in both the API and UI.
     provider: oidc
@@ -109,10 +117,12 @@ global:
     # exists. Edit clients in the admin console after that.
     importRealm: true
 
-  # -- Secret names. The chart never generates credentials; create these first.
+  # -- REQUIRED. Secret names; the chart never generates credentials, so create
+  # these before installing. See docs/install.md step 3 for the commands.
   secrets:
-    # Keys: JWT_SECRET, DB_PASSWORD, and optionally
-    #       CREDENTIALS_ENCRYPTION_KEY
+    # Keys: JWT_SECRET, DB_PASSWORD, CREDENTIALS_ENCRYPTION_KEY.
+    # Without CREDENTIALS_ENCRYPTION_KEY the API silently disables managed
+    # credentials and repositories, so bring-your-own-cloud storage stops working.
     api: deeplake-api-secrets
     # Keys: password  (the pg-deeplake superuser)
     dlpg: deeplake-dlpg-superuser
@@ -141,7 +151,10 @@ global:
       secretName: deeplake-openfga-ids
       image: curlimages/curl:8.11.1
 
-  # -- Control-plane Postgres (org/user metadata), not the pg-deeplake data plane.
+  # -- REQUIRED. Control-plane Postgres (org/user metadata), not the pg-deeplake
+  # data plane. `host` does NOT default to the bundled Postgres — set it to
+  # <release>-postgres when global.postgres.enabled is true, and set sslMode to
+  # `disable`, since the bundled server serves no TLS.
   database:
     host: ""
     port: 5432

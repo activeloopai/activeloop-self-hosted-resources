@@ -17,8 +17,8 @@ Three components are optional and off by default. Enable them if you do not
 already run your own: `global.postgres.enabled` (control-plane metadata),
 `global.keycloak.enabled` (identity), `ingress-nginx.enabled`.
 
-OpenFGA is **required and not bundled**. Supply your own and point
-`global.openfga.url` at it, or deploy one through `extraManifestsRaw` (see
+OpenFGA is **required**. Either set `global.openfga.enabled=true` to run the
+bundled one, or point `global.openfga.url` at your own (see
 [Appendix: OpenFGA](#appendix-openfga)).
 
 Throughout, `RELEASE=dl` and `NS=deeplake`. The service account the platform
@@ -82,7 +82,8 @@ kubectl create namespace $NS
 
 kubectl -n $NS create secret generic deeplake-api-secrets \
   --from-literal=DB_PASSWORD='<control-plane db password>' \
-  --from-literal=JWT_SECRET='<random 32+ bytes>'
+  --from-literal=JWT_SECRET='<random 32+ bytes>' \
+  --from-literal=CREDENTIALS_ENCRYPTION_KEY='<random 32 bytes, base64>'
 
 kubectl -n $NS create secret generic deeplake-dlpg-superuser \
   --from-literal=password='<pg-deeplake superuser password>'
@@ -92,15 +93,20 @@ kubectl -n $NS create secret generic deeplake-keycloak-admin \
   --from-literal=username=admin \
   --from-literal=password='<keycloak admin password>'
 
+# only when global.openfga.tokenSecret is set
+kubectl -n $NS create secret generic deeplake-fga-token \
+  --from-literal=token='<random 32+ bytes>'
+
 kubectl -n $NS create secret docker-registry regcred-quay \
   --docker-server=quay.io --docker-username='<user>' --docker-password='<token>'
 ```
 
 | Secret | Keys | Referenced by |
 |---|---|---|
-| `deeplake-api-secrets` | `DB_PASSWORD`, `JWT_SECRET`, optional `CREDENTIALS_ENCRYPTION_KEY` | `global.secrets.api` |
+| `deeplake-api-secrets` | `DB_PASSWORD`, `JWT_SECRET`, `CREDENTIALS_ENCRYPTION_KEY` | `global.secrets.api` |
 | `deeplake-dlpg-superuser` | `password` | `global.secrets.dlpg` |
 | `deeplake-keycloak-admin` | `username`, `password` | `global.keycloak.adminSecret` |
+| `deeplake-fga-token` | `token` | `global.openfga.tokenSecret` |
 
 `deeplake-openfga-ids` is created for you by the bootstrap Job — do not create
 it by hand.
@@ -160,12 +166,14 @@ global:
     sslMode: disable                                # bundled Postgres has no TLS
 
   openfga:
-    url: "http://dl-openfga:8080"
+    enabled: true
+    tokenSecret: deeplake-fga-token                  # Secret with key `token`
 ```
 
-Two things that are easy to miss with the bundled Postgres: `global.database.host`
+Two things are easy to miss with the bundled Postgres: `global.database.host`
 is required and does **not** default to the bundled service, and `sslMode`
-defaults to `require`, which the bundled Postgres does not offer.
+defaults to `require`, which the bundled Postgres does not offer — the chart
+refuses to render rather than let that fail at runtime.
 
 Pin image tags per release. Until deeplake-api #307 and deeplake-ui #330 merge,
 use branch builds — `main` images do not understand the `OIDC_*` contract and
@@ -237,31 +245,28 @@ API calls need an organization: pass `X-Activeloop-Org-Id` (from `/me`), an
 | Postgres pod: `data directory has wrong ownership` | Missing `prepare-pgdata` init container | Upgrade the chart |
 | `Organization ID is required` (400) | No org context on the request | Send `X-Activeloop-Org-Id` |
 | Login lands on "Update Account Information" | User has no first/last name | Set both; self-registration collects them |
+| `503 workspace seeding is not configured` | Seeding is S3-only upstream | Expected off S3; the feature is unused elsewhere |
+| Managed credentials / repositories disabled | `CREDENTIALS_ENCRYPTION_KEY` missing | Step 3 |
+| `relation 'workspace#blocked' not found` warnings | Model predates the API | Platform-wide; checks fall through |
 
 ## Appendix: OpenFGA
 
-The chart creates the store and authorization model but does not deploy the
-server. Point `global.openfga.url` at your own, or deploy one in the release:
+`deeplake-api` will not serve requests without OpenFGA. Two options:
 
-```yaml
-global:
-  openfga:
-    url: "http://dl-openfga:8080"
+**Bundled** — `global.openfga.enabled=true`. Runs a single replica against the
+same Postgres as the rest of the platform (database `openfga`, created by the
+bundled Postgres init or by you). Set `global.openfga.tokenSecret` to require a
+preshared key; leave it empty only for in-cluster trials.
 
-extraManifestsRaw:
-  - |
-    apiVersion: apps/v1
-    kind: Deployment
-    metadata:
-      name: {{ .Release.Name }}-openfga
-    # ... datastore pointed at your Postgres, OPENFGA_AUTHN_METHOD=preshared
-```
+**Your own** — leave it disabled and set `global.openfga.url`. If it requires a
+token, point `global.openfga.tokenSecret` at a Secret with key `token`.
 
-`extraManifestsRaw` entries are templated, so `{{ .Release.Name }}` works.
+Either way the chart creates the store and authorization model. Store and model
+IDs are ULIDs generated at creation time and cannot be pinned, so a post-install
+Job creates them and writes both into the Secret named by
+`global.openfga.bootstrap.secretName`, which `deeplake-api` reads.
 
-Store and model IDs are ULIDs generated at creation time and cannot be pinned,
-so a Job creates them and writes both into the Secret named by
-`global.openfga.bootstrap.secretName`. The Job is idempotent on that Secret: if
-it already holds a store ID the Job exits without doing anything. Re-running
-after wiping OpenFGA's database means deleting that Secret first, and a chart
-upgrade carrying a changed model does not re-apply it.
+That Job is idempotent on the Secret: if it already holds a store ID the Job
+exits without doing anything. So re-running after wiping OpenFGA's database
+means deleting that Secret first, and a chart upgrade carrying a changed
+authorization model does **not** re-apply it.
