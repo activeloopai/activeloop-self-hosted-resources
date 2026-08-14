@@ -163,8 +163,16 @@ metadata:
   labels:
     {{- include "deeplake.labels" . | nindent 4 }}
     app.kubernetes.io/component: pg-proxy
+  {{- with $v.proxy.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
 spec:
-  type: ClusterIP
+  type: {{ $v.proxy.service.type }}
+  {{- with $v.proxy.service.loadBalancerSourceRanges }}
+  loadBalancerSourceRanges:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
   selector:
     {{- include "deeplake.selectorLabels" (dict "ctx" . "component" "pg-proxy") | nindent 4 }}
   ports:

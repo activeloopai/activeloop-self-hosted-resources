@@ -13,6 +13,15 @@ proxy:
   # active-active runs every replica as a router with per-org claim Leases.
   mode: active-active
 
+  # SDK clients connect to postgres over the wire protocol, so reaching them
+  # from outside the cluster needs an L4 address, not the shared Ingress.
+  # Set global.dlpgExternalHost to the address clients should be handed.
+  service:
+    type: ClusterIP
+    annotations: {}
+    # Restrict who can reach the LoadBalancer. Empty means open to the world.
+    loadBalancerSourceRanges: []
+
   pool:
     # Warm idle pods kept available for immediate claim.
     minIdle: 3
@@ -70,10 +79,6 @@ pool:
 
   # TLS for client connections to pool pods. Supply a secret with tls.crt and
   # tls.key (cert-manager Certificate, or bring your own).
-  tls:
-    enabled: false
-    secretName: ""
-
   terminationGracePeriodSeconds: 180
 
   nodeSelector: {}
