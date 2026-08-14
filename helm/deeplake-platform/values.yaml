@@ -131,6 +131,15 @@ global:
   api:
     servicePort: 80
 
+  # -- pg-deeplake wire TLS. Off by default because it needs a certificate;
+  # while off, SDK clients are told sslmode=disable, because pg-proxy genuinely
+  # does not offer SSL and telling them otherwise breaks every connection.
+  # Turn this on for production.
+  dlpg:
+    tls:
+      enabled: false
+      secretName: ""
+
   # -- Address SDK clients get from /db-credentials. Must resolve for them.
   dlpgExternalHost: ""
 

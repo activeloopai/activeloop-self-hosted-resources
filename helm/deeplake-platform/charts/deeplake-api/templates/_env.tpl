@@ -36,7 +36,7 @@
       name: {{ required "global.secrets.dlpg is required" $g.secrets.dlpg }}
       key: password
 - name: SHARED_DLPG_SSLMODE
-  value: "require"
+  value: {{ ternary "require" "disable" $g.dlpg.tls.enabled | quote }}
 {{- if $g.dlpgExternalHost }}
 # Address SDK clients get back from /db-credentials. Must be resolvable from
 # outside the cluster; the in-cluster service DNS above is not.

@@ -54,7 +54,7 @@ spec:
             - -c
             - |
               set -eu
-              {{- if $v.pool.tls.enabled }}
+              {{- if $g.dlpg.tls.enabled }}
               # Postgres rejects a server key that is group- or world-readable,
               # and the projected secret is mode 0444.
               cp /var/lib/postgresql/tls.crt /var/lib/postgresql/data/server.crt
@@ -68,7 +68,7 @@ spec:
           volumeMounts:
             - name: pgdata
               mountPath: /var/lib/postgresql/data
-            {{- if $v.pool.tls.enabled }}
+            {{- if $g.dlpg.tls.enabled }}
             - name: tls-certs
               mountPath: /var/lib/postgresql/tls.key
               subPath: tls.key
@@ -146,10 +146,10 @@ spec:
         - name: pgdata
           emptyDir:
             sizeLimit: {{ $v.pool.pgdataSizeLimit }}
-        {{- if $v.pool.tls.enabled }}
+        {{- if $g.dlpg.tls.enabled }}
         - name: tls-certs
           secret:
-            secretName: {{ required "dlpg.pool.tls.secretName is required when TLS is enabled" $v.pool.tls.secretName }}
+            secretName: {{ required "global.dlpg.tls.secretName is required when TLS is enabled" $g.dlpg.tls.secretName }}
         {{- end }}
       {{- with $v.pool.nodeSelector }}
       nodeSelector:
