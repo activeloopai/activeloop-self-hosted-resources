@@ -1,4 +1,7 @@
 {{- if .Values.global.postgres.enabled }}
+{{- if eq .Values.global.database.sslMode "require" }}
+{{- fail "the bundled postgres serves no TLS; set global.database.sslMode=disable (or use your own server)" }}
+{{- end }}
 {{- $name := printf "%s-postgres" (include "deeplake.fullname" .) }}
 apiVersion: v1
 kind: ConfigMap

@@ -124,11 +124,18 @@ global:
   # -- Address SDK clients get from /db-credentials. Must resolve for them.
   dlpgExternalHost: ""
 
-  # -- OpenFGA. Store/model IDs are generated at creation time and cannot be
-  # pinned, so a Job creates them and writes the IDs to `bootstrap.secretName`.
+  # -- OpenFGA. REQUIRED: deeplake-api will not serve without it. Either enable
+  # the bundled one below, or point `url` at your own. Tuning lives in the
+  # top-level `openfga:` section.
   openfga:
+    enabled: false
+    # Empty -> the bundled service. Set to reach an external OpenFGA.
     url: ""
-    apiToken: ""
+    # Secret with key `token`, shared by the API client and the bundled server.
+    # Empty -> no authentication (in-cluster trials only).
+    tokenSecret: ""
+    # Store and model IDs are generated at creation time and cannot be pinned,
+    # so a Job creates them and writes the IDs to `bootstrap.secretName`.
     bootstrap:
       enabled: true
       secretName: deeplake-openfga-ids
@@ -188,6 +195,27 @@ keycloak:
       memory: 768Mi
     limits:
       memory: 2Gi
+  nodeSelector: {}
+
+# Bundled OpenFGA tuning. Enable it via global.openfga.enabled.
+openfga:
+  image: openfga/openfga:v1.8.0
+  replicas: 1
+  database:
+    # Empty -> the bundled postgres when enabled, otherwise global.database.host
+    host: ""
+    port: 5432
+    name: openfga
+    user: ""
+    # Keys: password. Empty -> global.secrets.api (key DB_PASSWORD)
+    passwordSecret: ""
+    passwordSecretKey: ""
+  resources:
+    requests:
+      cpu: "100m"
+      memory: 256Mi
+    limits:
+      memory: 1Gi
   nodeSelector: {}
 
 # Bundled ingress controller. Off by default; set global.ingress.className to

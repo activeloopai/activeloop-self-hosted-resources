@@ -70,6 +70,6 @@ imagePullSecrets:
 {{- if .Values.global.openfga.url -}}
 {{- .Values.global.openfga.url -}}
 {{- else -}}
-{{- printf "http://%s-openfga:8080" .Release.Name -}}
+{{- printf "http://%s-openfga:8080" (include "deeplake.fullname" .) -}}
 {{- end -}}
 {{- end -}}
