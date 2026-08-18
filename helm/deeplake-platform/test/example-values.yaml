@@ -22,7 +22,7 @@ deeplake-api:
     setupTag: setup-v0.53.0-97be5e7
 deeplake-ui:
   image:
-    tag: v0.44.0-3f291307
+    tag: v0.44.0-bbb7437e
 dlpg:
   proxy:
     image:
