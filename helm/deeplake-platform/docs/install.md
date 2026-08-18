@@ -73,6 +73,17 @@ Exit 0 means the credential chain works. `Failed to get token from
 ChainedTokenCredential` means the federated credential is missing or its
 subject does not match.
 
+**Using your own Postgres?** Create the databases first — the migration job
+creates `deeplake` if missing, but Keycloak and OpenFGA do not create theirs:
+
+```bash
+az postgres flexible-server db create -g <rg> -s <server> -n deeplake
+az postgres flexible-server db create -g <rg> -s <server> -n keycloak
+az postgres flexible-server db create -g <rg> -s <server> -n openfga
+```
+
+Verified against Azure Database for PostgreSQL 16 with `sslMode: require`.
+
 ## 3. Secrets
 
 The chart never creates credentials. Create these before installing.
@@ -120,6 +131,12 @@ deeplake.example.com      ->  <ingress IP>
 api.deeplake.example.com  ->  <ingress IP>
 kc.deeplake.example.com   ->  <ingress IP>   # only with bundled Keycloak
 ```
+
+The OIDC issuer must be **HTTPS**. The API refuses an HTTP device-authorization
+URL (`device authorization URL must use HTTPS, not HTTP`), so an install with
+`global.ingress.enabled=false` cannot use the bundled Keycloak over plain HTTP —
+terminate TLS somewhere, or point `global.auth.issuerUrl` at an existing HTTPS
+provider.
 
 The Keycloak hostname must also resolve **from inside the cluster**. The API
 fetches the OIDC discovery document over that public hostname and crash-loops
@@ -248,6 +265,9 @@ API calls need an organization: pass `X-Activeloop-Org-Id` (from `/me`), an
 | `503 workspace seeding is not configured` | Seeding is S3-only upstream | Expected off S3; the feature is unused elsewhere |
 | Managed credentials / repositories disabled | `CREDENTIALS_ENCRYPTION_KEY` missing | Step 3 |
 | `relation 'workspace#blocked' not found` warnings | Model predates the API | Platform-wide; checks fall through |
+| `device authorization URL must use HTTPS` | HTTP issuer | Use an HTTPS issuer; see step 4 |
+| API crash-loops, Keycloak host unresolvable, ingress disabled | Issuer derives to a public host with no DNS | Set `global.auth.issuerUrl`, or enable ingress |
+| Keycloak or OpenFGA cannot connect to an external DB | Their databases were never created | See step 3 |
 
 ## Appendix: OpenFGA
 

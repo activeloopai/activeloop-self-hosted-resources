@@ -32,7 +32,7 @@ prerequisites are in place:
 ```bash
 helm registry login quay.io          # the chart and images are private
 helm install deeplake oci://quay.io/activeloopai/charts/deeplake-platform \
-  --version 0.1.0-rc.1 \
+  --version 0.1.0-rc.2 \
   --namespace deeplake --create-namespace \
   -f values-azure.yaml \
   -f my-values.yaml
