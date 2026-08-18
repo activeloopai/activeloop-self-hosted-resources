@@ -30,12 +30,17 @@ workload identity, secrets, DNS, and a verification checklist. Once the
 prerequisites are in place:
 
 ```bash
+helm registry login quay.io          # the chart and images are private
 helm install deeplake oci://quay.io/activeloopai/charts/deeplake-platform \
-  --version 0.1.0 \
+  --version 0.1.0-rc.1 \
   --namespace deeplake --create-namespace \
   -f values-azure.yaml \
   -f my-values.yaml
 ```
+
+Published as a release candidate while deeplake-api #307 and deeplake-ui #330
+are unmerged — the pinned images are built from those branches. 0.1.0 follows
+once they land and the images are rebuilt from `main`.
 
 Workload identity is the step to get right: a missing or mismatched federated
 credential makes `pg_deeplake` abort the Postgres backend on the first
