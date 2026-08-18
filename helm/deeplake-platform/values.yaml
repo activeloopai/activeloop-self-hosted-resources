@@ -187,6 +187,14 @@ dlpg:
 # Bundled Postgres tuning. Enable it via global.postgres.enabled.
 postgres:
   image: postgres:18
+  # ClusterIP by default. LoadBalancer exposes the control-plane database for
+  # admin access — restrict it, and prefer an internal LB:
+  #   annotations:
+  #     service.beta.kubernetes.io/azure-load-balancer-internal: "true"
+  service:
+    type: ClusterIP
+    annotations: {}
+    loadBalancerSourceRanges: []
   storage: 32Gi
   databases: [deeplake, keycloak, openfga]
   resources:

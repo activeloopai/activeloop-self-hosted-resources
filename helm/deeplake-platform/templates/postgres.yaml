@@ -105,8 +105,16 @@ metadata:
   labels:
     {{- include "deeplake.labels" . | nindent 4 }}
     app.kubernetes.io/component: postgres
+  {{- with .Values.postgres.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
 spec:
-  type: ClusterIP
+  type: {{ .Values.postgres.service.type }}
+  {{- with .Values.postgres.service.loadBalancerSourceRanges }}
+  loadBalancerSourceRanges:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
   selector:
     {{- include "deeplake.selectorLabels" (dict "ctx" . "component" "postgres") | nindent 4 }}
   ports:
