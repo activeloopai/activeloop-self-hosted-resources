@@ -7,7 +7,7 @@ proxy:
   image:
     registry: ""
     repository: activeloopai/pg-proxy
-    tag: ""
+    tag: 7626c4bda3663ec7db0ad9ee26aa1e6fd6d0fca1
     pullPolicy: IfNotPresent
 
   # active-active runs every replica as a router with per-org claim Leases.
@@ -57,7 +57,7 @@ pool:
   image:
     registry: ""
     repository: activeloopai/pg-deeplake-stateless
-    tag: ""
+    tag: 18_4.7.1_c514d3366d3b9dcff28dd6323aa72f5edee509df
     pullPolicy: IfNotPresent
 
   # emptyDir by design: durability comes from object storage, not the pod.
@@ -92,6 +92,7 @@ pool:
   canary:
     enabled: false
     replicaCount: 1
+    # Empty -> the pool tag above.
     tag: ""
     # Comma-separated org UUIDs pinned to the canary tier.
     orgs: ""
