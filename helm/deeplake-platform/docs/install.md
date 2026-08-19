@@ -74,8 +74,10 @@ Exit 0 means the credential chain works. `Failed to get token from
 ChainedTokenCredential` means the federated credential is missing or its
 subject does not match.
 
-**Using your own Postgres?** Create the databases first — the migration job
-creates `deeplake` if missing, but Keycloak and OpenFGA do not create theirs:
+## 2b. Your own Postgres (skip if using the bundled one)
+
+Create the databases first. The migration job creates `deeplake` if missing,
+but Keycloak and OpenFGA do not create theirs:
 
 ```bash
 az postgres flexible-server db create -g <rg> -s <server> -n deeplake
@@ -83,7 +85,8 @@ az postgres flexible-server db create -g <rg> -s <server> -n keycloak
 az postgres flexible-server db create -g <rg> -s <server> -n openfga
 ```
 
-Verified against Azure Database for PostgreSQL 16 with `sslMode: require`.
+Then point `global.database` at the server and leave `global.postgres.enabled`
+false. Verified against Azure Database for PostgreSQL 16 with `sslMode: require`.
 
 ## 3. Secrets
 
@@ -127,8 +130,6 @@ it by hand.
 
 ## 3b. Registries and egress
 
-The cluster must reach four registries. Only `deeplake-api` needs credentials:
-
 A minimal install — your own Postgres, identity provider, OpenFGA and ingress —
 needs **`quay.io` only**. The optional bundled components add registries:
 
@@ -150,7 +151,7 @@ global:
   imageRegistry: mirror.example.com          # activeloopai images
   openfga:
     bootstrap:
-      image: mirror.example.com/curlimages/curl:8.11.1
+      image: mirror.example.com/curl/curl:8.21.0
 postgres:
   image: mirror.example.com/postgres:18
 openfga:
@@ -236,8 +237,15 @@ current set.
 ## 6. Install
 
 ```bash
-helm install $RELEASE . -n $NS -f values-azure.yaml -f my-values.yaml --timeout 12m
+helm install $RELEASE oci://quay.io/activeloopai/charts/deeplake-platform \
+  --version 0.1.1 -n $NS \
+  -f values-azure.yaml -f my-values.yaml --timeout 12m
 ```
+
+`values-azure.yaml` ships inside the chart. To use it as a file, pull the chart
+first (`helm pull oci://quay.io/activeloopai/charts/deeplake-platform --version
+0.1.1 --untar`) and install from the extracted directory, or set the same keys
+in your own values file.
 
 Order is handled for you: with the bundled Postgres the migration Job becomes a
 post-install hook and waits for the database; with an external database it stays
@@ -293,7 +301,7 @@ API calls need an organization: pass `X-Activeloop-Org-Id` (from `/me`), an
 |---|---|---|
 | Backend killed by signal 6, cluster enters recovery | Federated credential missing or subject mismatch | Step 2 |
 | API crash-loops on `failed to resolve OIDC endpoints` | Keycloak hostname does not resolve in-cluster | Step 4, then restart the API |
-| `Auth0 not configured - authentication disabled` | API image predates the `OIDC_*` contract | Use a branch build |
+| `Auth0 not configured - authentication disabled` | API image predates the OIDC merge (19 Aug) | Use chart 0.1.1 or newer, which pins a current image |
 | Migration Job: `no such host` for the database | External database not reachable, or `global.database.host` unset | Step 5 |
 | Postgres pod: `data directory has wrong ownership` | Missing `prepare-pgdata` init container | Upgrade the chart |
 | `Organization ID is required` (400) | No org context on the request | Send `X-Activeloop-Org-Id` |
