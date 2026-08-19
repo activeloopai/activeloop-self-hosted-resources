@@ -125,6 +125,35 @@ kubectl -n $NS create secret docker-registry regcred-quay \
 `deeplake-openfga-ids` is created for you by the bootstrap Job — do not create
 it by hand.
 
+## 3b. Registries and egress
+
+The cluster must reach four registries. Only `deeplake-api` needs credentials:
+
+| Registry | Images | Auth |
+|---|---|---|
+| `quay.io` | deeplake-api, deeplake-ui, pg-deeplake-stateless, pg-proxy, keycloak | api only |
+| `docker.io` | `postgres`, `openfga/openfga`, `curlimages/curl` | anonymous |
+| `registry.k8s.io` | ingress-nginx (only when bundled) | anonymous |
+
+Docker Hub rate-limits anonymous pulls per source IP, so a cluster behind one
+NAT can hit `toomanyrequests` during install. To pull those from a mirror
+instead, override each image individually — `global.imageRegistry` only applies
+to the Activeloop images:
+
+```yaml
+global:
+  imageRegistry: mirror.example.com          # activeloopai images
+  openfga:
+    bootstrap:
+      image: mirror.example.com/curlimages/curl:8.11.1
+postgres:
+  image: mirror.example.com/postgres:18
+openfga:
+  image: mirror.example.com/openfga/openfga:v1.8.0
+keycloak:
+  image: mirror.example.com/keycloak/keycloak:26.7.0
+```
+
 ## 4. DNS
 
 Three names must resolve to your ingress. With `global.domain=deeplake.example.com`:
