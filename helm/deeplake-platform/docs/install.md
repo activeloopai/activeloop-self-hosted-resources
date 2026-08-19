@@ -129,11 +129,16 @@ it by hand.
 
 The cluster must reach four registries. Only `deeplake-api` needs credentials:
 
-| Registry | Images | Auth |
+A minimal install — your own Postgres, identity provider, OpenFGA and ingress —
+needs **`quay.io` only**. The optional bundled components add registries:
+
+| Registry | Images | Needed when |
 |---|---|---|
-| `quay.io` | deeplake-api, deeplake-ui, pg-deeplake-stateless, pg-proxy, keycloak | api only |
-| `docker.io` | `postgres`, `openfga/openfga`, `curlimages/curl` | anonymous |
-| `registry.k8s.io` | ingress-nginx (only when bundled) | anonymous |
+| `quay.io` | deeplake-api, deeplake-ui, pg-deeplake-stateless, pg-proxy, curl, keycloak | always |
+| `docker.io` | `postgres`, `openfga/openfga` | bundled Postgres / OpenFGA |
+| `registry.k8s.io` | ingress-nginx | bundled ingress |
+
+Only `deeplake-api` needs credentials; everything else pulls anonymously.
 
 Docker Hub rate-limits anonymous pulls per source IP, so a cluster behind one
 NAT can hit `toomanyrequests` during install. To pull those from a mirror

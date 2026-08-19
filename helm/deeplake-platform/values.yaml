@@ -158,7 +158,8 @@ global:
     bootstrap:
       enabled: true
       secretName: deeplake-openfga-ids
-      image: curlimages/curl:8.11.1
+      # quay so a minimal install needs no other registry
+      image: quay.io/curl/curl:8.21.0
 
   # -- REQUIRED. Control-plane Postgres (org/user metadata), not the pg-deeplake
   # data plane. `host` does NOT default to the bundled Postgres — set it to

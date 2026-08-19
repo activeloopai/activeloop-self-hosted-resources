@@ -4,7 +4,7 @@ description: Self-hosted Activeloop Deep Lake — API, UI, and the pg-deeplake d
 type: application
 
 # Chart version is the platform release: api and pg-deeplake ship together.
-version: 0.1.0
+version: 0.1.1
 appVersion: "0.53.0"
 
 kubeVersion: ">= 1.29.0-0"

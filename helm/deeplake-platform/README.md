@@ -31,7 +31,7 @@ prerequisites are in place:
 
 ```bash
 helm install deeplake oci://quay.io/activeloopai/charts/deeplake-platform \
-  --version 0.1.0 \
+  --version 0.1.1 \
   --namespace deeplake --create-namespace \
   -f values-azure.yaml \
   -f my-values.yaml
