@@ -11,7 +11,8 @@ differences are called out inline.
   step most installs get wrong)
 - An ingress controller, or set `ingress-nginx.enabled=true` to get one
 - DNS for three hostnames, and cert-manager if you want automatic TLS
-- Pull access to `quay.io/activeloopai`
+- Credentials for `quay.io/activeloopai/deeplake-api` (the only private image;
+  the chart and every other image pull anonymously)
 
 Three components are optional and off by default. Enable them if you do not
 already run your own: `global.postgres.enabled` (control-plane metadata),
@@ -108,6 +109,7 @@ kubectl -n $NS create secret generic deeplake-keycloak-admin \
 kubectl -n $NS create secret generic deeplake-fga-token \
   --from-literal=token='<random 32+ bytes>'
 
+# pull secret for deeplake-api, the one private image
 kubectl -n $NS create secret docker-registry regcred-quay \
   --docker-server=quay.io --docker-username='<user>' --docker-password='<token>'
 ```
@@ -118,6 +120,7 @@ kubectl -n $NS create secret docker-registry regcred-quay \
 | `deeplake-dlpg-superuser` | `password` | `global.secrets.dlpg` |
 | `deeplake-keycloak-admin` | `username`, `password` | `global.keycloak.adminSecret` |
 | `deeplake-fga-token` | `token` | `global.openfga.tokenSecret` |
+| `regcred-quay` | docker config | `global.imagePullSecrets` |
 
 `deeplake-openfga-ids` is created for you by the bootstrap Job — do not create
 it by hand.

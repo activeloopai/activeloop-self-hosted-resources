@@ -30,13 +30,17 @@ workload identity, secrets, DNS, and a verification checklist. Once the
 prerequisites are in place:
 
 ```bash
-helm registry login quay.io          # the chart and images are private
 helm install deeplake oci://quay.io/activeloopai/charts/deeplake-platform \
   --version 0.1.0 \
   --namespace deeplake --create-namespace \
   -f values-azure.yaml \
   -f my-values.yaml
 ```
+
+The chart pulls anonymously. `deeplake-api` is a private image, so you also
+need a pull secret — `global.imagePullSecrets` — created from credentials we
+issue you. Everything else (`deeplake-ui`, `pg-deeplake-stateless`, `pg-proxy`)
+pulls anonymously too. See docs/install.md step 3.
 
 Workload identity is the step to get right: a missing or mismatched federated
 credential makes `pg_deeplake` abort the Postgres backend on the first
