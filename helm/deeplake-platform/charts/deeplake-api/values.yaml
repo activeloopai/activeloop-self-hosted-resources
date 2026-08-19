@@ -7,9 +7,9 @@ image:
   pullPolicy: IfNotPresent
   # Tags are per-binary: the Dockerfile builds cmd/{server,worker,setup} and
   # publishes them as separate tags. All three MUST come from the same build.
-  serverTag: server-v0.53.0-97be5e7
-  workerTag: worker-v0.53.0-97be5e7
-  setupTag: setup-v0.53.0-97be5e7
+  serverTag: server-v0.53.0-a84179c
+  workerTag: worker-v0.53.0-a84179c
+  setupTag: setup-v0.53.0-a84179c
 
 server:
   replicaCount: 2

@@ -192,10 +192,9 @@ is required and does **not** default to the bundled service, and `sslMode`
 defaults to `require`, which the bundled Postgres does not offer — the chart
 refuses to render rather than let that fail at runtime.
 
-Pin image tags per release. Until deeplake-api #307 and deeplake-ui #330 merge,
-use branch builds — `main` images do not understand the `OIDC_*` contract and
-start with authentication disabled (`Auth0 not configured`). See
-`test/example-values.yaml` for current tags.
+Image tags are pinned by the chart — the platform release sets them together,
+so you do not normally override them. `test/example-values.yaml` shows the
+current set.
 
 ## 6. Install
 

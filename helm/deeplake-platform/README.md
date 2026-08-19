@@ -32,15 +32,11 @@ prerequisites are in place:
 ```bash
 helm registry login quay.io          # the chart and images are private
 helm install deeplake oci://quay.io/activeloopai/charts/deeplake-platform \
-  --version 0.1.0-rc.2 \
+  --version 0.1.0 \
   --namespace deeplake --create-namespace \
   -f values-azure.yaml \
   -f my-values.yaml
 ```
-
-Published as a release candidate while deeplake-api #307 and deeplake-ui #330
-are unmerged — the pinned images are built from those branches. 0.1.0 follows
-once they land and the images are rebuilt from `main`.
 
 Workload identity is the step to get right: a missing or mismatched federated
 credential makes `pg_deeplake` abort the Postgres backend on the first
@@ -118,15 +114,6 @@ These are real, and tracked rather than hidden.
   packaging error. A chart upgrade carrying a changed model does not re-apply
   it: the bootstrap Job short-circuits on the existing Secret.
 
-- **Depends on two unmerged PRs**: deeplake-api #307 (generic `OIDC_*` config
-  with Auth0 back-compat) and deeplake-ui #330 (auth adapters, runtime public
-  env, distroless Dockerfile). This chart targets those contracts, so it will
-  not work against `main` until both land. Specifically it needs `OIDC_ISSUER`
-  on the API, and on the UI the `AUTH_PROVIDER`/`OIDC_*` server config plus
-  plain-name runtime env (`API_BASE_URL`) — none of which exist on `main`.
-- **`deeplake-ui` images are built from the PR branch, not `main`.** The newest
-  tag is `v0.44.0-3f291307` (PR #330 head, multi-arch). Anything built from
-  `main` lacks the runtime env contract this chart sets.
 - **`NEXT_PUBLIC_SITE_URL` is build-time only.** It is not in the
   runtime-overridable key set in `app/lib/env/publicEnv.ts`, so a per-customer
   site URL still needs `--build-arg` at image build. Everything else the chart
