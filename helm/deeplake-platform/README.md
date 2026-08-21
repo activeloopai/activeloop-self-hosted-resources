@@ -37,10 +37,10 @@ helm install deeplake oci://quay.io/activeloopai/charts/deeplake-platform \
   -f my-values.yaml
 ```
 
-The chart pulls anonymously. `deeplake-api` is a private image, so you also
+The chart pulls anonymously. `deeplake-api` and `deeplake-ui` are private images, so you also
 need a pull secret — `global.imagePullSecrets` — created from credentials we
 issue you. Everything else (`deeplake-ui`, `pg-deeplake-stateless`, `pg-proxy`)
-pulls anonymously too. See docs/install.md step 3.
+pulls anonymously too.
 
 Workload identity is the step to get right: a missing or mismatched federated
 credential makes `pg_deeplake` abort the Postgres backend on the first
@@ -92,10 +92,6 @@ edit clients in the admin console after that, not by reinstalling.
 **The chart never creates a secret.** You supply Secret names via
 `global.secrets.*`. Generate them yourself or sync them with External Secrets
 Operator from Key Vault / Secrets Manager / Secret Manager.
-
-**No SaaS by default.** Stripe, PostHog, Resend, and the hosted embedding
-endpoints are all off or empty. A fresh install makes no outbound calls to
-Activeloop infrastructure.
 
 ## Known gaps
 
