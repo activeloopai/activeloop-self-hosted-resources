@@ -101,13 +101,6 @@ Activeloop infrastructure.
 
 These are real, and tracked rather than hidden.
 
-- **The UI's "ingest COCO dataset" button cannot work off S3.** `deeplake-api`
-  only derives the signup seed source when `DEEPLAKE_ROOT_DIR` starts with
-  `s3://` (`cmd/server/main.go`), so on Azure and GCP the seeder is never
-  constructed and the endpoint returns 503. The copier itself is multi-cloud;
-  only the default derivation is S3-gated. The prebuilt dataset it copies from
-  (`<root>/_signup_seeds/`) is also operator-hosted content that no self-hosted
-  install has. Seeding is otherwise unused — user provisioning never calls it.
 - **"Ask AI" query suggestion needs `OPENAI_API_KEY`.** Not set by the chart;
   the endpoint 404s without it. Billing endpoints 404 by design.
 - **The OpenFGA model is behind the API.** `deeplake-api` checks
@@ -117,19 +110,6 @@ These are real, and tracked rather than hidden.
   prod, and prod logs the same warnings — this is platform-wide, not a
   packaging error. A chart upgrade carrying a changed model does not re-apply
   it: the bootstrap Job short-circuits on the existing Secret.
-
-- **`NEXT_PUBLIC_SITE_URL` is build-time only.** It is not in the
-  runtime-overridable key set in `app/lib/env/publicEnv.ts`, so a per-customer
-  site URL still needs `--build-arg` at image build. Everything else the chart
-  sets is runtime-overridable.
-- **`dlpg.proxy.snapshotRestoreOnClaim` defaults to `false`, but no longer for
-  cloud reasons.** `dlsnap` was S3-only; it was replaced by `dlstorage`
-  (`indra/cpp/dlstorage`) in `1879baf1a`, which speaks `s3://`, `az://`, `gs://`
-  and local paths through the same storage layer as the extension. Verified on
-  Azure: `dlstorage list_dirs az://…` succeeds from a 4.7.1 pool pod. It stays
-  off by default because re-enabling has its own operational gate — see
-  `indra/postgres/FINDINGS_restore_on_claim_reenable.md`. Requires a pool image
-  at 4.7.1 or newer.
 - **`dlpg.pgPilot` requires Kubernetes ≥ 1.33** with `InPlacePodVerticalScaling`
   for the `pods/resize` subresource. Off by default; verify before enabling.
 - **The device grant always shows an approval page.** `consentRequired` is false
@@ -144,12 +124,5 @@ These are real, and tracked rather than hidden.
 - **Pool sizing needs review per customer.** Requests are 2Gi/0.5cpu but limits
   are 32Gi/8cpu, and the tail genuinely reaches it. Nodes must be able to
   schedule a pod at the limit.
-
-## Development
-
-```bash
-helm lint . -f values-azure.yaml -f test/example-values.yaml
-helm template deeplake . -f values-azure.yaml -f test/example-values.yaml
-```
 
 The chart has no remote dependencies and renders with no network access.
