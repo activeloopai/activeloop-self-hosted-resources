@@ -46,40 +46,8 @@ Workload identity is the step to get right: a missing or mismatched federated
 credential makes `pg_deeplake` abort the Postgres backend on the first
 storage-touching statement, rather than returning an error.
 
-## Design decisions worth knowing
-
-**The chart version pins all three components together.** `deeplake-api` and
-`pg-deeplake` call each other — pg_deeplake hits the API's
-`workspace_storage_resolver`/`creds_key_resolver` on every connection. Letting a
-customer bump one image independently produces a broken cluster, so component
-image tags are set by the release, not by the customer.
-
-**One ServiceAccount, created at the umbrella level.** `deeplake-api` and the
-dlpg pool share `<release>-workload`; only pg-proxy gets its own (it needs K8s
-API access but no cloud identity). Subcharts reference it by name and never
-create their own — this is what keeps two subcharts from fighting over the same
-object.
-
-**One Ingress for the whole platform.** On AWS and Azure an Ingress provisions a
-real load balancer. Two Ingress objects means two of them, and the grouping
-annotations that would prevent it are cloud-specific.
-
-**The cloud delta lives in one file.** `charts/deeplake-common/templates/_cloud.tpl`
-plus the `values-<cloud>.yaml` overlays. It covers workload-identity wiring,
-storage URL scheme, ingress class, and StorageClass. Do not fork the chart per
-cloud.
-
-**Identity is bring-your-own, with Keycloak as a convenience.** Any OIDC
-provider works — set `global.auth.issuerUrl` and the two client IDs. For
-customers without one, `global.keycloak.enabled=true` deploys Keycloak and
-imports a realm with both clients preconfigured (UI client with PKCE, CLI client
-with the device grant, and the audience mapper the API's token validation
-depends on). `global.auth.issuerUrl` is then derived and can stay empty; setting
-it explicitly always wins, so you can bundle Keycloak and still point the
-platform elsewhere.
-
-The realm ConfigMap renders whether or not Keycloak is bundled, so a customer
-running their own Keycloak can import the same realm:
+KeyCloak realm ConfigMap renders whether or not Keycloak is bundled, so a installation
+running it's own Keycloak can import the same realm:
 
 ```bash
 kubectl get cm <release>-keycloak-realm -o jsonpath='{.data.realm\.json}' > realm.json
@@ -93,9 +61,7 @@ edit clients in the admin console after that, not by reinstalling.
 `global.secrets.*`. Generate them yourself or sync them with External Secrets
 Operator from Key Vault / Secrets Manager / Secret Manager.
 
-## Known gaps
-
-These are real, and tracked rather than hidden.
+## Notes
 
 - **"Ask AI" query suggestion needs `OPENAI_API_KEY`.** Not set by the chart;
   the endpoint 404s without it. Billing endpoints 404 by design.
