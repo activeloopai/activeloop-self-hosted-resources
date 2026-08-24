@@ -59,7 +59,7 @@ edit clients in the admin console after that, not by reinstalling.
 
 **The chart never creates a secret.** You supply Secret names via
 `global.secrets.*`. Generate them yourself or sync them with External Secrets
-Operator from Key Vault / Secrets Manager / Secret Manager.
+Operator from Key Vault / Secrets Manager.
 
 ## Notes
 
