@@ -25,7 +25,7 @@ deeplake-platform/
 
 ## Install
 
-Full walkthrough in [docs/install.md](docs/install.md) — object storage,
+Full walkthrough in [docs/install.md](docs/install_azure.md) — object storage,
 workload identity, secrets, DNS, and a verification checklist. Once the
 prerequisites are in place:
 
