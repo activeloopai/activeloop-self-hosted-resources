@@ -5,9 +5,7 @@
 ### Deep Lake Platform
 
 - [K8s](./helm/deeplake-platform/)
-
-Full Deep Lake stack: API, UI, and the pg-deeplake data plane. Azure, AWS and
-GCP via `global.cloud`. See the chart README for values and prerequisites.
+- [docker-compose](./docker-compose/deeplake-platform/)
 
 ### Activeloop Neohorizon
 
