@@ -11,6 +11,12 @@ Single-host Docker Compose deployment of [Deeplake](http://deeplake.ai/) with:
 into `~/.local/deeplake/compose.yaml`, bootstraps the OpenFGA store and
 authorization model, and then starts the stack.
 
+First pull the `dl-stack.sh`:
+
+```bash
+curl -fsSL https://github.com/activeloopai/activeloop-self-hosted-resources/blob/main/docker-compose/deeplake-platform/dl-stack.sh -o dl-stack.sh && chmod +x dl-stack.sh
+```
+
 ## What gets deployed
 
 | Service | Container | Public URL |

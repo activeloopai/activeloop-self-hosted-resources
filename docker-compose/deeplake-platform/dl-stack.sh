@@ -1235,7 +1235,7 @@ ensure_compose_file() {
   local answer
   mkdir -p "${CONFIG_DIR}"
   if ! [ -f "${CONFIG_DIR}/compose.yaml" ]; then
-    cat ./compose.yaml | envsubst >"${CONFIG_DIR}/compose.yaml"
+    curl -fsSL https://raw.githubusercontent.com/activeloopai/activeloop-self-hosted-resources/refs/heads/main/docker-compose/deeplake-platform/compose.yaml | envsubst >"${CONFIG_DIR}/compose.yaml"
     chmod 600 "${CONFIG_DIR}/compose.yaml"
     FRESH_SETUP=1
   fi
