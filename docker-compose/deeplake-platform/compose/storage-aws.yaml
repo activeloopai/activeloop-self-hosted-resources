@@ -25,5 +25,6 @@ services:
     <<: *storage-api-env
   deeplake-indexer:
     <<: *storage-env
-  deeplake-stateless:
+  deeplake-stateless-1:
     <<: *storage-env
+  # dl-stack.sh: additional deeplake-stateless services

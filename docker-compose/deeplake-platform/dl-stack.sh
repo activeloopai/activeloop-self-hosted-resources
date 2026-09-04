@@ -1118,6 +1118,8 @@ $0: manage local deeplake stack
   setup: configure the stack, re-running this will reintialize the stack
   start: start the stack, if setup is not done it will setup first
   stop:  stop the stack
+  scale: change how many deeplake-stateless nodes the stack runs,
+         e.g. '$0 scale 2', applies immediately when the stack is up
   destroy: stop the stack and remove all docker volumes, e.g. wipe the data
            pass --force to skip the confirmation prompt (for non-interactive use)
 
@@ -1424,6 +1426,31 @@ storage:
 "
 }
 
+stateless_count() {
+  # one pg-deeplake-stateless node per cpu core less one, so the host keeps a
+  # core for everything else. DEEPLAKE_STATELESS_COUNT overrides the detection
+  local count
+  if [ -n "${DEEPLAKE_STATELESS_COUNT}" ]; then
+    if ! [[ "${DEEPLAKE_STATELESS_COUNT}" =~ ^[1-9][0-9]*$ ]]; then
+      echo "[ERROR] DEEPLAKE_STATELESS_COUNT must be a positive integer, got '${DEEPLAKE_STATELESS_COUNT}'" 1>&2
+      exit 1
+    fi
+    echo "${DEEPLAKE_STATELESS_COUNT}"
+    return 0
+  fi
+  # nproc honours cpu affinity, /proc/cpuinfo is the fallback when coreutils is
+  # not around. neither reflects a cgroup cpu quota, so a host capped with
+  # --cpus still reports every core: set DEEPLAKE_STATELESS_COUNT there
+  count="$(nproc 2>/dev/null || grep -c '^processor' /proc/cpuinfo 2>/dev/null || echo 0)"
+  if [ "${count}" -lt 1 ]; then
+    echo "[WARNING] could not detect the cpu count, using a single deeplake-stateless node, set DEEPLAKE_STATELESS_COUNT to override" 1>&2
+    count=2
+  fi
+  count=$((count - 1))
+  [ "${count}" -lt 1 ] && count=1
+  echo "${count}"
+}
+
 gen_vars() {
   local answer
   DEEPLAKE_JWT_KEY="$(cat /dev/urandom | tr -dc 'A-Za-z0-9/' | head -c 64)"
@@ -1465,6 +1492,13 @@ gen_vars() {
     TLS_KEY_PATH \
     TLS_CERT_PATH \
     TLS_METHOD
+  DEEPLAKE_STATELESS_COUNT="$(stateless_count)"
+  DEEPLAKE_STATELESS_PODS=''
+  for i in $(seq 1 "${DEEPLAKE_STATELESS_COUNT}"); do
+    DEEPLAKE_STATELESS_PODS+="${DEEPLAKE_STATELESS_PODS:+,}deeplake-stateless-${i}:5432"
+  done
+  echo "[INFO] using ${DEEPLAKE_STATELESS_COUNT} pg-deeplake-stateless node(s)"
+  export DEEPLAKE_STATELESS_COUNT DEEPLAKE_STATELESS_PODS
   storage_hook gen_vars
 }
 
@@ -1492,6 +1526,39 @@ fetch_template() {
   chmod 600 "${2}"
 }
 
+expand_stateless() {
+  # node 1 is in the templates; this writes nodes 2..n at the markers they
+  # leave behind. done before the merge, while the anchors the extra services
+  # reference are still in the file
+  local i services volumes stubs snippet
+  [ "${DEEPLAKE_STATELESS_COUNT}" -le 1 ] && return 0
+  services='' volumes='' stubs=''
+  for i in $(seq 2 "${DEEPLAKE_STATELESS_COUNT}"); do
+    services+="  deeplake-stateless-${i}:
+    <<: *deeplake-stateless
+    hostname: deeplake-stateless-${i}
+    container_name: dl-deeplake-stateless-${i}
+    volumes:
+      - deeplake_stateless_${i}:/var/lib/postgresql
+"
+    volumes+="  deeplake_stateless_${i}:
+    driver: local
+    name: dl_deeplake_stateless_${i}
+"
+    stubs+="  deeplake-stateless-${i}:
+    <<: *storage-env
+"
+  done
+  snippet="${CONFIG_DIR}/.stateless-snippet"
+  printf '%s' "${services}" >"${snippet}"
+  sed -i "/# dl-stack.sh: additional deeplake-stateless services/r ${snippet}" "${COMPOSE_BASE_FILE}"
+  printf '%s' "${volumes}" >"${snippet}"
+  sed -i "/# dl-stack.sh: additional deeplake-stateless volumes/r ${snippet}" "${COMPOSE_BASE_FILE}"
+  printf '%s' "${stubs}" >"${snippet}"
+  sed -i "/# dl-stack.sh: additional deeplake-stateless services/r ${snippet}" "${COMPOSE_OVERLAY_FILE}"
+  rm -f "${snippet}"
+}
+
 ensure_compose_file() {
   mkdir -p "${CONFIG_DIR}"
   if [ -f "${CONFIG_DIR}/compose.yaml" ]; then
@@ -1505,6 +1572,7 @@ ensure_compose_file() {
   COMPOSE_OVERLAY_FILE="${CONFIG_DIR}/.storage-${STORAGE_TYPE}.yaml"
   fetch_template 'compose-base.yaml' "${COMPOSE_BASE_FILE}"
   fetch_template "storage-${STORAGE_TYPE}.yaml" "${COMPOSE_OVERLAY_FILE}"
+  expand_stateless
   if [ "${TLS_METHOD}" == 'http01' ]; then
     # the overlay carries its own caddy config for the storage vhosts, so the
     # tls directives have to go from both files
@@ -1585,6 +1653,97 @@ setup() {
   fi
 }
 
+scale() {
+  # rewrites the rendered compose file for a different number of
+  # deeplake-stateless nodes. node 1 is the template every other node is
+  # generated from, so nodes 2..n are always regenerated and the same code path
+  # serves both scaling up and scaling down
+  local target current pods i new
+  target="${1:-}"
+  if ! [[ "${target}" =~ ^[1-9][0-9]*$ ]]; then
+    echo "[ERROR] scale needs a positive integer, e.g. ./dl-stack.sh scale 2"
+    exit 1
+  fi
+  if ! [ -f "${CONFIG_DIR}/compose.yaml" ]; then
+    echo "[ERROR] nothing to scale, ${CONFIG_DIR}/compose.yaml does not exist, run ./dl-stack.sh setup first"
+    exit 1
+  fi
+  check_prerequisites
+  current="$(grep -cE '^  deeplake-stateless-[0-9]+:$' "${CONFIG_DIR}/compose.yaml" || true)"
+  if [ "${current}" -eq 0 ]; then
+    echo "[ERROR] no deeplake-stateless services found in ${CONFIG_DIR}/compose.yaml"
+    exit 1
+  fi
+  if ! grep -qE '^  deeplake-stateless-1:$' "${CONFIG_DIR}/compose.yaml"; then
+    # every other node is generated from node 1, so without it there is nothing
+    # to copy and the rewrite would silently drop the rest
+    echo "[ERROR] deeplake-stateless-1 is missing from ${CONFIG_DIR}/compose.yaml, cannot scale from it"
+    exit 1
+  fi
+  if [ "${target}" -eq "${current}" ]; then
+    echo "[INFO] already at ${current} deeplake-stateless node(s), nothing to do"
+    return 0
+  fi
+  pods=''
+  for i in $(seq 1 "${target}"); do
+    pods+="${pods:+,}deeplake-stateless-${i}:5432"
+  done
+  new="${CONFIG_DIR}/.compose.yaml.new"
+  awk -v target="${target}" -v pods="${pods}" '
+    function emit_services(   i, j, line) {
+      for (i = 2; i <= target; i++)
+        for (j = 1; j <= nb; j++) {
+          line = blk[j]
+          gsub(/deeplake-stateless-1/, "deeplake-stateless-" i, line)
+          gsub(/deeplake_stateless_1/, "deeplake_stateless_" i, line)
+          print line
+        }
+    }
+    function emit_volumes(   i) {
+      for (i = 2; i <= target; i++) {
+        print "  deeplake_stateless_" i ":"
+        print "    driver: local"
+        print "    name: dl_deeplake_stateless_" i
+      }
+    }
+    function is_key() { return ($0 ~ /^  [^ ]/ || $0 ~ /^[^ ]/) }
+    /^  deeplake-stateless-1:$/ { in1 = 1; nb = 0; blk[++nb] = $0; print; next }
+    in1 && !is_key()            { blk[++nb] = $0; print; next }
+    in1                         { in1 = 0; emit_services() }
+    /^  deeplake-stateless-[0-9]+:$/ { n = $0; gsub(/[^0-9]/, "", n); if (n + 0 >= 2) { sk = 1; next } }
+    sk && !is_key()             { next }
+    sk                          { sk = 0 }
+    /^  deeplake_stateless_1:$/ { v1 = 1; print; next }
+    v1 && !is_key()             { print; next }
+    v1                          { v1 = 0; emit_volumes() }
+    /^  deeplake_stateless_[0-9]+:$/ { n = $0; gsub(/[^0-9]/, "", n); if (n + 0 >= 2) { sv = 1; next } }
+    sv && !is_key()             { next }
+    sv                          { sv = 0 }
+    /^      LOCAL_PODS: /       { print "      LOCAL_PODS: " pods; next }
+    /^      - LOCAL_PODS=/      { print "      - LOCAL_PODS=" pods; next }
+                                { print }
+    # a block that runs to the end of the file never meets a following key
+    END                         { if (in1) emit_services(); if (v1) emit_volumes() }
+  ' "${CONFIG_DIR}/compose.yaml" >"${new}"
+  chmod 600 "${new}"
+  if ! docker compose -f "${new}" config --quiet; then
+    echo "[ERROR] the rewritten compose file did not validate, ${CONFIG_DIR}/compose.yaml is unchanged"
+    rm -f "${new}"
+    exit 1
+  fi
+  mv "${new}" "${CONFIG_DIR}/compose.yaml"
+  echo "[INFO] deeplake-stateless scaled from ${current} to ${target} node(s)"
+  if [ -n "$(docker compose -f "${CONFIG_DIR}/compose.yaml" ps -q 2>/dev/null)" ]; then
+    # --remove-orphans is what takes away the containers of nodes that are gone
+    docker compose -f "${CONFIG_DIR}/compose.yaml" up -d --remove-orphans
+  else
+    echo "[INFO] the stack is not running, the new node count applies on the next ./dl-stack.sh start"
+  fi
+  if [ "${target}" -lt "${current}" ]; then
+    echo "[INFO] the volumes of the removed nodes are kept, scaling back up reuses their data"
+  fi
+}
+
 start() {
   if ! [ -f "${CONFIG_DIR}/compose.yaml" ]; then
     setup
@@ -1606,11 +1765,12 @@ destroy() {
     fi
   fi
   docker compose -f "${CONFIG_DIR}/compose.yaml" down -v
-  rm -f "${CONFIG_DIR}/compose.yaml"
+  rm -f "${CONFIG_DIR}/compose.yaml" "${CONFIG_DIR}/.compose.yaml.new"
 }
 
 case "$1" in
 start) start ;;
+scale) scale "${2:-}" ;;
 stop) stop ;;
 setup) setup ;;
 destroy) destroy "${2:-}" ;;

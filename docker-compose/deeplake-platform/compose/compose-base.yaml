@@ -42,6 +42,23 @@ x-deeplake-env: &deeplake-env
     DEEPLAKE_API_URL: http://deeplake-api:8080
     DEEPLAKE_SNAPSHOT_RESTORE_ON_CLAIM: "1"
     DEEPLAKE_DATASET_WAL: "1"
+x-deeplake-stateless: &deeplake-stateless
+  image: quay.io/activeloopai/pg-deeplake-stateless:18
+  restart: unless-stopped
+  entrypoint:
+    - sh
+    - -c
+    - |
+      touch /tmp/.pg_deeplake_sync_disabled /tmp/.pg_deeplake_indexer_disabled && exec /usr/local/bin/stateless-entrypoint.sh
+  healthcheck:
+    test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U postgres"]
+    interval: 10s
+    timeout: 5s
+    retries: 12
+    start_period: 60s
+  networks:
+    - deeplake
+  <<: *deeplake-env
 
 networks:
   deeplake:
@@ -217,39 +234,27 @@ services:
       - deeplake
     <<: *deeplake-env
 
-  deeplake-stateless:
-    image: quay.io/activeloopai/pg-deeplake-stateless:18
-    container_name: dl-deeplake-stateless
-    hostname: deeplake-stateless
-    restart: unless-stopped
+  # one node per cpu core less one. each needs its own hostname, container name
+  # and volume, so this cannot be `deploy: replicas`; dl-stack.sh appends
+  # deeplake-stateless-2 and up immediately after this block
+  deeplake-stateless-1:
+    <<: *deeplake-stateless
+    hostname: deeplake-stateless-1
+    container_name: dl-deeplake-stateless-1
     volumes:
-      - deeplake_stateless:/var/lib/postgresql
-    entrypoint:
-      - sh
-      - -c
-      - |
-        touch /tmp/.pg_deeplake_sync_disabled /tmp/.pg_deeplake_indexer_disabled && exec /usr/local/bin/stateless-entrypoint.sh
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U postgres"]
-      interval: 10s
-      timeout: 5s
-      retries: 12
-      start_period: 60s
-    networks:
-      - deeplake
-    <<: *deeplake-env
+      - deeplake_stateless_1:/var/lib/postgresql
+  # dl-stack.sh: additional deeplake-stateless services
 
   pg-proxy:
     depends_on:
-      deeplake-stateless:
+      deeplake-stateless-1:
         condition: service_healthy
     image: quay.io/activeloopai/pg-proxy:latest
     container_name: dl-pg-proxy
     hostname: pg-proxy
     restart: unless-stopped
     environment:
-      LOCAL_PODS: "deeplake-stateless:5432"
-      CONTROL_POD_ADDR: "deeplake-stateless:5432"
+      LOCAL_PODS: "${DEEPLAKE_STATELESS_PODS}"
       PG_PASSWORD: ${DLPG_PASSWORD}
       PG_USER: "postgres"
       LISTEN_ADDR: ":5432"
@@ -284,9 +289,10 @@ volumes:
   deeplake_indexer:
     driver: local
     name: dl_deeplake_indexer
-  deeplake_stateless:
+  deeplake_stateless_1:
     driver: local
     name: dl_deeplake_stateless
+  # dl-stack.sh: additional deeplake-stateless volumes
 
 configs:
   postgres_provision:

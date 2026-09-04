@@ -27,7 +27,8 @@ curl -fsSL https://raw.githubusercontent.com/activeloopai/activeloop-self-hosted
 | --- | --- | --- |
 | Deep Lake UI | `dl-deeplake-ui` | `https://app.$BASE_HOST` |
 | Deep Lake API | `dl-deeplake-api` | `https://api.$BASE_HOST` |
-| Deep Lake worker / setup / indexer / stateless | `dl-deeplake-*` | internal |
+| Deep Lake worker / setup / indexer | `dl-deeplake-*` | internal |
+| Deep Lake stateless nodes | `dl-deeplake-stateless-1` … `-N` | internal |
 | Keycloak | `dl-keycloak` | `https://kc.$BASE_HOST` |
 | OpenFGA | `dl-openfga` | `https://openfga.$BASE_HOST` |
 | Object storage API (`alarik`, `garage`) | `dl-storage-api` | `https://storage-api.$BASE_HOST` |
@@ -42,7 +43,8 @@ the host. This is the shared control-plane database (Keycloak users, OpenFGA
 tuples, Deep Lake metadata); do not widen that binding to `0.0.0.0`.
 
 Data lives in named Docker volumes: `dl_deeplake_postgres`,
-`dl_deeplake_indexer`, `dl_deeplake_stateless`, `dl_deeplake_caddy`, plus the
+`dl_deeplake_indexer`, `dl_deeplake_caddy`, one per stateless node
+(`dl_deeplake_stateless`, then `dl_deeplake_stateless_2` and up), plus the
 object storage volumes of the selected backend - `dl_deeplake_storage` for
 `alarik`, `dl_deeplake_storage_meta` and `dl_deeplake_storage_data` for
 `garage`, none for the external backends.
@@ -152,9 +154,42 @@ it - unlike `alarik` and `garage`, whose volumes it wipes.
 The backend cannot be switched in place: the rendered compose file and the
 object storage volumes belong to the type chosen at `setup` time.
 
+## Stateless node count
+
+`pg-deeplake-stateless` runs as several independent nodes, one per CPU core
+less one - two cores give one node, four give three - leaving a core for
+everything else on the host. `setup` detects this with `nproc` and prints the
+number it settled on. Set `DEEPLAKE_STATELESS_COUNT` to override it.
+
+Each node is a service of its own (`deeplake-stateless-1`, `-2`, …) rather than
+`deploy: replicas`, because each needs a stable hostname, container name and
+volume of its own: `pg-proxy` addresses them individually through `LOCAL_PODS`,
+which `setup` fills in as `deeplake-stateless-1:5432,deeplake-stateless-2:5432,…`.
+`pg-proxy` waits only on the first node being healthy; the rest join as they
+come up. Node 1 keeps the volume name `dl_deeplake_stateless` it has always
+had, so an existing install does not orphan its data when it grows extra nodes.
+
+The count is fixed into the rendered compose file at `setup` time, but
+`scale` changes it afterwards without touching any other setting:
+
+```sh
+./dl-stack.sh scale 2
+```
+
+It rewrites `~/.local/deeplake/compose.yaml` - adding or removing the service
+and volume blocks and updating `LOCAL_PODS` - validates the result before
+replacing anything, and applies it right away if the stack is running,
+recreating `pg-proxy` so it picks up the new node list. If the stack is down,
+the change takes effect on the next `start`.
+
+Scaling down keeps the volumes of the removed nodes, so scaling back up reuses
+their data rather than starting them empty. Node 1 is never touched by either
+direction.
+
 ## Startup ordering
 
-Postgres, OpenFGA, Keycloak and the two `pg-deeplake-stateless` containers
+Postgres, OpenFGA, Keycloak, `deeplake-indexer` and the `deeplake-stateless`
+nodes
 define healthchecks, and dependents wait on `condition: service_healthy` rather
 than merely `service_started` - `deeplake-api` waits on both `deeplake-setup`
 completing and `keycloak` being healthy, since it validates OIDC tokens against
@@ -219,6 +254,7 @@ Compose env file):
 ```sh
 export BASE_HOST=example.com
 export STORAGE_TYPE=alarik    # storage backend: alarik | garage | aws | azure | external-s3
+export DEEPLAKE_STATELESS_COUNT=  # stateless nodes; default: cpu cores - 1
 
 # required when STORAGE_TYPE=aws, ignored otherwise
 export DEEPLAKE_ROOT_PATH=    # s3://<bucket>/<prefix>
@@ -307,6 +343,7 @@ Then open `https://app.$BASE_HOST`. Self-registration is enabled on the
 | `./dl-stack.sh setup` | Generate config and initialize OpenFGA + databases |
 | `./dl-stack.sh start` | Start the stack (runs `setup` first if not configured) |
 | `./dl-stack.sh stop` | Stop the stack (`compose down`, volumes kept) |
+| `./dl-stack.sh scale N` | Run N `deeplake-stateless` nodes; applies immediately if the stack is up |
 | `./dl-stack.sh destroy` | `compose down -v` - **deletes all data** - and removes the rendered config. Prompts for confirmation |
 | `./dl-stack.sh destroy --force` | Same, without the prompt. For CI/automation |
 
