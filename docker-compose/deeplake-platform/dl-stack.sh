@@ -1658,7 +1658,7 @@ scale() {
   # deeplake-stateless nodes. node 1 is the template every other node is
   # generated from, so nodes 2..n are always regenerated and the same code path
   # serves both scaling up and scaling down
-  local target current pods i new
+  local target current pods i new dropped vol
   target="${1:-}"
   if ! [[ "${target}" =~ ^[1-9][0-9]*$ ]]; then
     echo "[ERROR] scale needs a positive integer, e.g. ./dl-stack.sh scale 2"
@@ -1688,6 +1688,18 @@ scale() {
   for i in $(seq 1 "${target}"); do
     pods+="${pods:+,}deeplake-stateless-${i}:5432"
   done
+  dropped=''
+  if [ "${target}" -lt "${current}" ]; then
+    dropped="$(awk -v target="${target}" '
+      /^volumes:$/                     { invol = 1; next }
+      invol && /^[^ ]/                  { invol = 0 }
+      invol && /^  deeplake_stateless_[0-9]+:$/ {
+        n = $0; gsub(/[^0-9]/, "", n)
+        want = (n + 0 > target); next
+      }
+      invol && want && /^    name: /    { print $2; want = 0 }
+    ' "${CONFIG_DIR}/compose.yaml")"
+  fi
   new="${CONFIG_DIR}/.compose.yaml.new"
   awk -v target="${target}" -v pods="${pods}" '
     function emit_services(   i, j, line) {
@@ -1739,9 +1751,19 @@ scale() {
   else
     echo "[INFO] the stack is not running, the new node count applies on the next ./dl-stack.sh start"
   fi
-  if [ "${target}" -lt "${current}" ]; then
-    echo "[INFO] the volumes of the removed nodes are kept, scaling back up reuses their data"
-  fi
+  # the containers are gone by now, so their volumes can be dropped. only names
+  # this file listed for a node above the new count are touched, which never
+  # includes node 1
+  for vol in ${dropped}; do
+    if ! docker volume inspect "${vol}" >/dev/null 2>&1; then
+      continue
+    fi
+    if docker volume rm "${vol}" >/dev/null 2>&1; then
+      echo "[INFO] removed volume ${vol}"
+    else
+      echo "[WARNING] could not remove volume ${vol}, something is still using it" 1>&2
+    fi
+  done
 }
 
 start() {

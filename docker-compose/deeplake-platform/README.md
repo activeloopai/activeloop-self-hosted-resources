@@ -182,9 +182,12 @@ replacing anything, and applies it right away if the stack is running,
 recreating `pg-proxy` so it picks up the new node list. If the stack is down,
 the change takes effect on the next `start`.
 
-Scaling down keeps the volumes of the removed nodes, so scaling back up reuses
-their data rather than starting them empty. Node 1 is never touched by either
-direction.
+**Scaling down deletes the data volumes of the nodes it removes** - once their
+containers are gone, `dl_deeplake_stateless_2` and up are removed with
+`docker volume rm`, and scaling back up starts those nodes empty. Only volumes
+the compose file listed for a node above the new count are touched, so node 1
+and its `dl_deeplake_stateless` volume are never affected. A volume that is
+still in use is reported and left alone rather than failing the scale.
 
 ## Startup ordering
 
@@ -343,7 +346,7 @@ Then open `https://app.$BASE_HOST`. Self-registration is enabled on the
 | `./dl-stack.sh setup` | Generate config and initialize OpenFGA + databases |
 | `./dl-stack.sh start` | Start the stack (runs `setup` first if not configured) |
 | `./dl-stack.sh stop` | Stop the stack (`compose down`, volumes kept) |
-| `./dl-stack.sh scale N` | Run N `deeplake-stateless` nodes; applies immediately if the stack is up |
+| `./dl-stack.sh scale N` | Run N `deeplake-stateless` nodes; applies immediately if the stack is up. Scaling **down deletes** the removed nodes' volumes |
 | `./dl-stack.sh destroy` | `compose down -v` - **deletes all data** - and removes the rendered config. Prompts for confirmation |
 | `./dl-stack.sh destroy --force` | Same, without the prompt. For CI/automation |
 
