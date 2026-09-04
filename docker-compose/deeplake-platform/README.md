@@ -88,11 +88,11 @@ the settings that reach the storage.
 | Template | `compose/compose-aws.yaml` | `compose/compose-azure.yaml` | `compose/compose-external-s3.yaml` |
 | Storage | an Amazon S3 bucket | an Azure Blob Storage container | any S3-compatible endpoint (MinIO, Ceph, Wasabi, ...) |
 | Console | the AWS console | the Azure portal | whatever the endpoint provides |
-| You must supply | `DEEPLAKE_ROOT_PATH`, `AWS_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` | `DEEPLAKE_ROOT_PATH`, `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET` | `DEEPLAKE_ROOT_PATH`, `S3_ENDPOINT_URL`, `S3_REGION`, `S3_ACCESS_KEY`, `S3_SECRET_KEY` |
+| You must supply | `DEEPLAKE_ROOT_PATH`, `AWS_REGION`, and `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` unless the host already has S3 access | `DEEPLAKE_ROOT_PATH`, `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET` | `DEEPLAKE_ROOT_PATH`, `S3_ENDPOINT_URL`, `S3_REGION`, `S3_ACCESS_KEY`, `S3_SECRET_KEY` |
 
-All three need storage that already exists, plus credentials that can reach it:
-an IAM access key for `aws`, a service principal for `azure`, an access
-key/secret pair for `external-s3`. `DEEPLAKE_ROOT_PATH` is the storage root in
+All three need storage that already exists, plus a way to reach it: an IAM
+access key for `aws`, a service principal for `azure`, an access key/secret
+pair for `external-s3`. `DEEPLAKE_ROOT_PATH` is the storage root in
 the form the Helm chart uses, and `setup` rejects a root path whose scheme does
 not match the backend:
 
@@ -101,6 +101,14 @@ not match the backend:
 | `aws` | `s3://<bucket>/<prefix>` |
 | `azure` | `az://<account>/<container>/<prefix>` |
 | `external-s3` | `s3://<bucket>/<prefix>` |
+
+For `aws` the key pair is optional. If the host is already authorized to reach
+S3 - an EC2 instance profile, for instance - leave `AWS_ACCESS_KEY_ID` unset and
+press enter at its prompt, and `setup` removes `AWS_ACCESS_KEY_ID` and
+`AWS_SECRET_ACCESS_KEY` from the rendered compose file entirely rather than
+writing them as empty strings, which would otherwise stop the AWS SDK from
+looking for credentials on its own. Give the access key and the secret becomes
+required. `AWS_REGION` and `DEEPLAKE_ROOT_PATH` are always required.
 
 `external-s3` differs from `aws` only in that the endpoint is yours rather than
 Amazon's, so it fills the same two environment blocks the in-stack backends
@@ -140,11 +148,14 @@ object storage volumes belong to the type chosen at `setup` time.
 
 Postgres, OpenFGA, Keycloak and the two `pg-deeplake-stateless` containers
 define healthchecks, and dependents wait on `condition: service_healthy` rather
-than merely `service_started`. The Postgres probe deliberately connects over TCP
-(`pg_isready -h 127.0.0.1`): during first boot the entrypoint runs a temporary
-socket-only server while `provision.sql` creates the `deeplake` / `keycloak` /
-`openfga` roles and databases, so a socket probe would report healthy before
-those exist. Nothing dependent starts until that initialization has finished.
+than merely `service_started` - `deeplake-api` waits on both `deeplake-setup`
+completing and `keycloak` being healthy, since it validates OIDC tokens against
+the realm and is useless before Keycloak answers. The Postgres probe
+deliberately connects over TCP (`pg_isready -h 127.0.0.1`): during first boot
+the entrypoint runs a temporary socket-only server while `provision.sql`
+creates the `deeplake` / `keycloak` / `openfga` roles and databases, so a
+socket probe would report healthy before those exist. Nothing dependent starts
+until that initialization has finished.
 
 ## Prerequisites
 
@@ -204,6 +215,7 @@ export STORAGE_TYPE=alarik    # storage backend: alarik | garage | aws | azure |
 # required when STORAGE_TYPE=aws, ignored otherwise
 export DEEPLAKE_ROOT_PATH=    # s3://<bucket>/<prefix>
 export AWS_REGION=
+# leave the key pair empty when the host itself can already reach S3
 export AWS_ACCESS_KEY_ID=
 export AWS_SECRET_ACCESS_KEY=
 

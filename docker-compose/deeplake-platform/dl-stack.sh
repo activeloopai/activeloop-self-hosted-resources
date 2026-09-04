@@ -1166,10 +1166,19 @@ yes_or_no() {
 }
 
 prompt_var() {
-  # prompt_var <variable> <prompt> <plain|secret> [regex]
+  # prompt_var <variable> <prompt> <plain|secret|optional|optional-secret> [regex]
   # keeps whatever the environment already provided, otherwise asks until the
-  # answer is non-empty and matches the regex
-  local name="$1" prompt="$2" mode="$3" pattern="${4:-}" value
+  # answer is non-empty and matches the regex. an optional variable accepts an
+  # empty answer, and stays empty when there is no terminal to ask at
+  local name="$1" prompt="$2" mode="$3" pattern="${4:-}" value asked='' silent='' required=1
+  case "${mode}" in
+  secret) silent=1 ;;
+  optional) required='' ;;
+  optional-secret)
+    silent=1
+    required=''
+    ;;
+  esac
   value="${!name}"
   while :; do
     if [ -n "${value}" ]; then
@@ -1178,20 +1187,25 @@ prompt_var() {
       fi
       echo "[WARNING] ${name} must match ${pattern}" 1>&2
       value=''
+    elif [ -n "${asked}" ] && [ -z "${required}" ]; then
+      break
     fi
-    if [ "${mode}" == 'secret' ]; then
+    if [ -n "${silent}" ]; then
       if ! read -rsp "${prompt}: " value; then
         echo
+        [ -z "${required}" ] && break
         echo "[ERROR] no interactive terminal, set ${name} in the environment" 1>&2
         exit 1
       fi
       echo
     else
       if ! read -rp "${prompt}: " value; then
+        [ -z "${required}" ] && break
         echo "[ERROR] no interactive terminal, set ${name} in the environment" 1>&2
         exit 1
       fi
     fi
+    asked=1
   done
   printf -v "${name}" '%s' "${value}"
 }
@@ -1200,8 +1214,9 @@ prompt_var() {
 #
 # every entry of SUPPORTED_STORAGE_TYPES is backed by a compose template named
 # compose-<type>.yaml in this repository, and may implement these optional hooks:
-#   gen_vars_<type>   generate/prompt and export the storage specific variables
-#   print_vars_<type> print the storage credentials and endpoints
+#   gen_vars_<type>     generate/prompt and export the storage specific variables
+#   print_vars_<type>   print the storage credentials and endpoints
+#   edit_compose_<type> adjust the rendered compose file once it exists
 # with any dash in <type> written as an underscore in the function name
 # hooks are invoked through storage_hook, so a backend that needs neither can
 # ship with the compose template alone.
@@ -1295,11 +1310,19 @@ gen_vars_aws() {
   # credentials that reach it come from the user. note that AWS_REGION,
   # AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY are picked up from the
   # environment like every other variable, including a shell that already has
-  # them exported
+  # them exported. the key pair is optional: left empty, the containers get no
+  # static credentials and the aws sdk resolves them itself, from an ec2
+  # instance profile or whatever else the host provides. edit_compose_aws then
+  # drops the two keys from the rendered file
   prompt_var DEEPLAKE_ROOT_PATH 'deeplake root path (s3://<bucket>/<prefix>)' plain '^s3://'
   prompt_var AWS_REGION 'aws region' plain
-  prompt_var AWS_ACCESS_KEY_ID 'aws access key id' plain
-  prompt_var AWS_SECRET_ACCESS_KEY 'aws secret access key' secret
+  prompt_var AWS_ACCESS_KEY_ID 'aws access key id (hit enter if this environment already has access to s3)' optional
+  if [ -n "${AWS_ACCESS_KEY_ID}" ]; then
+    prompt_var AWS_SECRET_ACCESS_KEY 'aws secret access key' secret
+  elif [ -n "${AWS_SECRET_ACCESS_KEY}" ]; then
+    echo "[ERROR] AWS_SECRET_ACCESS_KEY is set but AWS_ACCESS_KEY_ID is not, set both or neither" 1>&2
+    exit 1
+  fi
   export \
     DEEPLAKE_ROOT_PATH \
     AWS_REGION \
@@ -1312,7 +1335,7 @@ print_vars_aws() {
 storage:
   deeplake root path: ${DEEPLAKE_ROOT_PATH}
   aws region: ${AWS_REGION}
-  aws access key id: ${AWS_ACCESS_KEY_ID}
+  aws access key id: ${AWS_ACCESS_KEY_ID:-none, resolved by the aws sdk}
 "
 }
 
@@ -1378,6 +1401,16 @@ gen_vars_azure() {
     AZURE_TENANT_ID \
     AZURE_CLIENT_ID \
     AZURE_CLIENT_SECRET
+}
+
+edit_compose_aws() {
+  # an empty AWS_ACCESS_KEY_ID rendered as an empty env value would override the
+  # sdk's own credential lookup instead of falling back to it, so remove the
+  # pair outright and let the sdk find an instance profile or a task role
+  if [ -z "${AWS_ACCESS_KEY_ID}" ]; then
+    sed -i '/AWS_ACCESS_KEY_ID:/d;/AWS_SECRET_ACCESS_KEY:/d' "${CONFIG_DIR}/compose.yaml"
+    echo "[INFO] no static aws credentials given, the containers will resolve them from the environment"
+  fi
 }
 
 print_vars_azure() {
@@ -1472,6 +1505,7 @@ ensure_compose_file() {
     sed -i "s|caddy_public_key_file|${TLS_CERT_PATH}|" "${CONFIG_DIR}/compose.yaml"
     sed -i "s|caddy_private_key_file|${TLS_KEY_PATH}|" "${CONFIG_DIR}/compose.yaml"
   fi
+  storage_hook edit_compose
 }
 
 setup() {
