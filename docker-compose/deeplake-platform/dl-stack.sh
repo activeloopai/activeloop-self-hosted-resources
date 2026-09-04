@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 
 CONFIG_DIR="$HOME/.local/deeplake"
+COMPOSE_BASE_URL="https://raw.githubusercontent.com/activeloopai/activeloop-self-hosted-resources/refs/heads/main/docker-compose/deeplake-platform/compose"
+SUPPORTED_STORAGE_TYPES=(alarik garage aws azure external-s3)
 OPENFGA_MODEL='{
   "schema_version": "1.1",
   "type_definitions": [
@@ -1118,6 +1120,9 @@ $0: manage local deeplake stack
   stop:  stop the stack
   destroy: stop the stack and remove all docker volumes, e.g. wipe the data
            pass --force to skip the confirmation prompt (for non-interactive use)
+
+set STORAGE_TYPE to pick the object storage backend non-interactively,
+supported values: ${SUPPORTED_STORAGE_TYPES[*]}. When unset, setup asks for it.
   "
 }
 
@@ -1160,13 +1165,232 @@ yes_or_no() {
   echo "${answer,,}"
 }
 
-gen_vars() {
-  local answer
+prompt_var() {
+  # prompt_var <variable> <prompt> <plain|secret> [regex]
+  # keeps whatever the environment already provided, otherwise asks until the
+  # answer is non-empty and matches the regex
+  local name="$1" prompt="$2" mode="$3" pattern="${4:-}" value
+  value="${!name}"
+  while :; do
+    if [ -n "${value}" ]; then
+      if [ -z "${pattern}" ] || [[ "${value}" =~ ${pattern} ]]; then
+        break
+      fi
+      echo "[WARNING] ${name} must match ${pattern}" 1>&2
+      value=''
+    fi
+    if [ "${mode}" == 'secret' ]; then
+      if ! read -rsp "${prompt}: " value; then
+        echo
+        echo "[ERROR] no interactive terminal, set ${name} in the environment" 1>&2
+        exit 1
+      fi
+      echo
+    else
+      if ! read -rp "${prompt}: " value; then
+        echo "[ERROR] no interactive terminal, set ${name} in the environment" 1>&2
+        exit 1
+      fi
+    fi
+  done
+  printf -v "${name}" '%s' "${value}"
+}
+
+# storage backends
+#
+# every entry of SUPPORTED_STORAGE_TYPES is backed by a compose template named
+# compose-<type>.yaml in this repository, and may implement these optional hooks:
+#   gen_vars_<type>   generate/prompt and export the storage specific variables
+#   print_vars_<type> print the storage credentials and endpoints
+# with any dash in <type> written as an underscore in the function name
+# hooks are invoked through storage_hook, so a backend that needs neither can
+# ship with the compose template alone.
+storage_hook() {
+  local hook="${1}_${STORAGE_TYPE//-/_}"
+  if declare -F "${hook}" >/dev/null; then
+    "${hook}"
+  fi
+}
+
+select_storage_type() {
+  local type
+  if [ -n "${STORAGE_TYPE}" ]; then
+    for type in "${SUPPORTED_STORAGE_TYPES[@]}"; do
+      if [ "${STORAGE_TYPE}" == "${type}" ]; then
+        export STORAGE_TYPE
+        return 0
+      fi
+    done
+    echo "[ERROR] unsupported storage type '${STORAGE_TYPE}', supported: ${SUPPORTED_STORAGE_TYPES[*]}"
+    exit 1
+  fi
+  PS3='select the storage type: '
+  select type in "${SUPPORTED_STORAGE_TYPES[@]}"; do
+    if [ -n "${type}" ]; then
+      STORAGE_TYPE="${type}"
+      break
+    fi
+    echo "[WARNING] invalid selection, pick a number from the list above" 1>&2
+  done
+  if [ -z "${STORAGE_TYPE}" ]; then
+    # select returns with an unset reply on EOF (CI, systemd, piped input)
+    echo "[ERROR] no storage type selected, set STORAGE_TYPE to one of: ${SUPPORTED_STORAGE_TYPES[*]}"
+    exit 1
+  fi
+  echo "[INFO] using storage type: ${STORAGE_TYPE}"
+  export STORAGE_TYPE
+}
+
+gen_vars_alarik() {
   STORAGE_ACCESS_KEY=AKIA
   STORAGE_ACCESS_KEY+="$(cat /dev/urandom | tr -dc '[:upper:]' | head -c 15)"
   STORAGE_SECRET_KEY="$(cat /dev/urandom | tr -dc 'A-Za-z0-9/' | head -c 40)"
   STORAGE_JWT_KEY="$(cat /dev/urandom | tr -dc 'A-Za-z0-9/' | head -c 64)"
   STORAGE_USER_PASSWORD="$(cat /dev/urandom | tr -dc 'A-Za-z0-9' | head -c 20)"
+  export \
+    STORAGE_ACCESS_KEY \
+    STORAGE_SECRET_KEY \
+    STORAGE_JWT_KEY \
+    STORAGE_USER_PASSWORD
+}
+
+print_vars_alarik() {
+  echo "
+storage credentials:
+  storage s3 access key: ${STORAGE_ACCESS_KEY}
+  storage s3 secret key: ${STORAGE_SECRET_KEY}
+  storage ui username: alarik
+  storage ui password: ${STORAGE_USER_PASSWORD}
+storage endpoints:
+  storage ui: https://storage.${BASE_HOST}
+  storage api: https://storage-api.${BASE_HOST}
+"
+}
+
+gen_vars_garage() {
+  # garage wants its key id as GK + hex and its secret key and rpc secret as
+  # plain hex, so these cannot share the alphabet the other secrets use
+  STORAGE_ACCESS_KEY=GK
+  STORAGE_ACCESS_KEY+="$(cat /dev/urandom | tr -dc 'A-F0-9' | head -c 32)"
+  STORAGE_SECRET_KEY="$(cat /dev/urandom | tr -dc 'a-f0-9' | head -c 64)"
+  STORAGE_RPC_SECRET="$(cat /dev/urandom | tr -dc 'a-f0-9' | head -c 64)"
+  export \
+    STORAGE_ACCESS_KEY \
+    STORAGE_SECRET_KEY \
+    STORAGE_RPC_SECRET
+}
+
+print_vars_garage() {
+  echo "
+storage credentials:
+  storage s3 access key: ${STORAGE_ACCESS_KEY}
+  storage s3 secret key: ${STORAGE_SECRET_KEY}
+storage endpoints:
+  storage api: https://storage-api.${BASE_HOST}
+"
+}
+
+gen_vars_aws() {
+  # s3 lives outside the stack, so nothing is generated here: the bucket and the
+  # credentials that reach it come from the user. note that AWS_REGION,
+  # AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY are picked up from the
+  # environment like every other variable, including a shell that already has
+  # them exported
+  prompt_var DEEPLAKE_ROOT_PATH 'deeplake root path (s3://<bucket>/<prefix>)' plain '^s3://'
+  prompt_var AWS_REGION 'aws region' plain
+  prompt_var AWS_ACCESS_KEY_ID 'aws access key id' plain
+  prompt_var AWS_SECRET_ACCESS_KEY 'aws secret access key' secret
+  export \
+    DEEPLAKE_ROOT_PATH \
+    AWS_REGION \
+    AWS_ACCESS_KEY_ID \
+    AWS_SECRET_ACCESS_KEY
+}
+
+print_vars_aws() {
+  echo "
+storage:
+  deeplake root path: ${DEEPLAKE_ROOT_PATH}
+  aws region: ${AWS_REGION}
+  aws access key id: ${AWS_ACCESS_KEY_ID}
+"
+}
+
+gen_vars_external_s3() {
+  # an s3 compatible store outside the stack (minio, ceph, wasabi, ...). the two
+  # env blocks name the same settings differently, and each pair must hold the
+  # same value or deeplake-api and pg-deeplake would read and write different
+  # buckets. so every pair is asked for once, under the name on the left, and
+  # the twin on the right is derived from it and never read from the
+  # environment:
+  #   DEEPLAKE_ROOT_PATH -> DEEPLAKE_ROOT_DIR
+  #   S3_ENDPOINT_URL    -> AWS_ENDPOINT_URL
+  #   S3_REGION          -> AWS_REGION
+  #   S3_ACCESS_KEY      -> S3_ACCESS_KEY_ID, AWS_ACCESS_KEY_ID
+  #   S3_SECRET_KEY      -> S3_SECRET_ACCESS_KEY, AWS_SECRET_ACCESS_KEY
+  # none of the names read here is one docker, the aws cli or an aws sdk would
+  # already have in the operator's shell, so an unrelated aws login cannot leak
+  # into a storage endpoint that is not amazon's
+  prompt_var DEEPLAKE_ROOT_PATH 'deeplake root path (s3://<bucket>/<prefix>)' plain '^s3://'
+  prompt_var S3_ENDPOINT_URL 's3 endpoint url (https://<host>)' plain '^https?://'
+  prompt_var S3_REGION 's3 region' plain
+  prompt_var S3_ACCESS_KEY 's3 access key' plain
+  prompt_var S3_SECRET_KEY 's3 secret key' secret
+  DEEPLAKE_ROOT_DIR="${DEEPLAKE_ROOT_PATH}"
+  S3_ACCESS_KEY_ID="${S3_ACCESS_KEY}"
+  S3_SECRET_ACCESS_KEY="${S3_SECRET_KEY}"
+  AWS_ENDPOINT_URL="${S3_ENDPOINT_URL}"
+  AWS_REGION="${S3_REGION}"
+  AWS_ACCESS_KEY_ID="${S3_ACCESS_KEY}"
+  AWS_SECRET_ACCESS_KEY="${S3_SECRET_KEY}"
+  export \
+    DEEPLAKE_ROOT_PATH \
+    DEEPLAKE_ROOT_DIR \
+    S3_ENDPOINT_URL \
+    S3_REGION \
+    S3_ACCESS_KEY_ID \
+    S3_SECRET_ACCESS_KEY \
+    AWS_ENDPOINT_URL \
+    AWS_REGION \
+    AWS_ACCESS_KEY_ID \
+    AWS_SECRET_ACCESS_KEY
+}
+
+print_vars_external_s3() {
+  echo "
+storage:
+  deeplake root path: ${DEEPLAKE_ROOT_PATH}
+  s3 endpoint url: ${S3_ENDPOINT_URL}
+  s3 region: ${S3_REGION}
+  s3 access key: ${S3_ACCESS_KEY}
+"
+}
+
+gen_vars_azure() {
+  # azure blob storage lives outside the stack, so nothing is generated here:
+  # the container and the service principal that reaches it come from the user
+  prompt_var DEEPLAKE_ROOT_PATH 'deeplake root path (az://<account>/<container>/<prefix>)' plain '^az://'
+  prompt_var AZURE_TENANT_ID 'azure tenant id' plain
+  prompt_var AZURE_CLIENT_ID 'azure client id' plain
+  prompt_var AZURE_CLIENT_SECRET 'azure client secret' secret
+  export \
+    DEEPLAKE_ROOT_PATH \
+    AZURE_TENANT_ID \
+    AZURE_CLIENT_ID \
+    AZURE_CLIENT_SECRET
+}
+
+print_vars_azure() {
+  echo "
+storage:
+  deeplake root path: ${DEEPLAKE_ROOT_PATH}
+  azure tenant id: ${AZURE_TENANT_ID}
+  azure client id: ${AZURE_CLIENT_ID}
+"
+}
+
+gen_vars() {
+  local answer
   DEEPLAKE_JWT_KEY="$(cat /dev/urandom | tr -dc 'A-Za-z0-9/' | head -c 64)"
   DEEPLAKE_CREDS_KEY="$(cat /dev/urandom | tr -dc 'A-Za-z0-9/' | head -c 64)"
   PG_ROOT_PASSWORD="$(cat /dev/urandom | tr -dc 'A-Za-z0-9' | head -c 20)"
@@ -1193,10 +1417,6 @@ gen_vars() {
     fi
   fi
   export \
-    STORAGE_ACCESS_KEY \
-    STORAGE_SECRET_KEY \
-    STORAGE_JWT_KEY \
-    STORAGE_USER_PASSWORD \
     PG_ROOT_PASSWORD \
     PG_DEEPLAKE_PASSWORD \
     PG_KEYCLOAK_PASSWORD \
@@ -1210,32 +1430,31 @@ gen_vars() {
     TLS_KEY_PATH \
     TLS_CERT_PATH \
     TLS_METHOD
-
+  storage_hook gen_vars
 }
 
 print_vars() {
   echo "
 credentials:
-  storage s3 access key: ${STORAGE_ACCESS_KEY}
-  storage s3 secret key: ${STORAGE_SECRET_KEY}
-  storage ui username: alarik
-  storage ui password: ${STORAGE_USER_PASSWORD}
   keycloak admin username: admin
   keycloak admin password: ${KEYCLOAK_ADMIN_PASSWORD}
 endpoints:
   deeplake ui: https://app.${BASE_HOST}
   deeplake api: https://api.${BASE_HOST}
-  storage ui: https://storage.${BASE_HOST}
-  storage api: https://storage-api.${BASE_HOST}
   keycloak: https://kc.${BASE_HOST}
 "
+  storage_hook print_vars
 }
 
 ensure_compose_file() {
-  local answer
+  local answer template
   mkdir -p "${CONFIG_DIR}"
   if ! [ -f "${CONFIG_DIR}/compose.yaml" ]; then
-    curl -fsSL https://raw.githubusercontent.com/activeloopai/activeloop-self-hosted-resources/refs/heads/main/docker-compose/deeplake-platform/compose.yaml | envsubst >"${CONFIG_DIR}/compose.yaml"
+    if ! template="$(curl -fsSL "${COMPOSE_BASE_URL}/compose-${STORAGE_TYPE}.yaml")"; then
+      echo "[ERROR] failed to fetch compose template for storage type '${STORAGE_TYPE}'"
+      exit 1
+    fi
+    printf '%s\n' "${template}" | envsubst >"${CONFIG_DIR}/compose.yaml"
     chmod 600 "${CONFIG_DIR}/compose.yaml"
     FRESH_SETUP=1
   fi
@@ -1262,6 +1481,7 @@ setup() {
     echo "[WARNING] compose file alredy exists at ${CONFIG_DIR}/compose.yaml, for fresh setup run ./dl-stack.sh destroy first, otherwise edit existing compose file directly"
     exit 1
   fi
+  select_storage_type
   gen_vars
   ensure_compose_file
   docker compose -f "${CONFIG_DIR}/compose.yaml" up -d openfga
