@@ -157,6 +157,9 @@ services:
     container_name: dl-deeplake-ui
     hostname: deeplake-ui
     restart: unless-stopped
+    depends_on:
+      keycloak:
+        condition: service_healthy
     environment:
       AUTH_PROVIDER: oidc
       OIDC_ISSUER: https://kc.${BASE_HOST}/realms/deeplake
