@@ -1,0 +1,111 @@
+# storage overlay for STORAGE_TYPE=garage
+# merged over compose-base.yaml by dl-stack.sh; anchors do not cross files,
+# so the storage settings are declared here and compose merges them into the
+# services the base defines
+x-storage-api-env: &storage-api-env
+  environment:
+    DEEPLAKE_ROOT_DIR: s3://deeplake-storage
+    DEEPLAKE_ROOT_PATH: s3://deeplake-storage
+    S3_ENDPOINT_URL: https://storage-api.${BASE_HOST}
+    S3_ACCESS_KEY_ID: ${STORAGE_ACCESS_KEY}
+    S3_SECRET_ACCESS_KEY: ${STORAGE_SECRET_KEY}
+    S3_REGION: us-east-1
+x-storage-env: &storage-env
+  environment:
+    DEEPLAKE_ROOT_PATH: s3://deeplake-storage
+    AWS_REGION: us-east-1
+    AWS_ENDPOINT_URL: http://storage-api:3900
+    AWS_ACCESS_KEY_ID: ${STORAGE_ACCESS_KEY}
+    AWS_SECRET_ACCESS_KEY: ${STORAGE_SECRET_KEY}
+
+services:
+  deeplake-api:
+    <<: *storage-api-env
+  deeplake-worker:
+    <<: *storage-api-env
+  deeplake-setup:
+    <<: *storage-api-env
+  deeplake-indexer:
+    <<: *storage-env
+  deeplake-stateless:
+    <<: *storage-env
+
+  storage-api:
+    image: dxflrs/garage:v2.3.0
+    container_name: dl-storage-api
+    hostname: storage-api
+    restart: unless-stopped
+    environment:
+      GARAGE_DEFAULT_ACCESS_KEY: ${STORAGE_ACCESS_KEY}
+      GARAGE_DEFAULT_SECRET_KEY: ${STORAGE_SECRET_KEY}
+      GARAGE_DEFAULT_BUCKET: deeplake-storage
+    entrypoint: /garage
+    command:
+      - server
+      - --single-node
+      - --default-bucket
+    volumes:
+      - storage_meta:/var/lib/garage/meta
+      - storage_data:/var/lib/garage/data
+    configs:
+      - target: /etc/garage.toml
+        source: garage
+    networks:
+      - deeplake
+
+volumes:
+  storage_meta:
+    driver: local
+    name: dl_deeplake_storage_meta
+  storage_data:
+    driver: local
+    name: dl_deeplake_storage_data
+
+configs:
+  caddy:
+    content: |
+      {
+      	admin off
+      }
+
+      openfga.${BASE_HOST} {
+      	tls /certs/fullchain.pem /certs/privkey.pem
+      	reverse_proxy openfga:8080
+      }
+
+      kc.${BASE_HOST} {
+      	tls /certs/fullchain.pem /certs/privkey.pem
+      	reverse_proxy keycloak:8080
+      }
+
+      app.${BASE_HOST} {
+      	tls /certs/fullchain.pem /certs/privkey.pem
+      	reverse_proxy deeplake-ui:3000
+      }
+
+      api.${BASE_HOST} {
+      	tls /certs/fullchain.pem /certs/privkey.pem
+      	reverse_proxy deeplake-api:8080
+      }
+
+      storage-api.${BASE_HOST} {
+      	tls /certs/fullchain.pem /certs/privkey.pem
+      	reverse_proxy storage-api:3900
+      }
+  garage:
+    content: |
+      metadata_dir = "/var/lib/garage/meta"
+      data_dir = "/var/lib/garage/data"
+      db_engine = "sqlite"
+      replication_factor = 1
+      rpc_bind_addr = "[::]:3901"
+      rpc_public_addr = "127.0.0.1:3901"
+      rpc_secret = "${STORAGE_RPC_SECRET}"
+
+      # root_domain is deliberately unset: vhost-style addressing would put
+      # buckets on <bucket>.storage-api.${BASE_HOST}, which a wildcard
+      # *.${BASE_HOST} record and an http01 certificate do not cover. Deep Lake
+      # addresses the bucket path-style, which garage always serves.
+      [s3_api]
+      s3_region = "us-east-1"
+      api_bind_addr = "[::]:3900"

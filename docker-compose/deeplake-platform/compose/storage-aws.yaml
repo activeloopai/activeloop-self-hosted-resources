@@ -1,0 +1,29 @@
+# storage overlay for STORAGE_TYPE=aws
+# merged over compose-base.yaml by dl-stack.sh; anchors do not cross files,
+# so the storage settings are declared here and compose merges them into the
+# services the base defines
+x-storage-api-env: &storage-api-env
+  environment:
+    DEEPLAKE_ROOT_DIR: ${DEEPLAKE_ROOT_PATH}
+    DEEPLAKE_ROOT_PATH: ${DEEPLAKE_ROOT_PATH}
+    AWS_REGION: ${AWS_REGION}
+    AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+    AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+x-storage-env: &storage-env
+  environment:
+    DEEPLAKE_ROOT_PATH: ${DEEPLAKE_ROOT_PATH}
+    AWS_REGION: ${AWS_REGION}
+    AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+    AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+
+services:
+  deeplake-api:
+    <<: *storage-api-env
+  deeplake-worker:
+    <<: *storage-api-env
+  deeplake-setup:
+    <<: *storage-api-env
+  deeplake-indexer:
+    <<: *storage-env
+  deeplake-stateless:
+    <<: *storage-env

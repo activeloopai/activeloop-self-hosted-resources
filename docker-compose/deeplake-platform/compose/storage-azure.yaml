@@ -1,0 +1,29 @@
+# storage overlay for STORAGE_TYPE=azure
+# merged over compose-base.yaml by dl-stack.sh; anchors do not cross files,
+# so the storage settings are declared here and compose merges them into the
+# services the base defines
+x-storage-api-env: &storage-api-env
+  environment:
+    DEEPLAKE_ROOT_DIR: ${DEEPLAKE_ROOT_PATH}
+    DEEPLAKE_ROOT_PATH: ${DEEPLAKE_ROOT_PATH}
+    AZURE_TENANT_ID: ${AZURE_TENANT_ID}
+    AZURE_CLIENT_ID: ${AZURE_CLIENT_ID}
+    AZURE_CLIENT_SECRET: ${AZURE_CLIENT_SECRET}
+x-storage-env: &storage-env
+  environment:
+    DEEPLAKE_ROOT_PATH: ${DEEPLAKE_ROOT_PATH}
+    AZURE_TENANT_ID: ${AZURE_TENANT_ID}
+    AZURE_CLIENT_ID: ${AZURE_CLIENT_ID}
+    AZURE_CLIENT_SECRET: ${AZURE_CLIENT_SECRET}
+
+services:
+  deeplake-api:
+    <<: *storage-api-env
+  deeplake-worker:
+    <<: *storage-api-env
+  deeplake-setup:
+    <<: *storage-api-env
+  deeplake-indexer:
+    <<: *storage-env
+  deeplake-stateless:
+    <<: *storage-env

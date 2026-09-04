@@ -10,8 +10,8 @@ Single-host Docker Compose deployment of [Deeplake](http://deeplake.ai/) with:
     S3, Azure Blob Storage, or any S3-compatible endpoint
   - [Caddy](https://caddyserver.com/docs/) as the TLS-terminating reverse proxy.
 
-`dl-stack.sh` is the installer: it generates all secrets, renders the compose
-template for the selected storage type (`compose/compose-$STORAGE_TYPE.yaml`) into
+`dl-stack.sh` is the installer: it generates all secrets, merges the shared
+`compose/compose-base.yaml` with the overlay for the selected storage type into
 `~/.local/deeplake/compose.yaml`, bootstraps the OpenFGA store and
 authorization model, and then starts the stack.
 
@@ -49,9 +49,17 @@ object storage volumes of the selected backend - `dl_deeplake_storage` for
 
 ## Storage backends
 
-`STORAGE_TYPE` picks where Deep Lake keeps its data, and with it which template
-in `compose/` gets rendered. `dl-stack.sh` fetches that one file from this
-repository, so a checkout is not needed - only the script itself.
+`STORAGE_TYPE` picks where Deep Lake keeps its data, and with it which overlay
+in `compose/` gets applied. The stack itself lives once in
+`compose/compose-base.yaml`; each backend adds a small `storage-<type>.yaml`
+carrying only what is particular to it - the storage settings for the Deep Lake
+containers, plus any storage service, volume and Caddy vhost of its own.
+`dl-stack.sh` fetches those two files and merges them with `docker compose
+config`, so a checkout is not needed - only the script itself.
+
+Compose merges the overlay's `environment` entries into the services the base
+defines. YAML anchors do not cross files, so each overlay declares its own
+`x-storage-api-env` / `x-storage-env` anchors rather than reusing the base's.
 
 ### In-stack backends
 
@@ -63,7 +71,7 @@ generates the credentials and prints them once.
 
 | | `alarik` | `garage` |
 | --- | --- | --- |
-| Template | `compose/compose-alarik.yaml` | `compose/compose-garage.yaml` |
+| Overlay | `compose/storage-alarik.yaml` | `compose/storage-garage.yaml` |
 | Image | `ghcr.io/achtungsoftware/alarik` | `dxflrs/garage:v2.3.0` |
 | Web console | yes, at `https://storage.$BASE_HOST` | none |
 | Extra DNS records | `storage`, `storage-api` | `storage-api` |
@@ -85,7 +93,7 @@ the settings that reach the storage.
 
 | | `aws` | `azure` | `external-s3` |
 | --- | --- | --- | --- |
-| Template | `compose/compose-aws.yaml` | `compose/compose-azure.yaml` | `compose/compose-external-s3.yaml` |
+| Overlay | `compose/storage-aws.yaml` | `compose/storage-azure.yaml` | `compose/storage-external-s3.yaml` |
 | Storage | an Amazon S3 bucket | an Azure Blob Storage container | any S3-compatible endpoint (MinIO, Ceph, Wasabi, ...) |
 | Console | the AWS console | the Azure portal | whatever the endpoint provides |
 | You must supply | `DEEPLAKE_ROOT_PATH`, `AWS_REGION`, and `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` unless the host already has S3 access | `DEEPLAKE_ROOT_PATH`, `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET` | `DEEPLAKE_ROOT_PATH`, `S3_ENDPOINT_URL`, `S3_REGION`, `S3_ACCESS_KEY`, `S3_SECRET_KEY` |
@@ -242,7 +250,7 @@ Any variable you leave empty is prompted for interactively during `setup`;
 no selection at all when there is no TTY, aborts `setup`.
 
 > **Do not run `docker compose` against the files in the `compose/`
-> directory.** They are templates, not usable files. Compose would auto-load `.env` and fill in
+> directory.** They are templates, and neither half is a usable file on its own. Compose would auto-load `.env` and fill in
 > `BASE_HOST`, but every generated secret resolves to an **empty string** and the
 > OpenFGA store/model placeholders stay unsubstituted - bringing up a Postgres
 > with blank passwords. Only `dl-stack.sh` renders it correctly, and the rendered
@@ -263,9 +271,9 @@ source .env
 3. generate every password, access key and signing key (20–64 random chars),
    including the ones specific to the selected storage type, and prompt for any
    storage settings it expects you to provide (`aws`, `azure`, `external-s3`);
-4. render `compose/compose-$STORAGE_TYPE.yaml` → `~/.local/deeplake/compose.yaml` with
-   all values substituted, adjusting the Caddy TLS config for the chosen
-   `TLS_METHOD`;
+4. merge `compose/compose-base.yaml` with `compose/storage-$STORAGE_TYPE.yaml`
+   → `~/.local/deeplake/compose.yaml` with all values substituted, adjusting
+   the Caddy TLS config for the chosen `TLS_METHOD`;
 5. start OpenFGA and Caddy, wait up to 5 minutes for
    `https://openfga.$BASE_HOST/healthz`;
 6. create the `deeplake` OpenFGA store and push the authorization model, writing

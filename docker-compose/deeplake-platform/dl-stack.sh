@@ -1212,11 +1212,13 @@ prompt_var() {
 
 # storage backends
 #
-# every entry of SUPPORTED_STORAGE_TYPES is backed by a compose template named
-# compose-<type>.yaml in this repository, and may implement these optional hooks:
+# every entry of SUPPORTED_STORAGE_TYPES is backed by an overlay named
+# storage-<type>.yaml in this repository, merged over the shared
+# compose-base.yaml, and may implement these optional hooks:
 #   gen_vars_<type>     generate/prompt and export the storage specific variables
 #   print_vars_<type>   print the storage credentials and endpoints
-#   edit_compose_<type> adjust the rendered compose file once it exists
+#   edit_compose_<type> adjust ${COMPOSE_BASE_FILE} / ${COMPOSE_OVERLAY_FILE}
+#                       before they are merged into the rendered compose file
 # with any dash in <type> written as an underscore in the function name
 # hooks are invoked through storage_hook, so a backend that needs neither can
 # ship with the compose template alone.
@@ -1408,7 +1410,7 @@ edit_compose_aws() {
   # sdk's own credential lookup instead of falling back to it, so remove the
   # pair outright and let the sdk find an instance profile or a task role
   if [ -z "${AWS_ACCESS_KEY_ID}" ]; then
-    sed -i '/AWS_ACCESS_KEY_ID:/d;/AWS_SECRET_ACCESS_KEY:/d' "${CONFIG_DIR}/compose.yaml"
+    sed -i '/AWS_ACCESS_KEY_ID:/d;/AWS_SECRET_ACCESS_KEY:/d' "${COMPOSE_OVERLAY_FILE}"
     echo "[INFO] no static aws credentials given, the containers will resolve them from the environment"
   fi
 }
@@ -1479,22 +1481,35 @@ endpoints:
   storage_hook print_vars
 }
 
-ensure_compose_file() {
-  local answer template
-  mkdir -p "${CONFIG_DIR}"
-  if ! [ -f "${CONFIG_DIR}/compose.yaml" ]; then
-    if ! template="$(curl -fsSL "${COMPOSE_BASE_URL}/compose-${STORAGE_TYPE}.yaml")"; then
-      echo "[ERROR] failed to fetch compose template for storage type '${STORAGE_TYPE}'"
-      exit 1
-    fi
-    printf '%s\n' "${template}" | envsubst >"${CONFIG_DIR}/compose.yaml"
-    chmod 600 "${CONFIG_DIR}/compose.yaml"
-    FRESH_SETUP=1
+fetch_template() {
+  # fetch_template <name> <destination>, substituting the environment on the way
+  local template
+  if ! template="$(curl -fsSL "${COMPOSE_BASE_URL}/${1}")"; then
+    echo "[ERROR] failed to fetch ${1} for storage type '${STORAGE_TYPE}'"
+    exit 1
   fi
+  printf '%s\n' "${template}" | envsubst >"${2}"
+  chmod 600 "${2}"
+}
+
+ensure_compose_file() {
+  mkdir -p "${CONFIG_DIR}"
+  if [ -f "${CONFIG_DIR}/compose.yaml" ]; then
+    return 0
+  fi
+  # the stack is one shared compose-base.yaml plus a per storage type overlay.
+  # both are edited while they are still separate, because compose normalizes
+  # the merged output (environment mappings become lists, anchors are expanded)
+  # and these edits match on the source shape
+  COMPOSE_BASE_FILE="${CONFIG_DIR}/.compose-base.yaml"
+  COMPOSE_OVERLAY_FILE="${CONFIG_DIR}/.storage-${STORAGE_TYPE}.yaml"
+  fetch_template 'compose-base.yaml' "${COMPOSE_BASE_FILE}"
+  fetch_template "storage-${STORAGE_TYPE}.yaml" "${COMPOSE_OVERLAY_FILE}"
   if [ "${TLS_METHOD}" == 'http01' ]; then
-    sed -i '/\/certs/d' "${CONFIG_DIR}/compose.yaml"
-    sed -i '/caddy_public_key/d' "${CONFIG_DIR}/compose.yaml"
-    sed -i '/caddy_private_key/d' "${CONFIG_DIR}/compose.yaml"
+    # the overlay carries its own caddy config for the storage vhosts, so the
+    # tls directives have to go from both files
+    sed -i '/\/certs/d;/caddy_public_key/d;/caddy_private_key/d' \
+      "${COMPOSE_BASE_FILE}" "${COMPOSE_OVERLAY_FILE}"
   else
     if [ -z "${TLS_CERT_PATH}" ]; then
       read -rp "tls certificate file path: " TLS_CERT_PATH
@@ -1502,10 +1517,20 @@ ensure_compose_file() {
     if [ -z "${TLS_KEY_PATH}" ]; then
       read -rp "tls key file path: " TLS_KEY_PATH
     fi
-    sed -i "s|caddy_public_key_file|${TLS_CERT_PATH}|" "${CONFIG_DIR}/compose.yaml"
-    sed -i "s|caddy_private_key_file|${TLS_KEY_PATH}|" "${CONFIG_DIR}/compose.yaml"
+    sed -i "s|caddy_public_key_file|${TLS_CERT_PATH}|;s|caddy_private_key_file|${TLS_KEY_PATH}|" \
+      "${COMPOSE_BASE_FILE}" "${COMPOSE_OVERLAY_FILE}"
   fi
   storage_hook edit_compose
+  if ! docker compose --project-name "$(basename "${CONFIG_DIR}")" \
+    -f "${COMPOSE_BASE_FILE}" -f "${COMPOSE_OVERLAY_FILE}" \
+    config --no-interpolate --no-path-resolution >"${CONFIG_DIR}/compose.yaml"; then
+    echo "[ERROR] failed to merge compose-base.yaml with storage-${STORAGE_TYPE}.yaml"
+    rm -f "${CONFIG_DIR}/compose.yaml" "${COMPOSE_BASE_FILE}" "${COMPOSE_OVERLAY_FILE}"
+    exit 1
+  fi
+  chmod 600 "${CONFIG_DIR}/compose.yaml"
+  rm -f "${COMPOSE_BASE_FILE}" "${COMPOSE_OVERLAY_FILE}"
+  FRESH_SETUP=1
 }
 
 setup() {

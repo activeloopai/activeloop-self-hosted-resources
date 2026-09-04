@@ -1,0 +1,108 @@
+# storage overlay for STORAGE_TYPE=alarik
+# merged over compose-base.yaml by dl-stack.sh; anchors do not cross files,
+# so the storage settings are declared here and compose merges them into the
+# services the base defines
+x-storage-api-env: &storage-api-env
+  environment:
+    DEEPLAKE_ROOT_DIR: s3://deeplake-storage
+    DEEPLAKE_ROOT_PATH: s3://deeplake-storage
+    S3_ENDPOINT_URL: https://storage-api.${BASE_HOST}
+    S3_ACCESS_KEY_ID: ${STORAGE_ACCESS_KEY}
+    S3_SECRET_ACCESS_KEY: ${STORAGE_SECRET_KEY}
+    S3_REGION: us-east-1
+x-storage-env: &storage-env
+  environment:
+    DEEPLAKE_ROOT_PATH: s3://deeplake-storage
+    AWS_REGION: us-east-1
+    AWS_ENDPOINT_URL: http://storage-api:8080
+    AWS_ACCESS_KEY_ID: ${STORAGE_ACCESS_KEY}
+    AWS_SECRET_ACCESS_KEY: ${STORAGE_SECRET_KEY}
+
+services:
+  deeplake-api:
+    <<: *storage-api-env
+  deeplake-worker:
+    <<: *storage-api-env
+  deeplake-setup:
+    <<: *storage-api-env
+  deeplake-indexer:
+    <<: *storage-env
+  deeplake-stateless:
+    <<: *storage-env
+
+  storage-api:
+    image: ghcr.io/achtungsoftware/alarik:latest
+    container_name: dl-storage-api
+    hostname: storage-api
+    restart: unless-stopped
+    environment:
+      API_BASE_URL: https://storage-api.${BASE_HOST}
+      CONSOLE_BASE_URL: https://storage.${BASE_HOST}
+      ADMIN_USERNAME: alarik
+      ADMIN_PASSWORD: ${STORAGE_USER_PASSWORD}
+      DEFAULT_ACCESS_KEY: ${STORAGE_ACCESS_KEY}
+      DEFAULT_SECRET_KEY: ${STORAGE_SECRET_KEY}
+      JWT: ${STORAGE_JWT_KEY}
+      ALLOW_ACCOUNT_CREATION: false
+      DEFAULT_BUCKETS: deeplake-storage
+      ALARIK_REGION: us-east-1
+    volumes:
+      - storage:/app/Storage
+    networks:
+      - deeplake
+
+  storage-ui:
+    image: ghcr.io/achtungsoftware/alarik-console:latest
+    container_name: dl-storage-ui
+    hostname: storage-ui
+    restart: unless-stopped
+    environment:
+      NUXT_PUBLIC_API_BASE_URL: https://storage-api.${BASE_HOST}
+      NUXT_PUBLIC_CONSOLE_BASE_URL: https://storage.${BASE_HOST}
+      NUXT_PUBLIC_ALLOW_ACCOUNT_CREATION: false
+    depends_on:
+      - storage-api
+    networks:
+      - deeplake
+
+volumes:
+  storage:
+    driver: local
+    name: dl_deeplake_storage
+
+configs:
+  caddy:
+    content: |
+      {
+      	admin off
+      }
+
+      openfga.${BASE_HOST} {
+      	tls /certs/fullchain.pem /certs/privkey.pem
+      	reverse_proxy openfga:8080
+      }
+
+      kc.${BASE_HOST} {
+      	tls /certs/fullchain.pem /certs/privkey.pem
+      	reverse_proxy keycloak:8080
+      }
+
+      app.${BASE_HOST} {
+      	tls /certs/fullchain.pem /certs/privkey.pem
+      	reverse_proxy deeplake-ui:3000
+      }
+
+      api.${BASE_HOST} {
+      	tls /certs/fullchain.pem /certs/privkey.pem
+      	reverse_proxy deeplake-api:8080
+      }
+
+      storage-api.${BASE_HOST} {
+      	tls /certs/fullchain.pem /certs/privkey.pem
+      	reverse_proxy storage-api:8080
+      }
+
+      storage.${BASE_HOST} {
+      	tls /certs/fullchain.pem /certs/privkey.pem
+      	reverse_proxy storage-ui:3000
+      }
