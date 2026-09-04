@@ -1589,7 +1589,6 @@ start() {
   if ! [ -f "${CONFIG_DIR}/compose.yaml" ]; then
     setup
   fi
-  docker compose -f "${CONFIG_DIR}/compose.yaml" up -d deeplake-setup || docker compose -f "${CONFIG_DIR}/compose.yaml" up -d deeplake-setup
   docker compose -f "${CONFIG_DIR}/compose.yaml" up -d
 }
 
