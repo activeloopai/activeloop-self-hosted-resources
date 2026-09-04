@@ -14,7 +14,7 @@ authorization model, and then starts the stack.
 First pull the `dl-stack.sh`:
 
 ```bash
-curl -fsSL https://github.com/activeloopai/activeloop-self-hosted-resources/blob/main/docker-compose/deeplake-platform/dl-stack.sh -o dl-stack.sh && chmod +x dl-stack.sh
+curl -fsSL https://raw.githubusercontent.com/activeloopai/activeloop-self-hosted-resources/refs/heads/main/docker-compose/deeplake-platform/dl-stack.sh -o dl-stack.sh && chmod +x dl-stack.sh
 ```
 
 ## What gets deployed
