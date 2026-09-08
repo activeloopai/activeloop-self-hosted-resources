@@ -348,6 +348,7 @@ Then open `https://app.$BASE_HOST`. Self-registration is enabled on the
 | `./dl-stack.sh stop` | Stop the stack (`compose down`, volumes kept) |
 | `./dl-stack.sh scale N` | Run N `deeplake-stateless` nodes; applies immediately if the stack is up. Scaling **down deletes** the removed nodes' volumes |
 | `./dl-stack.sh destroy` | `compose down -v` - **deletes all data** - and removes the rendered config. Prompts for confirmation |
+| `./dl-stack.sh pull` | Pull the images the stack runs. Recreating the containers on them is `start`'s job |
 | `./dl-stack.sh destroy --force` | Same, without the prompt. For CI/automation |
 
 With no TTY (CI, systemd, piped stdin) a bare `destroy` declines and exits
@@ -374,7 +375,7 @@ To pick up new image tags without losing data:
 
 ```sh
 docker login quay.io   # if the cached credentials have expired
-docker compose -f ~/.local/deeplake/compose.yaml pull
+./dl-stack.sh pull
 ./dl-stack.sh start
 ```
 

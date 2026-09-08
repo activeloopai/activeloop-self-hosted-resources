@@ -1122,6 +1122,8 @@ $0: manage local deeplake stack
          e.g. '$0 scale 2', applies immediately when the stack is up
   destroy: stop the stack and remove all docker volumes, e.g. wipe the data
            pass --force to skip the confirmation prompt (for non-interactive use)
+  pull: pull the container images the stack runs, run '$0 start'
+        afterwards to recreate the containers on the new images
 
 set STORAGE_TYPE to pick the object storage backend non-interactively,
 supported values: ${SUPPORTED_STORAGE_TYPES[*]}. When unset, setup asks for it.
@@ -1603,6 +1605,7 @@ ensure_compose_file() {
 
 setup() {
   local fga_url i
+  local curl_tls=()
   check_prerequisites
   if [ -f "${CONFIG_DIR}/compose.yaml" ]; then
     echo "[WARNING] compose file alredy exists at ${CONFIG_DIR}/compose.yaml, for fresh setup run ./dl-stack.sh destroy first, otherwise edit existing compose file directly"
@@ -1614,9 +1617,17 @@ setup() {
   docker compose -f "${CONFIG_DIR}/compose.yaml" up -d openfga
   docker compose -f "${CONFIG_DIR}/compose.yaml" up -d caddy
   fga_url="https://openfga.$BASE_HOST"
+  if [ "${TLS_METHOD}" != 'http01' ]; then
+    # a from_file certificate may be self-signed or issued by a private CA, so
+    # the system trust store cannot verify it. pin the certificate itself as
+    # the trust anchor rather than skipping verification: these calls carry
+    # OPENFGA_AUTH_KEY, and an unverified connection hands it to whoever
+    # answers for openfga.${BASE_HOST}
+    curl_tls=(--cacert "${TLS_CERT_PATH}")
+  fi
   echo "[INFO] waiting for OpenFGA at ${fga_url}"
   i=0
-  until curl -sf -m 5 "${fga_url}/healthz" >/dev/null 2>&1; do
+  until curl -sf "${curl_tls[@]}" -m 5 "${fga_url}/healthz" >/dev/null 2>&1; do
     i=$((i + 1))
     [ $i -gt 60 ] && {
       echo "openfga not ready after 5m"
@@ -1624,7 +1635,7 @@ setup() {
     }
     sleep 5
   done
-  STORE=$(curl -sf -m 30 -X POST "${fga_url}/stores" \
+  STORE=$(curl -sf "${curl_tls[@]}" -m 30 -X POST "${fga_url}/stores" \
     -H "Authorization: Bearer ${OPENFGA_AUTH_KEY}" \
     -H 'Content-Type: application/json' -d '{"name":"deeplake"}' |
     sed -n 's/.*"id"[ ]*:[ ]*"\([^"]*\)".*/\1/p')
@@ -1635,7 +1646,7 @@ setup() {
   fi
   echo "[INFO] openfga store initialized: $STORE"
   sed -i "s/fga_store_id/${STORE}/" "${CONFIG_DIR}/compose.yaml"
-  MODEL=$(curl -sf -m 60 -X POST "${fga_url}/stores/$STORE/authorization-models" \
+  MODEL=$(curl -sf "${curl_tls[@]}" -m 60 -X POST "${fga_url}/stores/$STORE/authorization-models" \
     -H "Authorization: Bearer ${OPENFGA_AUTH_KEY}" \
     -H 'Content-Type: application/json' --data "${OPENFGA_MODEL}" |
     sed -n 's/.*"authorization_model_id"[ ]*:[ ]*"\([^"]*\)".*/\1/p')
@@ -1790,12 +1801,22 @@ destroy() {
   rm -f "${CONFIG_DIR}/compose.yaml" "${CONFIG_DIR}/.compose.yaml.new"
 }
 
+pull() {
+  check_prerequisites
+  if ! [ -f "${CONFIG_DIR}/compose.yaml" ]; then
+    echo "[ERROR] nothing to pull, ${CONFIG_DIR}/compose.yaml does not exist, run ./dl-stack.sh setup first"
+    exit 1
+  fi
+  docker compose -f "${CONFIG_DIR}/compose.yaml" pull
+}
+
 case "$1" in
 start) start ;;
 scale) scale "${2:-}" ;;
 stop) stop ;;
 setup) setup ;;
 destroy) destroy "${2:-}" ;;
+pull) pull ;;
 *)
   if [ -z "$1" ]; then
     echo "[ERROR] command not specified"
