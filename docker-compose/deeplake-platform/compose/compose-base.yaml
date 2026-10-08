@@ -234,7 +234,7 @@ services:
       - deeplake
     <<: *deeplake-env
 
-  # one node per cpu core less one. each needs its own hostname, container name
+  # one node by default. each needs its own hostname, container name
   # and volume, so this cannot be `deploy: replicas`; dl-stack.sh appends
   # deeplake-stateless-2 and up immediately after this block
   deeplake-stateless-1:

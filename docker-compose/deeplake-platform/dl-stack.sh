@@ -1429,9 +1429,7 @@ storage:
 }
 
 stateless_count() {
-  # one pg-deeplake-stateless node per cpu core less one, so the host keeps a
-  # core for everything else. DEEPLAKE_STATELESS_COUNT overrides the detection
-  local count
+  # default to one pg-deeplake-stateless node; DEEPLAKE_STATELESS_COUNT overrides it
   if [ -n "${DEEPLAKE_STATELESS_COUNT}" ]; then
     if ! [[ "${DEEPLAKE_STATELESS_COUNT}" =~ ^[1-9][0-9]*$ ]]; then
       echo "[ERROR] DEEPLAKE_STATELESS_COUNT must be a positive integer, got '${DEEPLAKE_STATELESS_COUNT}'" 1>&2
@@ -1440,17 +1438,7 @@ stateless_count() {
     echo "${DEEPLAKE_STATELESS_COUNT}"
     return 0
   fi
-  # nproc honours cpu affinity, /proc/cpuinfo is the fallback when coreutils is
-  # not around. neither reflects a cgroup cpu quota, so a host capped with
-  # --cpus still reports every core: set DEEPLAKE_STATELESS_COUNT there
-  count="$(nproc 2>/dev/null || grep -c '^processor' /proc/cpuinfo 2>/dev/null || echo 0)"
-  if [ "${count}" -lt 1 ]; then
-    echo "[WARNING] could not detect the cpu count, using a single deeplake-stateless node, set DEEPLAKE_STATELESS_COUNT to override" 1>&2
-    count=2
-  fi
-  count=$((count - 1))
-  [ "${count}" -lt 1 ] && count=1
-  echo "${count}"
+  echo 1
 }
 
 gen_vars() {
