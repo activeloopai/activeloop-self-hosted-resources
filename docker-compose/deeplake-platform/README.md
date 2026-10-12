@@ -342,16 +342,40 @@ Then open `https://app.$BASE_HOST`. Self-registration is enabled on the
 | Command | Effect |
 | --- | --- |
 | `./dl-stack.sh setup` | Generate config and initialize OpenFGA + databases |
-| `./dl-stack.sh start` | Start the stack (runs `setup` first if not configured) |
-| `./dl-stack.sh stop` | Stop the stack (`compose down`, volumes kept) |
-| `./dl-stack.sh restart` | `stop` then `start`: recreates the containers, so edits to the rendered compose file and freshly pulled images take effect |
+| `./dl-stack.sh start [SERVICE...]` | Start the stack (runs `setup` first if not configured). With service names, `compose up -d` only those services and their dependencies |
+| `./dl-stack.sh stop [SERVICE...]` | Stop the stack (`compose down`, volumes kept). With service names, `compose stop` only those containers; the rest of the stack keeps running |
+| `./dl-stack.sh restart [SERVICE...]` | `stop` then `start`: recreates the containers, so edits to the rendered compose file and freshly pulled images take effect. With service names, only those services are bounced, e.g. `./dl-stack.sh restart deeplake-api` |
 | `./dl-stack.sh scale N` | Run N `deeplake-stateless` nodes; applies immediately if the stack is up. Scaling **down deletes** the removed nodes' volumes |
 | `./dl-stack.sh destroy` | `compose down -v` - **deletes all data** - and removes the rendered config. Prompts for confirmation |
 | `./dl-stack.sh pull` | Pull the images the stack runs. Recreating the containers on them is `start`'s job |
 | `./dl-stack.sh destroy --force` | Same, without the prompt. For CI/automation |
+| `./dl-stack.sh completion bash\|zsh` | Print a completion script for that shell to stdout. Nothing is installed; see below |
 
 With no TTY (CI, systemd, piped stdin) a bare `destroy` declines and exits
 without removing anything; use `--force` when you mean it.
+
+### Shell completion
+
+`completion` only prints the script, so you choose where it goes. It completes
+the commands, the service names for `start`/`stop`/`restart` (read from the
+rendered compose file, no docker call), `--force` for `destroy` and the shell
+for `completion`.
+
+```bash
+# bash: load it in the current shell, or add the same line to ~/.bashrc
+source <(./dl-stack.sh completion bash)
+# bash: or let bash-completion load it on demand
+./dl-stack.sh completion bash > ~/.local/share/bash-completion/completions/dl-stack.sh
+
+# zsh: load it in the current shell, or add the same line to ~/.zshrc after compinit
+source <(./dl-stack.sh completion zsh)
+# zsh: or install it as a function file on $fpath, the file name must be _dl_stack
+./dl-stack.sh completion zsh > ~/.zsh/completions/_dl_stack
+```
+
+The completion is registered for `dl-stack.sh` and `dl-stack`, which both
+shells also apply when the script is invoked by path (`./dl-stack.sh`,
+`/opt/deeplake/dl-stack.sh`).
 
 ## Where state lives
 
