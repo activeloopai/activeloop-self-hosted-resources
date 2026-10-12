@@ -344,6 +344,7 @@ Then open `https://app.$BASE_HOST`. Self-registration is enabled on the
 | `./dl-stack.sh setup` | Generate config and initialize OpenFGA + databases |
 | `./dl-stack.sh start` | Start the stack (runs `setup` first if not configured) |
 | `./dl-stack.sh stop` | Stop the stack (`compose down`, volumes kept) |
+| `./dl-stack.sh restart` | `stop` then `start`: recreates the containers, so edits to the rendered compose file and freshly pulled images take effect |
 | `./dl-stack.sh scale N` | Run N `deeplake-stateless` nodes; applies immediately if the stack is up. Scaling **down deletes** the removed nodes' volumes |
 | `./dl-stack.sh destroy` | `compose down -v` - **deletes all data** - and removes the rendered config. Prompts for confirmation |
 | `./dl-stack.sh pull` | Pull the images the stack runs. Recreating the containers on them is `start`'s job |

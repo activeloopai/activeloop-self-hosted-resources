@@ -1118,15 +1118,14 @@ $0: manage local deeplake stack
   setup: configure the stack, re-running this will reintialize the stack
   start: start the stack, if setup is not done it will setup first
   stop:  stop the stack
+  restart: stop the stack and start it again, picking up edits to the
+           rendered compose file and already pulled images
   scale: change how many deeplake-stateless nodes the stack runs,
          e.g. '$0 scale 2', applies immediately when the stack is up
   destroy: stop the stack and remove all docker volumes, e.g. wipe the data
            pass --force to skip the confirmation prompt (for non-interactive use)
   pull: pull the container images the stack runs, run '$0 start'
         afterwards to recreate the containers on the new images
-
-set STORAGE_TYPE to pick the object storage backend non-interactively,
-supported values: ${SUPPORTED_STORAGE_TYPES[*]}. When unset, setup asks for it.
   "
 }
 
@@ -1776,6 +1775,16 @@ stop() {
   docker compose -f "${CONFIG_DIR}/compose.yaml" down
 }
 
+restart() {
+  check_prerequisites
+  if ! [ -f "${CONFIG_DIR}/compose.yaml" ]; then
+    echo "[ERROR] nothing to restart, ${CONFIG_DIR}/compose.yaml does not exist, run ./dl-stack.sh setup first"
+    exit 1
+  fi
+  stop
+  start
+}
+
 destroy() {
   local answer
   if [ "${1:-}" != '--force' ]; then
@@ -1802,6 +1811,7 @@ case "$1" in
 start) start ;;
 scale) scale "${2:-}" ;;
 stop) stop ;;
+restart) restart ;;
 setup) setup ;;
 destroy) destroy "${2:-}" ;;
 pull) pull ;;
