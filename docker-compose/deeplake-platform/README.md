@@ -345,6 +345,7 @@ Then open `https://app.$BASE_HOST`. Self-registration is enabled on the
 | `./dl-stack.sh start [SERVICE...]` | Start the stack (runs `setup` first if not configured). With service names, `compose up -d` only those services and their dependencies |
 | `./dl-stack.sh stop [SERVICE...]` | Stop the stack (`compose down`, volumes kept). With service names, `compose stop` only those containers; the rest of the stack keeps running |
 | `./dl-stack.sh restart [SERVICE...]` | `stop` then `start`: recreates the containers, so edits to the rendered compose file and freshly pulled images take effect. With service names, only those services are bounced, e.g. `./dl-stack.sh restart deeplake-api` |
+| `./dl-stack.sh status [SERVICE...]` | One line per service with its container state, health and uptime. Services with no container show as `absent`. Exits 1 unless every service is running and healthy (or a one-shot job that exited 0), so it works as a readiness probe |
 | `./dl-stack.sh scale N` | Run N `deeplake-stateless` nodes; applies immediately if the stack is up. Scaling **down deletes** the removed nodes' volumes |
 | `./dl-stack.sh destroy` | `compose down -v` - **deletes all data** - and removes the rendered config. Prompts for confirmation |
 | `./dl-stack.sh pull` | Pull the images the stack runs. Recreating the containers on them is `start`'s job |
@@ -357,7 +358,7 @@ without removing anything; use `--force` when you mean it.
 ### Shell completion
 
 `completion` only prints the script, so you choose where it goes. It completes
-the commands, the service names for `start`/`stop`/`restart` (read from the
+the commands, the service names for `start`/`stop`/`restart`/`status` (read from the
 rendered compose file, no docker call), `--force` for `destroy` and the shell
 for `completion`.
 
@@ -416,8 +417,8 @@ docker login quay.io   # if the cached credentials have expired
 * **Certificate errors with `TLS_METHOD=from_file`** - the certificate must cover
   every subdomain (`*.$BASE_HOST`); the paths are mounted into Caddy as
   `/certs/fullchain.pem` and `/certs/privkey.pem`.
-* **A service is stuck starting** - `docker compose -f ~/.local/deeplake/compose.yaml ps`
-  shows health state. Anything still `(health: starting)` well past its
+* **A service is stuck starting** - `./dl-stack.sh status` shows the state and
+  health of every service. Anything still `starting` well past its
   `start_period`, or flipping to `unhealthy`, is blocking everything that
   depends on it; `docker inspect --format '{{json .State.Health}}' <container>`
   shows the last probe output.

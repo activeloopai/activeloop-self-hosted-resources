@@ -1122,6 +1122,8 @@ $0: manage local deeplake stack
            rendered compose file and already pulled images
          start, stop and restart accept service names to act on those
          services only, e.g. '$0 restart deeplake-api keycloak'
+  status: show the state and health of every service, or of the given
+          services only, exits 1 unless everything is up and healthy
   scale: change how many deeplake-stateless nodes the stack runs,
          e.g. '$0 scale 2', applies immediately when the stack is up
   destroy: stop the stack and remove all docker volumes, e.g. wipe the data
@@ -1840,6 +1842,54 @@ pull() {
   docker compose -f "${CONFIG_DIR}/compose.yaml" pull
 }
 
+status() {
+  # one line per service of the rendered compose file, including the ones
+  # without a container (never started, or removed by stop), so a stopped
+  # stack is visible as such instead of printing nothing. exits 1 when any
+  # service is not fully up, so it doubles as a readiness probe: a service is
+  # fine when it is running and healthy (or has no healthcheck), or when it is
+  # a one-shot job that exited 0
+  local services=() ps svc line state health exit_code detail rc
+  check_prerequisites
+  if ! [ -f "${CONFIG_DIR}/compose.yaml" ]; then
+    echo "[ERROR] nothing to show, ${CONFIG_DIR}/compose.yaml does not exist, run ./dl-stack.sh setup first"
+    exit 1
+  fi
+  check_services "$@"
+  if [ "$#" -eq 0 ]; then
+    mapfile -t services < <(docker compose -f "${CONFIG_DIR}/compose.yaml" config --services | sort)
+  else
+    services=("$@")
+  fi
+  # '|' rather than a tab as the field separator: health is empty for services
+  # without a healthcheck and read collapses runs of whitespace separators,
+  # which would shift the columns
+  ps="$(docker compose -f "${CONFIG_DIR}/compose.yaml" ps -a \
+    --format '{{.Service}}|{{.State}}|{{.Health}}|{{.ExitCode}}|{{.Status}}')"
+  rc=0
+  printf '%-24s %-10s %-10s %s\n' SERVICE STATE HEALTH DETAIL
+  for svc in "${services[@]}"; do
+    line="$(grep -m1 "^${svc}|" <<<"${ps}" || true)"
+    if [ -z "${line}" ]; then
+      printf '%-24s %-10s %-10s %s\n' "${svc}" absent - "no container, run ./dl-stack.sh start"
+      rc=1
+      continue
+    fi
+    IFS='|' read -r _ state health exit_code detail <<<"${line}"
+    case "${state}:${health:--}" in
+    running:healthy | running:-) ;;
+    exited:*)
+      if [ "${exit_code}" != '0' ]; then
+        rc=1
+      fi
+      ;;
+    *) rc=1 ;;
+    esac
+    printf '%-24s %-10s %-10s %s\n' "${svc}" "${state}" "${health:--}" "${detail}"
+  done
+  return "${rc}"
+}
+
 completion() {
   # prints a completion script for the given shell to stdout, the caller
   # decides whether to source it or install it to a file. the scripts do not
@@ -1874,11 +1924,11 @@ _dl_stack() {
   cmd="${COMP_WORDS[1]}"
   COMPREPLY=()
   if [ "${COMP_CWORD}" -eq 1 ]; then
-    mapfile -t COMPREPLY < <(compgen -W 'setup start stop restart scale destroy pull completion' -- "${cur}")
+    mapfile -t COMPREPLY < <(compgen -W 'setup start stop restart status scale destroy pull completion' -- "${cur}")
     return
   fi
   case "${cmd}" in
-  start | stop | restart)
+  start | stop | restart | status)
     mapfile -t COMPREPLY < <(compgen -W "$(_dl_stack_services)" -- "${cur}")
     ;;
   destroy)
@@ -1925,6 +1975,7 @@ _dl_stack() {
     'start:start the stack or only the given services'
     'stop:stop the stack or only the given services'
     'restart:stop and start the stack or only the given services'
+    'status:show the state and health of the services'
     'scale:change how many deeplake-stateless nodes the stack runs'
     'destroy:stop the stack and remove all docker volumes'
     'pull:pull the container images the stack runs'
@@ -1935,7 +1986,7 @@ _dl_stack() {
     return
   fi
   case "${words[2]}" in
-  start | stop | restart)
+  start | stop | restart | status)
     services=(${(f)"$(_dl_stack_services)"})
     _describe -t services 'service' services
     ;;
@@ -1975,6 +2026,7 @@ start) start "${@:2}" ;;
 scale) scale "${2:-}" ;;
 stop) stop "${@:2}" ;;
 restart) restart "${@:2}" ;;
+status) status "${@:2}" ;;
 setup) setup ;;
 destroy) destroy "${2:-}" ;;
 pull) pull ;;
