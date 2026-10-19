@@ -8,7 +8,8 @@ differences are called out inline.
 - Kubernetes 1.29+, `helm` 3.12+, `kubectl`
 - An object-storage container the cluster can write to
 - A cloud identity federated to the cluster's service account (step 2 — the
-  step most installs get wrong)
+  step most installs get wrong), or a static key for an S3-compatible endpoint
+  (step 2c)
 - An ingress controller, or set `ingress-nginx.enabled=true` to get one
 - DNS for three hostnames, and cert-manager if you want automatic TLS
 - Credentials for `quay.io/activeloopai/deeplake-api` (the only private image;
@@ -73,6 +74,89 @@ kubectl -n $NS exec deploy/$RELEASE-pool -c postgres -- \
 Exit 0 means the credential chain works. `Failed to get token from
 ChainedTokenCredential` means the federated credential is missing or its
 subject does not match.
+
+## 2c. S3-compatible storage instead (`global.cloud: s3`)
+
+For a cluster whose object storage is not one of the three clouds — Ceph RGW,
+MinIO, or a research platform such as NRP Nautilus — skip step 2 entirely.
+There is no identity to federate: the pods authenticate to the endpoint with a
+static access key, and the chart refuses to render with
+`global.workloadIdentity.enabled=true`.
+
+Create the key Secret before installing:
+
+```bash
+kubectl -n $NS create secret generic deeplake-s3-credentials \
+  --from-literal=accessKeyId='<access key>' \
+  --from-literal=secretAccessKey='<secret key>'
+```
+
+Then start from `values-s3.yaml`. It has no ingress or StorageClass defaults,
+because a generic cluster has none the chart can assume, so both must be named.
+An NRP Nautilus install, with the bundled Postgres, Keycloak and OpenFGA, looks
+like this:
+
+```yaml
+global:
+  cloud: s3
+  domain: deeplake.nrp-nautilus.io
+  imagePullSecrets: [regcred-quay]
+
+  storage:
+    rootPath: "s3://<bucket>/deeplake/"
+    s3:
+      endpoint: http://rook-ceph-rgw-nautiluss3.rook   # west pool, in-cluster
+      region: us-east-1
+      credentialsSecret: deeplake-s3-credentials
+
+  workloadIdentity:
+    enabled: false
+
+  ingress:
+    className: haproxy
+    tls:
+      enabled: true
+      controllerDefault: true   # the controller holds *.nrp-nautilus.io
+
+  storageClass: rook-ceph-block
+
+  auth:
+    audience: "https://api.deeplake.nrp-nautilus.io"
+  keycloak:
+    enabled: true
+  postgres:
+    enabled: true
+  database:
+    host: dl-postgres
+    user: postgres
+    sslMode: disable
+  openfga:
+    enabled: true
+    tokenSecret: deeplake-fga-token
+```
+
+Notes for this mode:
+
+- The endpoint is used by `deeplake-api` (as `S3_ENDPOINT_URL`) and by the
+  pg-deeplake pods (as `AWS_ENDPOINT_URL`), so it must resolve from inside the
+  cluster. Prefer the in-cluster endpoint over a public one: shorter path, and
+  no load balancer in between.
+- `region` is sent in the request signature. Ceph and MinIO accept any value;
+  keep `us-east-1` unless the endpoint documents otherwise.
+- `tls.controllerDefault: true` lists the hostnames under `tls:` without a
+  secret, so the controller serves its own certificate. On NRP that is the
+  `*.nrp-nautilus.io` wildcard. On other clusters leave it false and let
+  cert-manager issue one via the annotations.
+- Ceph RGW older than 20.x (Tentacle) rejects `If-Match` with a quoted ETag,
+  which pg-deeplake uses for its commit protocol. On such a gateway the first
+  login hangs for minutes and the pool logs `CAS DDL seq claim failed (ETag
+  mismatch: __wal_seq_counter)`. Ask the storage admins for the Ceph version
+  before installing.
+
+To verify storage access after installing, run the same `dlstorage list_dirs`
+check as in step 2; `InvalidAccessKeyId` or `SignatureDoesNotMatch` means the
+Secret holds the wrong key, `connection refused` or `no such host` means the
+endpoint is not reachable from the pods.
 
 ## 2b. Your own Postgres (skip if using the bundled one)
 
@@ -300,6 +384,8 @@ API calls need an organization: pass `X-Activeloop-Org-Id` (from `/me`), an
 | Symptom | Cause | Fix |
 |---|---|---|
 | Backend killed by signal 6, cluster enters recovery | Federated credential missing or subject mismatch | Step 2 |
+| `cloud: s3`: first login hangs, pool logs `CAS DDL seq claim failed (ETag mismatch)` | Ceph RGW older than 20.x rejects quoted `If-Match` | Step 2c; upgrade the gateway |
+| `cloud: s3`: `InvalidAccessKeyId` / `SignatureDoesNotMatch` | Wrong key in `global.storage.s3.credentialsSecret`, or the key is for another pool | Step 2c |
 | API crash-loops on `failed to resolve OIDC endpoints` | Keycloak hostname does not resolve in-cluster | Step 4, then restart the API |
 | `Auth0 not configured - authentication disabled` | API image predates the OIDC merge (19 Aug) | Use chart 0.1.1 or newer, which pins a current image |
 | Migration Job: `no such host` for the database | External database not reachable, or `global.database.host` unset | Step 5 |

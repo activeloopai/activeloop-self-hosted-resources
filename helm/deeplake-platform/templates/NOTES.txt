@@ -32,7 +32,11 @@ the API fetches the discovery document over that hostname and will crash-loop
 until it does.
 {{- end }}
 
-{{- if not .Values.global.workloadIdentity.enabled }}
+{{- if eq .Values.global.cloud "s3" }}
+
+S3 endpoint: {{ .Values.global.storage.s3.endpoint }}
+  (static key from Secret {{ .Values.global.storage.s3.credentialsSecret }}, region {{ .Values.global.storage.s3.region }})
+{{- else if not .Values.global.workloadIdentity.enabled }}
 
 WARNING: workload identity is disabled. Pods will fall back to static
 credentials from the secret named in global.secrets.api. Acceptable for a

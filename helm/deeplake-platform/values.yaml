@@ -11,7 +11,10 @@
 
 global:
   # -- REQUIRED. Drives workload identity, ingress class, and StorageClass.
-  # One of: azure | aws | gcp
+  # One of: azure | aws | gcp | s3
+  # `s3` is any S3-compatible endpoint (Ceph RGW, MinIO, ...) reached with a
+  # static key from `storage.s3` instead of a cloud identity; it has no ingress
+  # or StorageClass defaults, so name yours. See values-s3.yaml.
   cloud: azure
 
   # -- Registry for ALL images, including subcharts.
@@ -28,12 +31,24 @@ global:
   storage:
     # -- REQUIRED. Dataset root; scheme must match `cloud`.
     # az://<account>/<container>/<prefix> | s3://<bucket>/<prefix> | gs://<bucket>/<prefix>
+    # (cloud=s3 takes s3://<bucket>/<prefix> too)
     rootPath: ""
+
+    # -- Only read when cloud=s3. deeplake-api gets these as S3_*, the
+    # pg-deeplake pods as AWS_*; the chart keeps the two in step.
+    s3:
+      # http(s)://host[:port]. In-cluster endpoints are usually plain http.
+      endpoint: ""
+      # Ceph and MinIO ignore the region, but the SDKs need one for signing.
+      region: us-east-1
+      # Pre-created Secret with keys accessKeyId and secretAccessKey.
+      credentialsSecret: ""
 
   # -- Cloud identity for pods that touch object storage. Fill in the block
   # matching `cloud`. The identity also needs a federated credential for
   # system:serviceaccount:<namespace>:<release>-workload — without it, storage
   # access fails at token exchange, not at startup. See docs/install.md step 2.
+  # Must be false when cloud=s3.
   workloadIdentity:
     enabled: true
     azure:
@@ -59,6 +74,10 @@ global:
       # Pre-created TLS secret. Leave empty to let cert-manager issue one via
       # the annotations above.
       secretName: ""
+      # true names no secret at all, so the controller serves its own default
+      # certificate. For clusters whose ingress already holds a wildcard for
+      # your hostnames (NRP's *.nrp-nautilus.io, for instance).
+      controllerDefault: false
 
   # Empty -> per-cloud default (managed-csi / gp3 / pd-balanced)
   storageClass: ""
