@@ -279,12 +279,20 @@ export S3_SECRET_KEY=
 export TLS_METHOD=http01      # or: from_file
 export TLS_CERT_PATH=         # required when TLS_METHOD=from_file
 export TLS_KEY_PATH=          # required when TLS_METHOD=from_file
+
+# optional, passed to deeplake-api for the 'query with AI' ui feature
+export OPENAI_API_KEY=
 ```
 
 Any variable you leave empty is prompted for interactively during `setup`;
 `STORAGE_TYPE` is offered as a numbered menu (see
 [Storage backends](#storage-backends)). An unsupported `STORAGE_TYPE`, or
 no selection at all when there is no TTY, aborts `setup`.
+
+`OPENAI_API_KEY` is optional and only reaches `deeplake-api`, where it powers
+the **query with AI** feature of the UI. When it is set, `setup` asks whether to
+use it; when it is not, `setup` asks whether you want to enter one. Without a
+TTY a key from the environment is used as is and a missing one is skipped.
 
 > **Do not run `docker compose` against the files in the `compose/`
 > directory.** They are templates, and neither half is a usable file on its own. Compose would auto-load `.env` and fill in

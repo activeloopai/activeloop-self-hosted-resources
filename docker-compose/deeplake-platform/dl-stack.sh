@@ -1495,7 +1495,29 @@ gen_vars() {
   done
   echo "[INFO] using ${DEEPLAKE_STATELESS_COUNT} pg-deeplake-stateless node(s)"
   export DEEPLAKE_STATELESS_COUNT DEEPLAKE_STATELESS_PODS
+  gen_vars_openai
   storage_hook gen_vars
+}
+
+gen_vars_openai() {
+  # optional: deeplake-api uses an openai key for the 'query with AI' ui
+  # feature. a key already in the environment is offered first; without a
+  # terminal to ask at, an environment key is used and a missing one is skipped
+  local hint="it is used by the 'query with AI' ui feature"
+  if [ -n "${OPENAI_API_KEY}" ]; then
+    if [ -t 0 ] && [ "$(yes_or_no "OPENAI_API_KEY is set in the environment, pass it to deeplake-api? (${hint})")" == 'no' ]; then
+      OPENAI_API_KEY=''
+    fi
+  elif [ -t 0 ] && [ "$(yes_or_no "would you like to provide an OpenAI API key for deeplake-api? (${hint})")" == 'yes' ]; then
+    prompt_var OPENAI_API_KEY 'openai api key' secret
+  fi
+  # the key lands in a yaml file that compose interpolates, so keep it to the
+  # characters openai keys are made of
+  if [ -n "${OPENAI_API_KEY}" ] && ! [[ "${OPENAI_API_KEY}" =~ ^[A-Za-z0-9_-]+$ ]]; then
+    echo "[ERROR] OPENAI_API_KEY may only contain letters, digits, '-' and '_'" 1>&2
+    exit 1
+  fi
+  export OPENAI_API_KEY
 }
 
 print_vars() {
@@ -1507,6 +1529,8 @@ endpoints:
   deeplake ui: https://app.${BASE_HOST}
   deeplake api: https://api.${BASE_HOST}
   keycloak: https://kc.${BASE_HOST}
+openai:
+  api key: ${OPENAI_API_KEY:+set for deeplake-api}${OPENAI_API_KEY:-not set, 'query with AI' is disabled}
 "
   storage_hook print_vars
 }
@@ -1585,15 +1609,27 @@ ensure_compose_file() {
       "${COMPOSE_BASE_FILE}" "${COMPOSE_OVERLAY_FILE}"
   fi
   storage_hook edit_compose
+  # the openai key goes to deeplake-api alone, so it rides in a small overlay of
+  # its own instead of the env anchor shared with the worker and setup jobs
+  local overlays=(-f "${COMPOSE_BASE_FILE}" -f "${COMPOSE_OVERLAY_FILE}")
+  local openai_file="${CONFIG_DIR}/.openai.yaml"
+  if [ -n "${OPENAI_API_KEY}" ]; then
+    (
+      umask 077
+      printf 'services:\n  deeplake-api:\n    environment:\n      OPENAI_API_KEY: "%s"\n' \
+        "${OPENAI_API_KEY}" >"${openai_file}"
+    )
+    overlays+=(-f "${openai_file}")
+  fi
   if ! docker compose --project-name "$(basename "${CONFIG_DIR}")" \
-    -f "${COMPOSE_BASE_FILE}" -f "${COMPOSE_OVERLAY_FILE}" \
+    "${overlays[@]}" \
     config --no-interpolate --no-path-resolution >"${CONFIG_DIR}/compose.yaml"; then
     echo "[ERROR] failed to merge compose-base.yaml with storage-${STORAGE_TYPE}.yaml"
-    rm -f "${CONFIG_DIR}/compose.yaml" "${COMPOSE_BASE_FILE}" "${COMPOSE_OVERLAY_FILE}"
+    rm -f "${CONFIG_DIR}/compose.yaml" "${COMPOSE_BASE_FILE}" "${COMPOSE_OVERLAY_FILE}" "${openai_file}"
     exit 1
   fi
   chmod 600 "${CONFIG_DIR}/compose.yaml"
-  rm -f "${COMPOSE_BASE_FILE}" "${COMPOSE_OVERLAY_FILE}"
+  rm -f "${COMPOSE_BASE_FILE}" "${COMPOSE_OVERLAY_FILE}" "${openai_file}"
   FRESH_SETUP=1
 }
 
