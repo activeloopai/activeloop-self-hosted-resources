@@ -1,0 +1,38 @@
+# S3-compatible storage overlay: Ceph RGW, MinIO, or any other endpoint that
+# speaks the S3 API and is reached with a static access key rather than a cloud
+# identity. Written against NRP Nautilus (Rook Ceph); the commented values are
+# theirs. Prerequisites: docs/install.md, step 2c.
+
+global:
+  cloud: s3
+
+  storage:
+    # s3://<bucket>/<prefix>
+    rootPath: ""
+    s3:
+      # NRP, from inside the cluster: http://rook-ceph-rgw-nautiluss3.rook
+      endpoint: ""
+      region: us-east-1
+      # kubectl -n $NS create secret generic deeplake-s3-credentials \
+      #   --from-literal=accessKeyId=... --from-literal=secretAccessKey=...
+      credentialsSecret: deeplake-s3-credentials
+
+  # A static key replaces the cloud identity; the chart refuses both at once.
+  workloadIdentity:
+    enabled: false
+
+  ingress:
+    # No per-cloud default here: name your cluster's controller. NRP: haproxy
+    className: ""
+    annotations: {}
+    tls:
+      enabled: true
+      # NRP's controller holds the *.nrp-nautilus.io wildcard, so no secret is
+      # needed for hostnames under it. Elsewhere leave this false and let
+      # cert-manager issue one via the annotations above.
+      controllerDefault: false
+
+  # Empty -> the cluster's default StorageClass. NRP has none, so name a block
+  # class from `kubectl get storageclass` (rook-ceph-block, or a regional
+  # rook-ceph-block-<region> matching your nodes).
+  storageClass: ""

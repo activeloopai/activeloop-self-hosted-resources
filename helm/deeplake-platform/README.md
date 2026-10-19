@@ -4,7 +4,9 @@ Helm chart for self-hosted Deep Lake. Installs the control-plane API, the web
 UI, and the pg-deeplake data plane into a customer's own Kubernetes cluster.
 
 Azure/AKS is the primary target; AWS/EKS and GCP/GKE share the same chart via
-`global.cloud`.
+`global.cloud`. `global.cloud: s3` targets any other cluster whose object
+storage is an S3-compatible endpoint with a static key (Ceph RGW, MinIO, NRP
+Nautilus); see `values-s3.yaml`.
 
 ## Layout
 
@@ -15,6 +17,7 @@ deeplake-platform/
 ├── values-azure.yaml       # per-cloud overlays
 ├── values-aws.yaml
 ├── values-gcp.yaml
+├── values-s3.yaml          # S3-compatible endpoint + static key (Ceph, MinIO, NRP)
 ├── docs/install.md         # setup guide: prerequisites, install, verify
 └── charts/
     ├── deeplake-common/    # library chart — shared helpers, renders nothing
@@ -44,7 +47,9 @@ pulls anonymously too.
 
 Workload identity is the step to get right: a missing or mismatched federated
 credential makes `pg_deeplake` abort the Postgres backend on the first
-storage-touching statement, rather than returning an error.
+storage-touching statement, rather than returning an error. With
+`global.cloud: s3` there is no identity to federate: the pods read a static key
+from the Secret named in `global.storage.s3.credentialsSecret`.
 
 KeyCloak realm ConfigMap renders whether or not Keycloak is bundled, so a installation
 running it's own Keycloak can import the same realm:

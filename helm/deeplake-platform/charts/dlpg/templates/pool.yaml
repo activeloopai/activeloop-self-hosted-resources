@@ -109,8 +109,11 @@ spec:
                 secretKeyRef:
                   name: {{ required "global.secrets.dlpg is required" $g.secrets.dlpg }}
                   key: password
-            {{- if eq $g.cloud "aws" }}
-            # Pods use IRSA; the IMDS fallback only adds latency on failure.
+            {{- with (include "deeplake.s3StorageEnv" $ | trim) }}
+            {{- . | nindent 12 }}
+            {{- end }}
+            {{- if has $g.cloud (list "aws" "s3") }}
+            # Pods use IRSA or a static key; the IMDS fallback only adds latency on failure.
             - name: AWS_EC2_METADATA_DISABLED
               value: "true"
             {{- end }}

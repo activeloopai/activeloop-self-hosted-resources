@@ -49,6 +49,7 @@
   value: {{ $g.storage.rootPath | quote }}
 - name: DEEPLAKE_ROOT_DIR
   value: {{ $g.storage.rootPath | quote }}
+{{- include "deeplake.s3ApiEnv" . }}
 
 # --- OIDC ---
 - name: OIDC_ISSUER

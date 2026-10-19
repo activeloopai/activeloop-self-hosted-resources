@@ -23,7 +23,7 @@ spec:
         {{- end }}
       {{- if $g.ingress.tls.secretName }}
       secretName: {{ $g.ingress.tls.secretName }}
-      {{- else }}
+      {{- else if not $g.ingress.tls.controllerDefault }}
       # No secret named: cert-manager issues one from the annotations above.
       secretName: {{ printf "%s-tls" (include "deeplake.fullname" .) }}
       {{- end }}

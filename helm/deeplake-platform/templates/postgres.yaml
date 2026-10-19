@@ -25,7 +25,9 @@ metadata:
     {{- include "deeplake.labels" . | nindent 4 }}
 spec:
   accessModes: [ReadWriteOnce]
-  storageClassName: {{ include "deeplake.storageClassName" . }}
+  {{- with (include "deeplake.storageClassName" .) }}
+  storageClassName: {{ . }}
+  {{- end }}
   resources:
     requests:
       storage: {{ .Values.postgres.storage }}
