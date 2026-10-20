@@ -350,6 +350,7 @@ exits - fix DNS/TLS and start over.
 
 Then open `https://app.$BASE_HOST`. Self-registration is enabled on the
 `deeplake` Keycloak realm, so the first user can sign up from the login page.
+To create users from the command line instead, see [Adding users](#adding-users).
 
 ## Commands
 
@@ -361,6 +362,7 @@ Then open `https://app.$BASE_HOST`. Self-registration is enabled on the
 | `./dl-stack.sh restart [SERVICE...]` | `stop` then `start`: recreates the containers, so edits to the rendered compose file and freshly pulled images take effect. With service names, only those services are bounced, e.g. `./dl-stack.sh restart deeplake-api` |
 | `./dl-stack.sh status [SERVICE...]` | One line per service with its container state, health and uptime. Services with no container show as `absent`. Exits 1 unless every service is running and healthy (or a one-shot job that exited 0), so it works as a readiness probe |
 | `./dl-stack.sh creds` | Print the credentials and endpoints `setup` printed at the end (Keycloak admin, storage, OpenAI key status), read back from the rendered compose file. Works whether or not the stack is running |
+| `./dl-stack.sh add-user --email EMAIL [OPTIONS]` | Create a login in the `deeplake` Keycloak realm and optionally invite it to an organization. Keycloak must be running. See [Adding users](#adding-users) |
 | `./dl-stack.sh scale N` | Run N `deeplake-stateless` nodes; applies immediately if the stack is up. Scaling **down deletes** the removed nodes' volumes |
 | `./dl-stack.sh set-tag SERVICE TAG` | Point one service at a different image tag in the rendered compose file, e.g. `./dl-stack.sh set-tag pg-proxy 1.2.3`. If the service is running it is recreated on the new image right away (pulled if needed), otherwise the tag applies on the next `start`. Naming any `deeplake-stateless-N` or `deeplake-indexer` retags all of them together, since they must run the same image |
 | `./dl-stack.sh upgrade-fga` | Write the OpenFGA authorization model this script ships to the existing store, replace the model id in the rendered compose file and recreate the running services that read it (`deeplake-api`, `deeplake-worker`). Idempotent: does nothing when the model is already current. `start` runs it automatically when the model is stale |
@@ -376,8 +378,8 @@ without removing anything; use `--force` when you mean it.
 
 `completion` only prints the script, so you choose where it goes. It completes
 the commands, the service names for `start`/`stop`/`restart`/`status`/`set-tag` (read from the
-rendered compose file, no docker call), `--force` for `destroy` and the shell
-for `completion`.
+rendered compose file, no docker call), the options of `add-user` and the
+values of its `--role`, `--force` for `destroy` and the shell for `completion`.
 
 ```bash
 # bash: load it in the current shell, or add the same line to ~/.bashrc
@@ -394,6 +396,61 @@ source <(./dl-stack.sh completion zsh)
 The completion is registered for `dl-stack.sh` and `dl-stack`, which both
 shells also apply when the script is invoked by path (`./dl-stack.sh`,
 `/opt/deeplake/dl-stack.sh`).
+
+### Adding users
+
+`add-user` creates a user in the stack's Keycloak realm with Keycloak's admin
+CLI (`kcadm.sh` inside `dl-keycloak`), signed in as the bootstrap admin from the
+rendered compose file. No SMTP is needed and no Keycloak setting is changed.
+
+```sh
+# a login only; prints a generated password that must be changed on first login
+./dl-stack.sh add-user --email jane@example.com --first-name Jane --last-name Doe
+
+# a login plus organization access
+export DEEPLAKE_API_TOKEN=...   # an org admin's token, from Settings -> API tokens in the UI
+./dl-stack.sh add-user --email jane@example.com --first-name Jane --last-name Doe \
+  --org 3f1c0d9e-0000-0000-0000-000000000000 --role writer \
+  --workspace analytics --workspace ml:viewer
+```
+
+| Option | Meaning |
+| --- | --- |
+| `--email EMAIL` | Required. Stored lowercased and marked verified |
+| `--username NAME` | Login name, defaults to the email |
+| `--first-name NAME`, `--last-name NAME` | The realm requires both, so without them Keycloak asks for them on the first login |
+| `--password PASSWORD` | Omit it to get a random 20 character password, printed once. A value given here is visible in the host's process list |
+| `--temporary` / `--no-temporary` | Whether the password must be changed on the first login. `--temporary` is the default |
+| `--org ORG_ID` | Invite the user to this organization (its UUID) |
+| `--role viewer\|writer\|admin` | The organization role, default `viewer` |
+| `--workspace ID[:viewer\|writer\|admin]` | Repeatable. A workspace role, defaulting to `--role` |
+| `--token TOKEN` | An organization admin's API token. `DEEPLAKE_API_TOKEN` works too and keeps the token out of the process list |
+
+Step by step, it:
+
+1. validates every option before touching anything;
+2. reads the realm (from `OIDC_ISSUER`), the base host, the API URL and the
+   Keycloak admin password from `~/.local/deeplake/compose.yaml`;
+3. fails if a user with that username or email already exists - nothing is
+   updated;
+4. creates the user, enabled, with the email verified and the password set.
+   The Keycloak admin password and the user's password are passed through the
+   environment and stdin, never on a command line;
+5. with `--org`, calls `POST https://api.$BASE_HOST/organizations/<org>/members/invite`
+   with the token. If the invite fails the Keycloak user is kept, the command
+   prints the `curl` call to retry the invite and exits 1;
+6. prints the login URL, the username, the generated password (if any) and the
+   organization and workspace grants.
+
+Limitations:
+
+* Deeplake only learns about the user on their first sign-in, which is also
+  when the invite is applied - until then they do not show up as a member.
+* The invite always grants an organization role, so a user added with `--org`
+  is at least an organization viewer. "Workspace only" access can be set in the
+  UI after their first sign-in.
+* A workspace `admin` grant makes the user an organization admin, since the
+  authorization model has no admin role on a single workspace.
 
 ## Where state lives
 

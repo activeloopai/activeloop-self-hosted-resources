@@ -1217,6 +1217,25 @@ $0: manage local deeplake stack
            newer model, '$0 start' does it automatically when the model is stale
   creds: print the credentials and endpoints setup printed at the end, read
          back from the rendered compose file
+  add-user: create a login in the stack's keycloak realm, keycloak has to be
+            running. e.g. '$0 add-user --email jane@example.com --org <org id> --role writer'
+              --email EMAIL         required, also the username unless --username is given
+              --username NAME       login name, defaults to the email
+              --first-name NAME, --last-name NAME
+              --password PASSWORD   omit it to get a random one printed once,
+                                    a value given here shows in the process list
+              --temporary           the default, the password has to be changed on first login
+              --no-temporary        keep the password as given
+            organization access, optional, needs an org admin's api token:
+              --org ORG_ID          invite the user to this organization (its uuid)
+              --role ROLE           viewer, writer or admin in the organization, default viewer
+              --workspace ID[:ROLE] repeatable, a workspace role, defaulting to --role.
+                                    a workspace admin is made an organization admin
+              --token TOKEN         an api token from Settings -> API tokens in the ui,
+                                    DEEPLAKE_API_TOKEN keeps it out of the process list
+            the invite is applied on the user's first sign-in and always grants an
+            organization role, workspace only access is set in the ui after that.
+            without --first-name and --last-name keycloak asks for them on first login
   destroy: stop the stack and remove all docker volumes, e.g. wipe the data
            pass --force to skip the confirmation prompt (for non-interactive use)
   pull: pull the container images the stack runs, run '$0 start'
@@ -2010,6 +2029,14 @@ compose_values() {
   sed -n "s/^ *\(- *\)\{0,1\}$1[:=] *[\"']\{0,1\}\([^\"' ]*\)[\"']\{0,1\} *$/\2/p" "${CONFIG_DIR}/compose.yaml" | sort -u
 }
 
+compose_tls_cert() {
+  # the certificate file caddy serves for a from_file setup, empty for http01,
+  # where the system trust store verifies the public certificate on its own
+  awk '/^  caddy_public_key:/ { in_cfg = 1; next }
+       /^  [^ ]/ || /^[^ ]/ { in_cfg = 0 }
+       in_cfg && /^    file: / { sub(/^    file: /, ""); print; exit }' "${CONFIG_DIR}/compose.yaml"
+}
+
 fga_model_current() {
   # succeeds when the model id in the compose file was written from the model
   # this script ships (or when there is no stack to upgrade yet)
@@ -2058,9 +2085,7 @@ upgrade_fga() {
   fi
   # same trust handling as setup: a from_file certificate is pinned as the
   # trust anchor because these calls carry the OpenFGA token
-  cert="$(awk '/^  caddy_public_key:/ { in_cfg = 1; next }
-               /^  [^ ]/ || /^[^ ]/ { in_cfg = 0 }
-               in_cfg && /^    file: / { sub(/^    file: /, ""); print; exit }' "${CONFIG_DIR}/compose.yaml")"
+  cert="$(compose_tls_cert)"
   if [ -n "${cert}" ]; then
     curl_tls=(--cacert "${cert}")
   fi
@@ -2289,6 +2314,265 @@ creds() {
   print_vars
 }
 
+json_str() {
+  # json_str <value>: the value as a json string literal. callers reject
+  # control characters first, so only the backslash and the quote need escaping
+  local s="${1//\\/\\\\}"
+  printf '"%s"' "${s//\"/\\\"}"
+}
+
+kc_admin() {
+  # kc_admin <kcadm.sh arguments>: one admin cli call inside the keycloak
+  # container, logged in to the master realm as the bootstrap admin. the
+  # password reaches kcadm.sh through KC_CLI_PASSWORD, handed to docker exec by
+  # name only, so it is on no command line, and --no-config leaves no cached
+  # token behind in the container. stdin is passed through for request bodies,
+  # stderr is folded into the output minus kcadm's own 'Logging into' line
+  local out rc=0
+  out="$(KC_CLI_PASSWORD="${KC_ADMIN_PASSWORD}" docker exec -i -e KC_CLI_PASSWORD "${KC_CONTAINER}" \
+    /opt/keycloak/bin/kcadm.sh "$@" --no-config --server http://localhost:8080 --realm master --user admin 2>&1)" || rc=$?
+  grep -v '^Logging into ' <<<"${out}" || true
+  return "${rc}"
+}
+
+print_indented() {
+  # print_indented <text>: the text on stderr, every line indented under the
+  # [ERROR] line before it
+  local line
+  while IFS= read -r line; do
+    echo "  ${line}" 1>&2
+  done <<<"$1"
+}
+
+add_user() {
+  # creates a login in the keycloak realm the stack signs in with and, with
+  # --org, invites it to an organization through the deeplake api. deeplake
+  # itself only learns about the user on their first sign-in, which is also
+  # when the pending invite is applied
+  local email='' first_name='' last_name='' username='' password='' temporary=1
+  local org='' role='' token="${DEEPLAKE_API_TOKEN:-}" generated='' i ws ws_id ws_role access_mode
+  local issuer realm base_host api_url cert out body user_id grants='' invite_body code
+  local workspaces=() curl_tls=()
+  local ctrl='[[:cntrl:]]' name_bad='[]<>&"$%!#?;*~/\\|^=[{}()]'
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+    --email | --first-name | --last-name | --username | --password | --org | --role | --workspace | --token)
+      if [ "$#" -lt 2 ]; then
+        echo "[ERROR] $1 needs a value" 1>&2
+        exit 1
+      fi
+      case "$1" in
+      --email) email="$2" ;;
+      --first-name) first_name="$2" ;;
+      --last-name) last_name="$2" ;;
+      --username) username="$2" ;;
+      --password) password="$2" ;;
+      --org) org="$2" ;;
+      --role) role="$2" ;;
+      --workspace) workspaces+=("$2") ;;
+      --token) token="$2" ;;
+      esac
+      shift
+      ;;
+    --temporary) temporary=1 ;;
+    --no-temporary) temporary='' ;;
+    *)
+      echo "[ERROR] unknown add-user option '$1'" 1>&2
+      help
+      exit 1
+      ;;
+    esac
+    shift
+  done
+
+  # everything is checked before keycloak is touched, so a typo never leaves a
+  # half created user behind. keycloak stores usernames and emails lowercased
+  if [ -z "${email}" ]; then
+    echo "[ERROR] add-user needs --email, e.g. ./dl-stack.sh add-user --email jane@example.com" 1>&2
+    exit 1
+  fi
+  email="${email,,}"
+  if ! [[ "${email}" =~ ^[a-z0-9._%+-]+@[a-z0-9-]+(\.[a-z0-9-]+)*\.[a-z]{2,}$ ]]; then
+    echo "[ERROR] '${email}' is not an email address" 1>&2
+    exit 1
+  fi
+  username="${username:-${email}}"
+  username="${username,,}"
+  if ! [[ "${username}" =~ ^[a-z0-9._@+-]+$ ]]; then
+    echo "[ERROR] --username may only contain letters, digits and . _ @ + -" 1>&2
+    exit 1
+  fi
+  # keycloak's user profile refuses these in a person name with a bare 400
+  if [[ "${first_name}${last_name}" =~ ${ctrl} ]] || [[ "${first_name}${last_name}" =~ ${name_bad} ]]; then
+    echo "[ERROR] --first-name and --last-name may not contain control characters or any of <>&\"\$%!#?;*~/\\|^=[]{}()" 1>&2
+    exit 1
+  fi
+  if [ -z "${password}" ]; then
+    password="$(cat /dev/urandom | tr -dc 'A-Za-z0-9' | head -c 20)"
+    generated=1
+  elif [[ "${password}" =~ ${ctrl} ]]; then
+    echo "[ERROR] --password may not contain control characters" 1>&2
+    exit 1
+  fi
+  # organization access is all or nothing: --org turns it on, and the options
+  # that shape it mean nothing without it
+  if [ -z "${org}" ]; then
+    if [ -n "${role}" ] || [ "${#workspaces[@]}" -gt 0 ]; then
+      echo "[ERROR] --role and --workspace need --org" 1>&2
+      exit 1
+    fi
+  else
+    if ! [[ "${org}" =~ ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$ ]]; then
+      echo "[ERROR] --org takes the organization id, a uuid, got '${org}'" 1>&2
+      exit 1
+    fi
+    role="${role:-viewer}"
+    if ! [[ "${role}" =~ ^(viewer|writer|admin)$ ]]; then
+      echo "[ERROR] --role must be viewer, writer or admin, got '${role}'" 1>&2
+      exit 1
+    fi
+    if [ -z "${token}" ]; then
+      echo "[ERROR] --org needs the api token of an organization admin, pass --token or set DEEPLAKE_API_TOKEN (create one in the ui under Settings -> API tokens)" 1>&2
+      exit 1
+    fi
+    # the token is written into a curl config below, keep it to token characters
+    if ! [[ "${token}" =~ ^[A-Za-z0-9._~+/=-]+$ ]]; then
+      echo "[ERROR] the api token contains characters an api token does not have" 1>&2
+      exit 1
+    fi
+    for ws in "${workspaces[@]}"; do
+      if ! [[ "${ws}" =~ ^[A-Za-z0-9._-]+(:(viewer|writer|admin))?$ ]]; then
+        echo "[ERROR] --workspace takes <id> or <id>:viewer|writer|admin, got '${ws}'" 1>&2
+        exit 1
+      fi
+    done
+  fi
+
+  if ! [ -f "${CONFIG_DIR}/compose.yaml" ]; then
+    echo "[ERROR] no stack to add a user to, ${CONFIG_DIR}/compose.yaml does not exist, run ./dl-stack.sh setup first" 1>&2
+    exit 1
+  fi
+  check_prerequisites
+  # the realm comes from the issuer the services validate tokens against, the
+  # container from the keycloak service, both read back from the compose file
+  issuer="$(compose_values OIDC_ISSUER | head -n1)"
+  realm="${issuer##*/realms/}"
+  base_host="$(compose_values KC_HOSTNAME | head -n1)"
+  base_host="${base_host#kc.}"
+  api_url="$(compose_values API_BASE_URL | head -n1)"
+  KC_ADMIN_PASSWORD="$(compose_values KC_BOOTSTRAP_ADMIN_PASSWORD | head -n1)"
+  KC_CONTAINER="$(awk '/^  keycloak:$/ { in_svc = 1; next }
+                       /^  [^ ]/ || /^[^ ]/ { in_svc = 0 }
+                       in_svc && /^    container_name: / { sub(/^    container_name: /, ""); print; exit }' "${CONFIG_DIR}/compose.yaml")"
+  KC_CONTAINER="${KC_CONTAINER:-dl-keycloak}"
+  if [ -z "${issuer}" ] || [ "${realm}" == "${issuer}" ] || [ -z "${base_host}" ] || [ -z "${KC_ADMIN_PASSWORD}" ]; then
+    echo "[ERROR] cannot read the keycloak realm, base host and admin password from ${CONFIG_DIR}/compose.yaml" 1>&2
+    exit 1
+  fi
+  if [ -n "${org}" ] && [ -z "${api_url}" ]; then
+    echo "[ERROR] cannot read the deeplake api url from ${CONFIG_DIR}/compose.yaml" 1>&2
+    exit 1
+  fi
+  if [ "$(docker inspect -f '{{.State.Running}}' "${KC_CONTAINER}" 2>/dev/null)" != 'true' ]; then
+    echo "[ERROR] keycloak (${KC_CONTAINER}) is not running, start it with ./dl-stack.sh start keycloak" 1>&2
+    exit 1
+  fi
+
+  if ! out="$(kc_admin get "realms/${realm}" --fields realm </dev/null)"; then
+    echo "[ERROR] cannot read realm '${realm}' as the keycloak admin:" 1>&2
+    print_indented "${out}"
+    exit 1
+  fi
+  # create would refuse a duplicate too, checking first gives the clearer error
+  for i in "username=${username}" "email=${email}"; do
+    if ! out="$(kc_admin get users -r "${realm}" -q "${i}" -q exact=true --fields id </dev/null)"; then
+      echo "[ERROR] cannot look up users in realm '${realm}':" 1>&2
+      print_indented "${out}"
+      exit 1
+    fi
+    if grep -q '"id"' <<<"${out}"; then
+      echo "[ERROR] realm '${realm}' already has a user with ${i/=/ }, nothing was changed" 1>&2
+      exit 1
+    fi
+  done
+
+  # the admin creates the user, so the email counts as verified. the password
+  # rides in the request body on stdin rather than on a command line, and a
+  # temporary one makes keycloak ask for a new password on the first login
+  body="{\"username\":$(json_str "${username}"),\"email\":$(json_str "${email}"),\"enabled\":true,\"emailVerified\":true"
+  [ -n "${first_name}" ] && body+=",\"firstName\":$(json_str "${first_name}")"
+  [ -n "${last_name}" ] && body+=",\"lastName\":$(json_str "${last_name}")"
+  body+=",\"credentials\":[{\"type\":\"password\",\"value\":$(json_str "${password}"),\"temporary\":$([ -n "${temporary}" ] && echo true || echo false)}]}"
+  if ! out="$(printf '%s' "${body}" | kc_admin create users -r "${realm}" -f - -i)" || [ -z "${out}" ]; then
+    echo "[ERROR] keycloak did not create the user:" 1>&2
+    print_indented "${out}"
+    exit 1
+  fi
+  user_id="$(tail -n1 <<<"${out}")"
+  echo "[INFO] created ${username} in keycloak realm '${realm}' (id ${user_id})"
+
+  code=0
+  if [ -n "${org}" ]; then
+    # the invite grants the organization role and any workspace roles, and the
+    # api applies it on the user's first sign-in
+    case "${role}" in
+    viewer) access_mode=READ ;;
+    writer) access_mode=WRITE ;;
+    admin) access_mode=ADMIN ;;
+    esac
+    invite_body="{\"username\":$(json_str "${email}"),\"access_mode\":\"${access_mode}\""
+    if [ "${#workspaces[@]}" -gt 0 ]; then
+      invite_body+=',"workspaces":['
+      for ws in "${workspaces[@]}"; do
+        ws_id="${ws%%:*}"
+        ws_role="${role}"
+        [[ "${ws}" == *:* ]] && ws_role="${ws#*:}"
+        invite_body+="{\"workspace_id\":$(json_str "${ws_id}"),\"role\":\"${ws_role}\"},"
+        grants+="${grants:+, }${ws_id} (${ws_role})"
+      done
+      invite_body="${invite_body%,}]"
+    fi
+    invite_body+='}'
+    # same trust handling as upgrade-fga, and the token goes to curl through a
+    # config on stdin so it stays off the command line
+    cert="$(compose_tls_cert)"
+    [ -n "${cert}" ] && curl_tls=(--cacert "${cert}")
+    out="$(printf 'header = "Authorization: Bearer %s"\n' "${token}" |
+      curl -sS "${curl_tls[@]}" -m 30 -K - -X POST "${api_url}/organizations/${org}/members/invite" \
+        -H 'Content-Type: application/json' --data-binary "${invite_body}" \
+        -w '\n%{http_code}' 2>&1)" || true
+    if [ "$(tail -n1 <<<"${out}")" == '200' ]; then
+      echo "[INFO] invited ${email} to organization ${org} as ${role}"
+    else
+      echo "[ERROR] the keycloak user was created, but the organization invite failed:" 1>&2
+      print_indented "$(sed '$d' <<<"${out}")"
+      echo "[ERROR] the user can sign in but has no organization access yet, retry the invite with:" 1>&2
+      echo "  curl -X POST '${api_url}/organizations/${org}/members/invite' -H \"Authorization: Bearer \${DEEPLAKE_API_TOKEN}\" -H 'Content-Type: application/json' -d '${invite_body}'" 1>&2
+      code=1
+    fi
+  fi
+
+  echo "
+user:
+  login url: https://app.${base_host}
+  username: ${username}
+  email: ${email}"
+  if [ -n "${generated}" ]; then
+    echo "  password: ${password} (generated, shown only now)"
+  fi
+  if [ -n "${temporary}" ]; then
+    echo "  password change: required on first login"
+  else
+    echo "  password change: not required"
+  fi
+  if [ -n "${org}" ]; then
+    echo "  organization: ${org} as ${role}$([ "${code}" -ne 0 ] && echo ', invite failed')"
+    [ -n "${grants}" ] && echo "  workspaces: ${grants}"
+  fi
+  echo
+  return "${code}"
+}
+
 completion() {
   # prints a completion script for the given shell to stdout, the caller
   # decides whether to source it or install it to a file. the scripts do not
@@ -2323,7 +2607,7 @@ _dl_stack() {
   cmd="${COMP_WORDS[1]}"
   COMPREPLY=()
   if [ "${COMP_CWORD}" -eq 1 ]; then
-    mapfile -t COMPREPLY < <(compgen -W 'setup start stop restart status creds scale set-tag upgrade-fga destroy pull completion' -- "${cur}")
+    mapfile -t COMPREPLY < <(compgen -W 'setup start stop restart status creds add-user scale set-tag upgrade-fga destroy pull completion' -- "${cur}")
     return
   fi
   case "${cmd}" in
@@ -2334,6 +2618,17 @@ _dl_stack() {
     if [ "${COMP_CWORD}" -eq 2 ]; then
       mapfile -t COMPREPLY < <(compgen -W "$(_dl_stack_services)" -- "${cur}")
     fi
+    ;;
+  add-user)
+    case "${COMP_WORDS[COMP_CWORD - 1]}" in
+    --role)
+      mapfile -t COMPREPLY < <(compgen -W 'viewer writer admin' -- "${cur}")
+      ;;
+    --email | --username | --first-name | --last-name | --password | --org | --workspace | --token) ;;
+    *)
+      mapfile -t COMPREPLY < <(compgen -W '--email --username --first-name --last-name --password --temporary --no-temporary --org --role --workspace --token' -- "${cur}")
+      ;;
+    esac
     ;;
   destroy)
     if [ "${COMP_CWORD}" -eq 2 ]; then
@@ -2381,6 +2676,7 @@ _dl_stack() {
     'restart:stop and start the stack or only the given services'
     'status:show the state and health of the services'
     'creds:print the credentials and endpoints setup printed'
+    'add-user:create a keycloak login and optionally invite it to an organization'
     'scale:change how many deeplake-stateless nodes the stack runs'
     'set-tag:point a service at a different image tag'
     'upgrade-fga:write the shipped OpenFGA model and point the services at it'
@@ -2402,6 +2698,31 @@ _dl_stack() {
       services=(${(f)"$(_dl_stack_services)"})
       _describe -t services 'service' services
     fi
+    ;;
+  add-user)
+    case "${words[CURRENT-1]}" in
+    --role)
+      options=('viewer' 'writer' 'admin')
+      _describe -t roles 'role' options
+      ;;
+    --email | --username | --first-name | --last-name | --password | --org | --workspace | --token) ;;
+    *)
+      options=(
+        '--email:the email address, required'
+        '--username:the login name, defaults to the email'
+        '--first-name:first name'
+        '--last-name:last name'
+        '--password:the password, generated when omitted'
+        '--temporary:require a password change on first login (default)'
+        '--no-temporary:keep the password as given'
+        '--org:the organization id to invite the user to'
+        '--role:the organization role, viewer, writer or admin'
+        '--workspace:a workspace id, optionally with :viewer, :writer or :admin'
+        '--token:an organization admin api token'
+      )
+      _describe -t options 'option' options
+      ;;
+    esac
     ;;
   destroy)
     options=('--force:skip the confirmation prompt')
@@ -2443,6 +2764,7 @@ stop) stop "${@:2}" ;;
 restart) restart "${@:2}" ;;
 status) status "${@:2}" ;;
 creds) creds ;;
+add-user) add_user "${@:2}" ;;
 setup) setup ;;
 destroy) destroy "${2:-}" ;;
 pull) pull ;;
