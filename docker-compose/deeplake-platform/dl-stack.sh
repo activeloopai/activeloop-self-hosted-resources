@@ -1999,9 +1999,10 @@ record_fga_model() {
 }
 
 compose_values() {
-  # compose_values <KEY>: the distinct values of a '  KEY: value' environment
-  # line in the rendered compose file (one per line, quotes stripped)
-  sed -n "s/^ *$1: *[\"']\{0,1\}\([^\"' ]*\)[\"']\{0,1\} *$/\1/p" "${CONFIG_DIR}/compose.yaml" | sort -u
+  # compose_values <KEY>: the distinct values of KEY in the rendered compose
+  # file (one per line, quotes stripped). The x- anchors hold it as
+  # '  KEY: value', the services as '  - KEY=value'.
+  sed -n "s/^ *\(- *\)\{0,1\}$1[:=] *[\"']\{0,1\}\([^\"' ]*\)[\"']\{0,1\} *$/\2/p" "${CONFIG_DIR}/compose.yaml" | sort -u
 }
 
 fga_model_current() {
@@ -2030,13 +2031,19 @@ upgrade_fga() {
   old="$(compose_values FGA_AUTHORIZATION_MODEL_ID)"
   key="$(compose_values FGA_API_TOKEN)"
   host="$(compose_values APP_BASE_URL | sed -n 's#^https://app\.##p')"
-  for i in "${store}" "${old}" "${key}" "${host}"; do
+  # several model ids are possible: an earlier upgrade-fga only rewrote the
+  # anchor form, all of them get replaced below
+  if [ -z "${old}" ]; then
+    echo "[ERROR] cannot read the OpenFGA model id from ${CONFIG_DIR}/compose.yaml, was setup completed?" 1>&2
+    exit 1
+  fi
+  for i in "${store}" "${key}" "${host}"; do
     if [ -z "${i}" ] || [ "$(printf '%s\n' "${i}" | wc -l)" -ne 1 ]; then
       echo "[ERROR] cannot read a single OpenFGA store id, model id, token and host from ${CONFIG_DIR}/compose.yaml, was setup completed?" 1>&2
       exit 1
     fi
   done
-  if [ "${store}" == 'fga_store_id' ] || [ "${old}" == 'fga_authorization_model_id' ]; then
+  if [ "${store}" == 'fga_store_id' ] || grep -qx 'fga_authorization_model_id' <<<"${old}"; then
     echo "[ERROR] ${CONFIG_DIR}/compose.yaml still has the OpenFGA placeholders, setup did not finish" 1>&2
     exit 1
   fi
@@ -2074,7 +2081,8 @@ upgrade_fga() {
   fi
   echo "[INFO] openfga model written: ${new}"
   tmp="${CONFIG_DIR}/.compose.yaml.new"
-  sed "s/^\( *FGA_AUTHORIZATION_MODEL_ID: *\).*$/\1${new}/" "${CONFIG_DIR}/compose.yaml" >"${tmp}"
+  sed -e "s/^\( *FGA_AUTHORIZATION_MODEL_ID: *\).*$/\1${new}/" \
+    -e "s/^\( *- *FGA_AUTHORIZATION_MODEL_ID=\).*$/\1${new}/" "${CONFIG_DIR}/compose.yaml" >"${tmp}"
   chmod 600 "${tmp}"
   if ! docker compose -f "${tmp}" config --quiet; then
     echo "[ERROR] the rewritten compose file did not validate, ${CONFIG_DIR}/compose.yaml is unchanged" 1>&2
@@ -2083,11 +2091,11 @@ upgrade_fga() {
   fi
   mv "${tmp}" "${CONFIG_DIR}/compose.yaml"
   record_fga_model "${new}"
-  echo "[INFO] model id in ${CONFIG_DIR}/compose.yaml: ${old} -> ${new}"
+  echo "[INFO] model id in ${CONFIG_DIR}/compose.yaml: $(tr '\n' ' ' <<<"${old}")-> ${new}"
   # every service that carries the model id, e.g. deeplake-api, deeplake-worker
   # and the one-shot deeplake-setup
   changed="$(awk '/^  [^ ]/ || /^[^ ]/ { cur = $0; sub(/^  /, "", cur); sub(/:$/, "", cur); seen = 0 }
-                  /^      FGA_AUTHORIZATION_MODEL_ID:/ && !seen { print cur; seen = 1 }' "${CONFIG_DIR}/compose.yaml")"
+                  /^      (- *)?FGA_AUTHORIZATION_MODEL_ID[:=]/ && !seen { print cur; seen = 1 }' "${CONFIG_DIR}/compose.yaml")"
   while read -r name; do
     [ -n "${name}" ] || continue
     if [ -n "$(docker compose -f "${CONFIG_DIR}/compose.yaml" ps -q --status running "${name}" 2>/dev/null)" ]; then
