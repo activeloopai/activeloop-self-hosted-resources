@@ -1126,6 +1126,9 @@ $0: manage local deeplake stack
           services only, exits 1 unless everything is up and healthy
   scale: change how many deeplake-stateless nodes the stack runs,
          e.g. '$0 scale 2', applies immediately when the stack is up
+  set-tag: point a service at a different image tag, e.g.
+           '$0 set-tag pg-proxy 1.2.3', recreates the service when it is running,
+           any deeplake-stateless-N or deeplake-indexer retags all of them
   destroy: stop the stack and remove all docker volumes, e.g. wipe the data
            pass --force to skip the confirmation prompt (for non-interactive use)
   pull: pull the container images the stack runs, run '$0 start'
@@ -1807,6 +1810,92 @@ scale() {
   done
 }
 
+set_tag() {
+  # set_tag <service> <tag>: points the service's image at a different tag in
+  # the rendered compose file. that file is 'docker compose config' output, so
+  # a service is a two space indented key and its image a four space indented
+  # 'image:' line inside it
+  local svc tag image repo last new changed name old
+  local targets=() running=()
+  svc="${1:-}"
+  tag="${2:-}"
+  if [ -z "${svc}" ] || [ -z "${tag}" ]; then
+    echo "[ERROR] set-tag needs a service and a tag, e.g. ./dl-stack.sh set-tag pg-proxy 1.2.3" 1>&2
+    exit 1
+  fi
+  # the docker reference grammar for a tag
+  if ! [[ "${tag}" =~ ^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$ ]]; then
+    echo "[ERROR] '${tag}' is not a valid image tag" 1>&2
+    exit 1
+  fi
+  if ! [ -f "${CONFIG_DIR}/compose.yaml" ]; then
+    echo "[ERROR] nothing to change, ${CONFIG_DIR}/compose.yaml does not exist, run ./dl-stack.sh setup first" 1>&2
+    exit 1
+  fi
+  check_prerequisites
+  check_services "${svc}"
+  # the deeplake-stateless nodes and deeplake-indexer run the same postgres
+  # image and have to stay on the same version, so naming any of them retags
+  # all of them
+  targets=("${svc}")
+  if [[ "${svc}" =~ ^deeplake-(stateless-[0-9]+|indexer)$ ]]; then
+    mapfile -t targets < <(grep -oE '^  deeplake-(stateless-[0-9]+|indexer):$' "${CONFIG_DIR}/compose.yaml" | tr -d ' :')
+  fi
+  image="$(awk -v svc="${svc}" '
+    /^  [^ ]/ || /^[^ ]/       { in_svc = ($0 == "  " svc ":"); next }
+    in_svc && /^    image: /  { sub(/^    image: /, ""); gsub(/["'\'']/, ""); print; exit }
+  ' "${CONFIG_DIR}/compose.yaml")"
+  if [ -z "${image}" ]; then
+    echo "[ERROR] service '${svc}' has no image in ${CONFIG_DIR}/compose.yaml" 1>&2
+    exit 1
+  fi
+  # drop a digest, then the tag. a ':' only starts the tag when it comes after
+  # the last '/', otherwise it is a registry port, e.g. registry:5000/repo
+  repo="${image%%@*}"
+  last="${repo##*/}"
+  if [[ "${last}" == *:* ]]; then
+    repo="${repo%:*}"
+  fi
+  new="${repo}:${tag}"
+  # prints '<service> <old image>' for every target whose image changes
+  changed="$(awk -v names="${targets[*]}" -v img="${new}" -v out="${CONFIG_DIR}/.compose.yaml.new" '
+    BEGIN                     { n = split(names, a, " "); for (i = 1; i <= n; i++) want[a[i]] = 1 }
+    /^  [^ ]/ || /^[^ ]/       { cur = $0; sub(/^  /, "", cur); sub(/:$/, "", cur); in_svc = (cur in want) }
+    in_svc && /^    image: /  {
+      old = $0; sub(/^    image: /, "", old); gsub(/["'\'']/, "", old)
+      if (old != img) print cur " " old
+      print "    image: " img > out; in_svc = 0; next
+    }
+                              { print > out }
+  ' "${CONFIG_DIR}/compose.yaml")"
+  if [ -z "${changed}" ]; then
+    rm -f "${CONFIG_DIR}/.compose.yaml.new"
+    echo "[INFO] ${targets[*]} already on ${new}, nothing to do"
+    return 0
+  fi
+  chmod 600 "${CONFIG_DIR}/.compose.yaml.new"
+  if ! docker compose -f "${CONFIG_DIR}/.compose.yaml.new" config --quiet; then
+    echo "[ERROR] the rewritten compose file did not validate, ${CONFIG_DIR}/compose.yaml is unchanged" 1>&2
+    rm -f "${CONFIG_DIR}/.compose.yaml.new"
+    exit 1
+  fi
+  mv "${CONFIG_DIR}/.compose.yaml.new" "${CONFIG_DIR}/compose.yaml"
+  running=()
+  while read -r name old; do
+    echo "[INFO] ${name}: ${old} -> ${new}"
+    if [ -n "$(docker compose -f "${CONFIG_DIR}/compose.yaml" ps -q --status running "${name}" 2>/dev/null)" ]; then
+      running+=("${name}")
+    else
+      echo "[INFO] ${name} is not running, the new tag applies on the next ./dl-stack.sh start"
+    fi
+  done <<<"${changed}"
+  if [ "${#running[@]}" -gt 0 ]; then
+    # up pulls the new image when it is not local yet and recreates only these
+    # containers, --no-deps leaves the services they depend on alone
+    docker compose -f "${CONFIG_DIR}/compose.yaml" up -d --no-deps "${running[@]}"
+  fi
+}
+
 check_services() {
   # every argument has to be a service of the rendered compose file, otherwise
   # docker compose fails half way through with a less helpful message
@@ -1960,12 +2049,17 @@ _dl_stack() {
   cmd="${COMP_WORDS[1]}"
   COMPREPLY=()
   if [ "${COMP_CWORD}" -eq 1 ]; then
-    mapfile -t COMPREPLY < <(compgen -W 'setup start stop restart status scale destroy pull completion' -- "${cur}")
+    mapfile -t COMPREPLY < <(compgen -W 'setup start stop restart status scale set-tag destroy pull completion' -- "${cur}")
     return
   fi
   case "${cmd}" in
   start | stop | restart | status)
     mapfile -t COMPREPLY < <(compgen -W "$(_dl_stack_services)" -- "${cur}")
+    ;;
+  set-tag)
+    if [ "${COMP_CWORD}" -eq 2 ]; then
+      mapfile -t COMPREPLY < <(compgen -W "$(_dl_stack_services)" -- "${cur}")
+    fi
     ;;
   destroy)
     if [ "${COMP_CWORD}" -eq 2 ]; then
@@ -2013,6 +2107,7 @@ _dl_stack() {
     'restart:stop and start the stack or only the given services'
     'status:show the state and health of the services'
     'scale:change how many deeplake-stateless nodes the stack runs'
+    'set-tag:point a service at a different image tag'
     'destroy:stop the stack and remove all docker volumes'
     'pull:pull the container images the stack runs'
     'completion:print shell completion for bash or zsh'
@@ -2025,6 +2120,12 @@ _dl_stack() {
   start | stop | restart | status)
     services=(${(f)"$(_dl_stack_services)"})
     _describe -t services 'service' services
+    ;;
+  set-tag)
+    if (( CURRENT == 3 )); then
+      services=(${(f)"$(_dl_stack_services)"})
+      _describe -t services 'service' services
+    fi
     ;;
   destroy)
     options=('--force:skip the confirmation prompt')
@@ -2060,6 +2161,7 @@ EOF
 case "$1" in
 start) start "${@:2}" ;;
 scale) scale "${2:-}" ;;
+set-tag) set_tag "${2:-}" "${3:-}" ;;
 stop) stop "${@:2}" ;;
 restart) restart "${@:2}" ;;
 status) status "${@:2}" ;;

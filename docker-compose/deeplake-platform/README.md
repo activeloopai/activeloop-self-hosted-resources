@@ -355,6 +355,7 @@ Then open `https://app.$BASE_HOST`. Self-registration is enabled on the
 | `./dl-stack.sh restart [SERVICE...]` | `stop` then `start`: recreates the containers, so edits to the rendered compose file and freshly pulled images take effect. With service names, only those services are bounced, e.g. `./dl-stack.sh restart deeplake-api` |
 | `./dl-stack.sh status [SERVICE...]` | One line per service with its container state, health and uptime. Services with no container show as `absent`. Exits 1 unless every service is running and healthy (or a one-shot job that exited 0), so it works as a readiness probe |
 | `./dl-stack.sh scale N` | Run N `deeplake-stateless` nodes; applies immediately if the stack is up. Scaling **down deletes** the removed nodes' volumes |
+| `./dl-stack.sh set-tag SERVICE TAG` | Point one service at a different image tag in the rendered compose file, e.g. `./dl-stack.sh set-tag pg-proxy 1.2.3`. If the service is running it is recreated on the new image right away (pulled if needed), otherwise the tag applies on the next `start`. Naming any `deeplake-stateless-N` or `deeplake-indexer` retags all of them together, since they must run the same image |
 | `./dl-stack.sh destroy` | `compose down -v` - **deletes all data** - and removes the rendered config. Prompts for confirmation |
 | `./dl-stack.sh pull` | Pull the images the stack runs. Recreating the containers on them is `start`'s job |
 | `./dl-stack.sh destroy --force` | Same, without the prompt. For CI/automation |
@@ -366,7 +367,7 @@ without removing anything; use `--force` when you mean it.
 ### Shell completion
 
 `completion` only prints the script, so you choose where it goes. It completes
-the commands, the service names for `start`/`stop`/`restart`/`status` (read from the
+the commands, the service names for `start`/`stop`/`restart`/`status`/`set-tag` (read from the
 rendered compose file, no docker call), `--force` for `destroy` and the shell
 for `completion`.
 
@@ -409,6 +410,12 @@ To pick up new image tags without losing data:
 docker login quay.io   # if the cached credentials have expired
 ./dl-stack.sh pull
 ./dl-stack.sh start
+```
+
+To move a single service to a specific tag:
+
+```sh
+./dl-stack.sh set-tag pg-proxy 1.2.3
 ```
 
 ## Troubleshooting
