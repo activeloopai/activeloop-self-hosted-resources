@@ -70,13 +70,19 @@ Operator from Key Vault / Secrets Manager.
 
 - **"Ask AI" query suggestion needs `OPENAI_API_KEY`.** Not set by the chart;
   the endpoint 404s without it. Billing endpoints 404 by design.
-- **The OpenFGA model is behind the API.** `deeplake-api` checks
-  `workspace#blocked` and `workspace#admin`, which the shipped model does not
-  define, so those checks fail as warnings and the request proceeds. The model
-  in `files/` is byte-identical to the one running in both Activeloop beta and
-  prod, and prod logs the same warnings — this is platform-wide, not a
-  packaging error. A chart upgrade carrying a changed model does not re-apply
-  it: the bootstrap Job short-circuits on the existing Secret.
+- **The OpenFGA model ships with the chart and is applied on every upgrade.**
+  `deeplake-api` checks the `workspace` relations `admin`, `writer`, `viewer`
+  and `blocked`; a store still on the older model fails every workspace request.
+  The bootstrap Job runs as a `pre-upgrade` (and `post-install`) hook, so on
+  `helm upgrade` the current model is written to the existing store and its id
+  patched into the `global.openfga.bootstrap.secretName` Secret *before* new
+  API pods start. Writing a model only adds to the store: existing tuples stay
+  valid and the previous API keeps working on it. The Job skips the write when
+  the Secret's `FGA_MODEL_SHA256` already matches the shipped model. Pods read
+  the id at start, so when the Job writes a new model it also restarts the API
+  server and worker Deployments (it patches a pod-template annotation; RBAC is
+  limited to get/patch on those two Deployments). On an upgrade that also
+  changes the API image this can roll the pods once before Helm rolls them again.
 - **`dlpg.pgPilot` requires Kubernetes ≥ 1.33** with `InPlacePodVerticalScaling`
   for the `pods/resize` subresource. Off by default; verify before enabling.
 - **The device grant always shows an approval page.** `consentRequired` is false

@@ -363,6 +363,7 @@ Then open `https://app.$BASE_HOST`. Self-registration is enabled on the
 | `./dl-stack.sh status [SERVICE...]` | One line per service with its container state, health and uptime. Services with no container show as `absent`. Exits 1 unless every service is running and healthy (or a one-shot job that exited 0), so it works as a readiness probe |
 | `./dl-stack.sh scale N` | Run N `deeplake-stateless` nodes; applies immediately if the stack is up. Scaling **down deletes** the removed nodes' volumes |
 | `./dl-stack.sh set-tag SERVICE TAG` | Point one service at a different image tag in the rendered compose file, e.g. `./dl-stack.sh set-tag pg-proxy 1.2.3`. If the service is running it is recreated on the new image right away (pulled if needed), otherwise the tag applies on the next `start`. Naming any `deeplake-stateless-N` or `deeplake-indexer` retags all of them together, since they must run the same image |
+| `./dl-stack.sh upgrade-fga` | Write the OpenFGA authorization model this script ships to the existing store, replace the model id in the rendered compose file and recreate the running services that read it (`deeplake-api`, `deeplake-worker`). Idempotent: does nothing when the model is already current. `start` runs it automatically when the model is stale |
 | `./dl-stack.sh destroy` | `compose down -v` - **deletes all data** - and removes the rendered config. Prompts for confirmation |
 | `./dl-stack.sh pull` | Pull the images the stack runs. Recreating the containers on them is `start`'s job |
 | `./dl-stack.sh destroy --force` | Same, without the prompt. For CI/automation |
@@ -418,6 +419,24 @@ docker login quay.io   # if the cached credentials have expired
 ./dl-stack.sh pull
 ./dl-stack.sh start
 ```
+
+**The authorization model must be upgraded before a `deeplake-api` that needs a
+newer one** (per-workspace roles need the `workspace` relations `admin`,
+`writer` and `viewer`); the new API fails every workspace request against the
+old model. A newer `dl-stack.sh` carries the newer model, so after downloading
+it, in this order:
+
+```sh
+./dl-stack.sh upgrade-fga   # model first: new model version in the store, id swapped in compose.yaml
+./dl-stack.sh pull
+./dl-stack.sh start         # then the new API
+```
+
+`upgrade-fga` only adds a model version: existing tuples stay valid and the old
+API keeps working on it, so it is safe to run first. `start` also runs it when
+it finds the model stale, so `pull` + `start` with a new script is enough;
+run `upgrade-fga` explicitly to control the timing. The "already current" check
+uses `~/.local/deeplake/.openfga-model`.
 
 To move a single service to a specific tag:
 

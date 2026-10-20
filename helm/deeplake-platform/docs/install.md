@@ -394,7 +394,7 @@ API calls need an organization: pass `X-Activeloop-Org-Id` (from `/me`), an
 | Login lands on "Update Account Information" | User has no first/last name | Set both; self-registration collects them |
 | `503 workspace seeding is not configured` | Seeding is S3-only upstream | Expected off S3; the feature is unused elsewhere |
 | Managed credentials / repositories disabled | `CREDENTIALS_ENCRYPTION_KEY` missing | Step 3 |
-| `relation 'workspace#blocked' not found` warnings | Model predates the API | Platform-wide; checks fall through |
+| `relation 'workspace#blocked'` (or `#admin`, `#writer`, `#viewer`) not found | Store still on a model older than the API | `helm upgrade` writes the current model (pre-upgrade hook); check the `*-fga-bootstrap` Job logs |
 | `device authorization URL must use HTTPS` | HTTP issuer | Use an HTTPS issuer; see step 4 |
 | API crash-loops, Keycloak host unresolvable, ingress disabled | Issuer derives to a public host with no DNS | Set `global.auth.issuerUrl`, or enable ingress |
 | Keycloak or OpenFGA cannot connect to an external DB | Their databases were never created | See step 3 |
@@ -416,7 +416,20 @@ IDs are ULIDs generated at creation time and cannot be pinned, so a post-install
 Job creates them and writes both into the Secret named by
 `global.openfga.bootstrap.secretName`, which `deeplake-api` reads.
 
-That Job is idempotent on the Secret: if it already holds a store ID the Job
-exits without doing anything. So re-running after wiping OpenFGA's database
-means deleting that Secret first, and a chart upgrade carrying a changed
-authorization model does **not** re-apply it.
+The Job runs on install and, as a `pre-upgrade` hook, on every `helm upgrade`,
+so a new authorization model is in the store and its id in the Secret before
+the new API pods start. It is idempotent: it records the SHA-256 of the model
+it wrote in the Secret (`FGA_MODEL_SHA256`) and does nothing when that matches
+the model the chart ships. For an existing store it only adds a model version,
+so tuples stay valid and the previous API keeps working. Upgrading is just:
+
+```sh
+helm upgrade <release> <chart> -n <ns> -f values.yaml   # model first (hook), then API
+```
+
+Pods read the model id when they start, so when the Job writes a new model it
+also restarts the API server and worker Deployments (a pod-template annotation
+patch; skipped for Deployments that do not exist yet). On an upgrade that also
+changes the API image the pods may roll once before Helm rolls them again.
+To start from an empty OpenFGA database, delete the
+Secret first so the Job creates a new store.

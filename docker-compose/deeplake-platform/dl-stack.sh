@@ -887,25 +887,7 @@ OPENFGA_MODEL='{
     {
       "type": "workspace",
       "relations": {
-        "parent": {
-          "this": {}
-        },
-        "viewer": {
-          "union": {
-            "child": [
-              {
-                "this": {}
-              },
-              {
-                "computedUserset": {
-                  "object": "",
-                  "relation": "writer"
-                }
-              }
-            ]
-          }
-        },
-        "writer": {
+        "admin": {
           "union": {
             "child": [
               {
@@ -925,10 +907,110 @@ OPENFGA_MODEL='{
               }
             ]
           }
+        },
+        "blocked": {
+          "this": {}
+        },
+        "parent": {
+          "this": {}
+        },
+        "viewer": {
+          "difference": {
+            "base": {
+              "union": {
+                "child": [
+                  {
+                    "this": {}
+                  },
+                  {
+                    "tupleToUserset": {
+                      "tupleset": {
+                        "object": "",
+                        "relation": "parent"
+                      },
+                      "computedUserset": {
+                        "object": "",
+                        "relation": "viewer"
+                      }
+                    }
+                  },
+                  {
+                    "computedUserset": {
+                      "object": "",
+                      "relation": "writer"
+                    }
+                  }
+                ]
+              }
+            },
+            "subtract": {
+              "computedUserset": {
+                "object": "",
+                "relation": "blocked"
+              }
+            }
+          }
+        },
+        "writer": {
+          "difference": {
+            "base": {
+              "union": {
+                "child": [
+                  {
+                    "this": {}
+                  },
+                  {
+                    "tupleToUserset": {
+                      "tupleset": {
+                        "object": "",
+                        "relation": "parent"
+                      },
+                      "computedUserset": {
+                        "object": "",
+                        "relation": "writer"
+                      }
+                    }
+                  },
+                  {
+                    "computedUserset": {
+                      "object": "",
+                      "relation": "admin"
+                    }
+                  }
+                ]
+              }
+            },
+            "subtract": {
+              "computedUserset": {
+                "object": "",
+                "relation": "blocked"
+              }
+            }
+          }
         }
       },
       "metadata": {
         "relations": {
+          "admin": {
+            "directly_related_user_types": [
+              {
+                "type": "user",
+                "condition": ""
+              }
+            ],
+            "module": "",
+            "source_info": null
+          },
+          "blocked": {
+            "directly_related_user_types": [
+              {
+                "type": "user",
+                "condition": ""
+              }
+            ],
+            "module": "",
+            "source_info": null
+          },
           "parent": {
             "directly_related_user_types": [
               {
@@ -1129,6 +1211,10 @@ $0: manage local deeplake stack
   set-tag: point a service at a different image tag, e.g.
            '$0 set-tag pg-proxy 1.2.3', recreates the service when it is running,
            any deeplake-stateless-N or deeplake-indexer retags all of them
+  upgrade-fga: write the authorization model this script ships to the running
+           OpenFGA store, point the compose file at it and recreate the services
+           that use it. run it before rolling out a deeplake-api that needs a
+           newer model, '$0 start' does it automatically when the model is stale
   destroy: stop the stack and remove all docker volumes, e.g. wipe the data
            pass --force to skip the confirmation prompt (for non-interactive use)
   pull: pull the container images the stack runs, run '$0 start'
@@ -1690,6 +1776,7 @@ setup() {
   fi
   echo "[INFO] openfga model initialized: $MODEL"
   sed -i "s/fga_authorization_model_id/${MODEL}/" "${CONFIG_DIR}/compose.yaml"
+  record_fga_model "${MODEL}"
   docker compose -f "${CONFIG_DIR}/compose.yaml" up -d deeplake-setup
   stop
   if [ "${FRESH_SETUP}" -eq 1 ]; then
@@ -1896,6 +1983,126 @@ set_tag() {
   fi
 }
 
+fga_model_sha() {
+  # sha256 of the model this script ships
+  if command -v sha256sum >/dev/null 2>&1; then
+    printf '%s' "${OPENFGA_MODEL}" | sha256sum | cut -d' ' -f1
+  else
+    printf '%s' "${OPENFGA_MODEL}" | shasum -a 256 | cut -d' ' -f1
+  fi
+}
+
+record_fga_model() {
+  # record_fga_model <model id>: remembers which model content the id in the
+  # compose file was written from, so an unchanged model is never rewritten
+  printf '%s %s\n' "$(fga_model_sha)" "$1" >"${CONFIG_DIR}/.openfga-model"
+}
+
+compose_values() {
+  # compose_values <KEY>: the distinct values of a '  KEY: value' environment
+  # line in the rendered compose file (one per line, quotes stripped)
+  sed -n "s/^ *$1: *[\"']\{0,1\}\([^\"' ]*\)[\"']\{0,1\} *$/\1/p" "${CONFIG_DIR}/compose.yaml" | sort -u
+}
+
+fga_model_current() {
+  # succeeds when the model id in the compose file was written from the model
+  # this script ships (or when there is no stack to upgrade yet)
+  local old
+  [ -f "${CONFIG_DIR}/compose.yaml" ] || return 0
+  old="$(compose_values FGA_AUTHORIZATION_MODEL_ID)"
+  [ -n "${old}" ] && [ "$(cat "${CONFIG_DIR}/.openfga-model" 2>/dev/null)" == "$(fga_model_sha) ${old}" ]
+}
+
+upgrade_fga() {
+  # writes the shipped authorization model as a new model of the existing
+  # OpenFGA store, replaces the model id in the rendered compose file and
+  # recreates the services that read it. a new model is only an addition, the
+  # tuples already in the store stay valid, and an older deeplake-api keeps
+  # working on it, so this is safe to run before the api itself is upgraded
+  local store old new key host cert fga_url i changed tmp name
+  local curl_tls=() running=()
+  if ! [ -f "${CONFIG_DIR}/compose.yaml" ]; then
+    echo "[ERROR] nothing to upgrade, ${CONFIG_DIR}/compose.yaml does not exist, run ./dl-stack.sh setup first" 1>&2
+    exit 1
+  fi
+  check_prerequisites
+  store="$(compose_values FGA_STORE_ID)"
+  old="$(compose_values FGA_AUTHORIZATION_MODEL_ID)"
+  key="$(compose_values FGA_API_TOKEN)"
+  host="$(compose_values APP_BASE_URL | sed -n 's#^https://app\.##p')"
+  for i in "${store}" "${old}" "${key}" "${host}"; do
+    if [ -z "${i}" ] || [ "$(printf '%s\n' "${i}" | wc -l)" -ne 1 ]; then
+      echo "[ERROR] cannot read a single OpenFGA store id, model id, token and host from ${CONFIG_DIR}/compose.yaml, was setup completed?" 1>&2
+      exit 1
+    fi
+  done
+  if [ "${store}" == 'fga_store_id' ] || [ "${old}" == 'fga_authorization_model_id' ]; then
+    echo "[ERROR] ${CONFIG_DIR}/compose.yaml still has the OpenFGA placeholders, setup did not finish" 1>&2
+    exit 1
+  fi
+  if fga_model_current; then
+    echo "[INFO] openfga model ${old} is already the model this script ships, nothing to do"
+    return 0
+  fi
+  # same trust handling as setup: a from_file certificate is pinned as the
+  # trust anchor because these calls carry the OpenFGA token
+  cert="$(awk '/^  caddy_public_key:/ { in_cfg = 1; next }
+               /^  [^ ]/ || /^[^ ]/ { in_cfg = 0 }
+               in_cfg && /^    file: / { sub(/^    file: /, ""); print; exit }' "${CONFIG_DIR}/compose.yaml")"
+  if [ -n "${cert}" ]; then
+    curl_tls=(--cacert "${cert}")
+  fi
+  fga_url="https://openfga.${host}"
+  docker compose -f "${CONFIG_DIR}/compose.yaml" up -d openfga caddy
+  echo "[INFO] waiting for OpenFGA at ${fga_url}"
+  i=0
+  until curl -sf "${curl_tls[@]}" -m 5 "${fga_url}/healthz" >/dev/null 2>&1; do
+    i=$((i + 1))
+    [ $i -gt 60 ] && {
+      echo "[ERROR] openfga not ready after 5m" 1>&2
+      exit 1
+    }
+    sleep 5
+  done
+  new=$(curl -sf "${curl_tls[@]}" -m 60 -X POST "${fga_url}/stores/${store}/authorization-models" \
+    -H "Authorization: Bearer ${key}" \
+    -H 'Content-Type: application/json' --data "${OPENFGA_MODEL}" |
+    sed -n 's/.*"authorization_model_id"[ ]*:[ ]*"\([^"]*\)".*/\1/p')
+  if [ -z "${new}" ]; then
+    echo "[ERROR] failed to write the authorization model to store ${store}, ${CONFIG_DIR}/compose.yaml is unchanged" 1>&2
+    exit 1
+  fi
+  echo "[INFO] openfga model written: ${new}"
+  tmp="${CONFIG_DIR}/.compose.yaml.new"
+  sed "s/^\( *FGA_AUTHORIZATION_MODEL_ID: *\).*$/\1${new}/" "${CONFIG_DIR}/compose.yaml" >"${tmp}"
+  chmod 600 "${tmp}"
+  if ! docker compose -f "${tmp}" config --quiet; then
+    echo "[ERROR] the rewritten compose file did not validate, ${CONFIG_DIR}/compose.yaml is unchanged" 1>&2
+    rm -f "${tmp}"
+    exit 1
+  fi
+  mv "${tmp}" "${CONFIG_DIR}/compose.yaml"
+  record_fga_model "${new}"
+  echo "[INFO] model id in ${CONFIG_DIR}/compose.yaml: ${old} -> ${new}"
+  # every service that carries the model id, e.g. deeplake-api, deeplake-worker
+  # and the one-shot deeplake-setup
+  changed="$(awk '/^  [^ ]/ || /^[^ ]/ { cur = $0; sub(/^  /, "", cur); sub(/:$/, "", cur); seen = 0 }
+                  /^      FGA_AUTHORIZATION_MODEL_ID:/ && !seen { print cur; seen = 1 }' "${CONFIG_DIR}/compose.yaml")"
+  while read -r name; do
+    [ -n "${name}" ] || continue
+    if [ -n "$(docker compose -f "${CONFIG_DIR}/compose.yaml" ps -q --status running "${name}" 2>/dev/null)" ]; then
+      running+=("${name}")
+    else
+      echo "[INFO] ${name} is not running, the new model applies on the next ./dl-stack.sh start"
+    fi
+  done <<<"${changed}"
+  if [ "${#running[@]}" -gt 0 ]; then
+    echo "[INFO] recreating ${running[*]}"
+    # --no-deps leaves the services they depend on alone
+    docker compose -f "${CONFIG_DIR}/compose.yaml" up -d --no-deps "${running[@]}"
+  fi
+}
+
 check_services() {
   # every argument has to be a service of the rendered compose file, otherwise
   # docker compose fails half way through with a less helpful message
@@ -1920,6 +2127,12 @@ start() {
     setup
   fi
   check_services "$@"
+  # an existing stack may carry an older authorization model than the one this
+  # script ships, and a newer deeplake-api fails every request against it, so
+  # bring the model up to date before any service is (re)created
+  if ! fga_model_current; then
+    upgrade_fga
+  fi
   docker compose -f "${CONFIG_DIR}/compose.yaml" up -d "$@"
 }
 
@@ -1955,7 +2168,7 @@ destroy() {
     fi
   fi
   docker compose -f "${CONFIG_DIR}/compose.yaml" down -v
-  rm -f "${CONFIG_DIR}/compose.yaml" "${CONFIG_DIR}/.compose.yaml.new"
+  rm -f "${CONFIG_DIR}/compose.yaml" "${CONFIG_DIR}/.compose.yaml.new" "${CONFIG_DIR}/.openfga-model"
 }
 
 pull() {
@@ -2049,7 +2262,7 @@ _dl_stack() {
   cmd="${COMP_WORDS[1]}"
   COMPREPLY=()
   if [ "${COMP_CWORD}" -eq 1 ]; then
-    mapfile -t COMPREPLY < <(compgen -W 'setup start stop restart status scale set-tag destroy pull completion' -- "${cur}")
+    mapfile -t COMPREPLY < <(compgen -W 'setup start stop restart status scale set-tag upgrade-fga destroy pull completion' -- "${cur}")
     return
   fi
   case "${cmd}" in
@@ -2108,6 +2321,7 @@ _dl_stack() {
     'status:show the state and health of the services'
     'scale:change how many deeplake-stateless nodes the stack runs'
     'set-tag:point a service at a different image tag'
+    'upgrade-fga:write the shipped OpenFGA model and point the services at it'
     'destroy:stop the stack and remove all docker volumes'
     'pull:pull the container images the stack runs'
     'completion:print shell completion for bash or zsh'
@@ -2162,6 +2376,7 @@ case "$1" in
 start) start "${@:2}" ;;
 scale) scale "${2:-}" ;;
 set-tag) set_tag "${2:-}" "${3:-}" ;;
+upgrade-fga) upgrade_fga ;;
 stop) stop "${@:2}" ;;
 restart) restart "${@:2}" ;;
 status) status "${@:2}" ;;

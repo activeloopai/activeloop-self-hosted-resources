@@ -882,25 +882,7 @@
     {
       "type": "workspace",
       "relations": {
-        "parent": {
-          "this": {}
-        },
-        "viewer": {
-          "union": {
-            "child": [
-              {
-                "this": {}
-              },
-              {
-                "computedUserset": {
-                  "object": "",
-                  "relation": "writer"
-                }
-              }
-            ]
-          }
-        },
-        "writer": {
+        "admin": {
           "union": {
             "child": [
               {
@@ -920,10 +902,110 @@
               }
             ]
           }
+        },
+        "blocked": {
+          "this": {}
+        },
+        "parent": {
+          "this": {}
+        },
+        "viewer": {
+          "difference": {
+            "base": {
+              "union": {
+                "child": [
+                  {
+                    "this": {}
+                  },
+                  {
+                    "tupleToUserset": {
+                      "tupleset": {
+                        "object": "",
+                        "relation": "parent"
+                      },
+                      "computedUserset": {
+                        "object": "",
+                        "relation": "viewer"
+                      }
+                    }
+                  },
+                  {
+                    "computedUserset": {
+                      "object": "",
+                      "relation": "writer"
+                    }
+                  }
+                ]
+              }
+            },
+            "subtract": {
+              "computedUserset": {
+                "object": "",
+                "relation": "blocked"
+              }
+            }
+          }
+        },
+        "writer": {
+          "difference": {
+            "base": {
+              "union": {
+                "child": [
+                  {
+                    "this": {}
+                  },
+                  {
+                    "tupleToUserset": {
+                      "tupleset": {
+                        "object": "",
+                        "relation": "parent"
+                      },
+                      "computedUserset": {
+                        "object": "",
+                        "relation": "writer"
+                      }
+                    }
+                  },
+                  {
+                    "computedUserset": {
+                      "object": "",
+                      "relation": "admin"
+                    }
+                  }
+                ]
+              }
+            },
+            "subtract": {
+              "computedUserset": {
+                "object": "",
+                "relation": "blocked"
+              }
+            }
+          }
         }
       },
       "metadata": {
         "relations": {
+          "admin": {
+            "directly_related_user_types": [
+              {
+                "type": "user",
+                "condition": ""
+              }
+            ],
+            "module": "",
+            "source_info": null
+          },
+          "blocked": {
+            "directly_related_user_types": [
+              {
+                "type": "user",
+                "condition": ""
+              }
+            ],
+            "module": "",
+            "source_info": null
+          },
           "parent": {
             "directly_related_user_types": [
               {
