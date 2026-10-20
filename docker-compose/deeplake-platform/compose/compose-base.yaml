@@ -258,6 +258,11 @@ services:
       PG_PASSWORD: ${DLPG_PASSWORD}
       PG_USER: "postgres"
       LISTEN_ADDR: ":5432"
+      # each organization gets a whole deeplake-stateless node while it is
+      # active and frees it after 15 minutes idle. one node per org keeps a
+      # busy org from taking every node, so N nodes serve N active orgs.
+      # add nodes with './dl-stack.sh scale N'
+      MAX_PODS_PER_ORG: "1"
     networks:
       - deeplake
 

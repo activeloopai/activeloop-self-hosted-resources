@@ -159,6 +159,13 @@ object storage volumes belong to the type chosen at `setup` time.
 `pg-deeplake-stateless` runs as one node by default. `setup` prints the selected
 node count. Set `DEEPLAKE_STATELESS_COUNT` to a positive integer to override it.
 
+A node serves one organization at a time: `pg-proxy` hands an organization a
+whole node on its first connection and frees it after 15 minutes without
+connections. With one node, a second organization gets "service temporarily
+under high load" until the first one has been idle that long. Run one node per
+organization you expect to be active at the same time. `MAX_PODS_PER_ORG=1` in
+the `pg-proxy` service keeps a busy organization from taking more than one.
+
 Each node is a service of its own (`deeplake-stateless-1`, `-2`, …) rather than
 `deploy: replicas`, because each needs a stable hostname, container name and
 volume of its own: `pg-proxy` addresses them individually through `LOCAL_PODS`,
