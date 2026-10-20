@@ -1215,6 +1215,8 @@ $0: manage local deeplake stack
            OpenFGA store, point the compose file at it and recreate the services
            that use it. run it before rolling out a deeplake-api that needs a
            newer model, '$0 start' does it automatically when the model is stale
+  creds: print the credentials and endpoints setup printed at the end, read
+         back from the rendered compose file
   destroy: stop the stack and remove all docker volumes, e.g. wipe the data
            pass --force to skip the confirmation prompt (for non-interactive use)
   pull: pull the container images the stack runs, run '$0 start'
@@ -1610,6 +1612,9 @@ gen_vars_openai() {
 }
 
 print_vars() {
+  # the key itself is never printed, only whether deeplake-api has one
+  local openai_status="not set, 'query with AI' is disabled"
+  [ -n "${OPENAI_API_KEY}" ] && openai_status='set for deeplake-api'
   echo "
 credentials:
   keycloak admin username: admin
@@ -1619,7 +1624,7 @@ endpoints:
   deeplake api: https://api.${BASE_HOST}
   keycloak: https://kc.${BASE_HOST}
 openai:
-  api key: ${OPENAI_API_KEY:+set for deeplake-api}${OPENAI_API_KEY:-not set, 'query with AI' is disabled}
+  api key: ${openai_status}
 "
   storage_hook print_vars
 }
@@ -2236,6 +2241,54 @@ status() {
   return "${rc}"
 }
 
+creds() {
+  # reprints what setup prints at the end. nothing but the rendered compose
+  # file outlives setup, so every value, and the storage type itself, is read
+  # back from it. no docker needed, the stack does not have to be running
+  local kc_host
+  if ! [ -f "${CONFIG_DIR}/compose.yaml" ]; then
+    echo "[ERROR] no credentials to show, ${CONFIG_DIR}/compose.yaml does not exist, run ./dl-stack.sh setup first" 1>&2
+    exit 1
+  fi
+  kc_host="$(compose_values KC_HOSTNAME | head -n1)"
+  BASE_HOST="${kc_host#kc.}"
+  KEYCLOAK_ADMIN_PASSWORD="$(compose_values KC_BOOTSTRAP_ADMIN_PASSWORD | head -n1)"
+  OPENAI_API_KEY="$(compose_values OPENAI_API_KEY | head -n1)"
+  if [ -z "${BASE_HOST}" ] || [ -z "${KEYCLOAK_ADMIN_PASSWORD}" ]; then
+    echo "[ERROR] cannot read the base host and keycloak admin password from ${CONFIG_DIR}/compose.yaml" 1>&2
+    exit 1
+  fi
+  # each storage type leaves a key no other type has: alarik and garage their
+  # own service settings, azure the service principal, external-s3 an endpoint
+  # outside the stack. aws is what remains
+  if [ -n "$(compose_values GARAGE_DEFAULT_ACCESS_KEY)" ]; then
+    STORAGE_TYPE=garage
+    STORAGE_ACCESS_KEY="$(compose_values GARAGE_DEFAULT_ACCESS_KEY | head -n1)"
+    STORAGE_SECRET_KEY="$(compose_values GARAGE_DEFAULT_SECRET_KEY | head -n1)"
+  elif [ -n "$(compose_values DEFAULT_ACCESS_KEY)" ]; then
+    STORAGE_TYPE=alarik
+    STORAGE_ACCESS_KEY="$(compose_values DEFAULT_ACCESS_KEY | head -n1)"
+    STORAGE_SECRET_KEY="$(compose_values DEFAULT_SECRET_KEY | head -n1)"
+    STORAGE_USER_PASSWORD="$(compose_values ADMIN_PASSWORD | head -n1)"
+  elif [ -n "$(compose_values AZURE_TENANT_ID)" ]; then
+    STORAGE_TYPE=azure
+    AZURE_TENANT_ID="$(compose_values AZURE_TENANT_ID | head -n1)"
+    AZURE_CLIENT_ID="$(compose_values AZURE_CLIENT_ID | head -n1)"
+  elif [ -n "$(compose_values S3_ENDPOINT_URL)" ]; then
+    STORAGE_TYPE=external-s3
+    S3_ENDPOINT_URL="$(compose_values S3_ENDPOINT_URL | head -n1)"
+    S3_REGION="$(compose_values S3_REGION | head -n1)"
+    S3_ACCESS_KEY="$(compose_values S3_ACCESS_KEY_ID | head -n1)"
+  else
+    STORAGE_TYPE=aws
+    AWS_REGION="$(compose_values AWS_REGION | head -n1)"
+    AWS_ACCESS_KEY_ID="$(compose_values AWS_ACCESS_KEY_ID | head -n1)"
+  fi
+  DEEPLAKE_ROOT_PATH="$(compose_values DEEPLAKE_ROOT_PATH | head -n1)"
+  echo "storage type: ${STORAGE_TYPE}"
+  print_vars
+}
+
 completion() {
   # prints a completion script for the given shell to stdout, the caller
   # decides whether to source it or install it to a file. the scripts do not
@@ -2270,7 +2323,7 @@ _dl_stack() {
   cmd="${COMP_WORDS[1]}"
   COMPREPLY=()
   if [ "${COMP_CWORD}" -eq 1 ]; then
-    mapfile -t COMPREPLY < <(compgen -W 'setup start stop restart status scale set-tag upgrade-fga destroy pull completion' -- "${cur}")
+    mapfile -t COMPREPLY < <(compgen -W 'setup start stop restart status creds scale set-tag upgrade-fga destroy pull completion' -- "${cur}")
     return
   fi
   case "${cmd}" in
@@ -2327,6 +2380,7 @@ _dl_stack() {
     'stop:stop the stack or only the given services'
     'restart:stop and start the stack or only the given services'
     'status:show the state and health of the services'
+    'creds:print the credentials and endpoints setup printed'
     'scale:change how many deeplake-stateless nodes the stack runs'
     'set-tag:point a service at a different image tag'
     'upgrade-fga:write the shipped OpenFGA model and point the services at it'
@@ -2388,6 +2442,7 @@ upgrade-fga) upgrade_fga ;;
 stop) stop "${@:2}" ;;
 restart) restart "${@:2}" ;;
 status) status "${@:2}" ;;
+creds) creds ;;
 setup) setup ;;
 destroy) destroy "${2:-}" ;;
 pull) pull ;;

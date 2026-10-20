@@ -331,10 +331,9 @@ source .env
 6. create the `deeplake` OpenFGA store and push the authorization model, writing
    both IDs back into the rendered compose file;
 7. run `deeplake-setup` (database migrations), then bring the stack down;
-8. print the storage and Keycloak admin credentials **once**.
+8. print the storage and Keycloak admin credentials.
 
-Step 8 is the only time those credentials are shown. Save them - there is no
-command to reprint them; the fallback is reading them out of
+`./dl-stack.sh creds` prints them again at any time, reading them back from
 `~/.local/deeplake/compose.yaml`.
 
 If store or model creation fails, `setup` runs `destroy --force` (no prompt) and
@@ -361,6 +360,7 @@ Then open `https://app.$BASE_HOST`. Self-registration is enabled on the
 | `./dl-stack.sh stop [SERVICE...]` | Stop the stack (`compose down`, volumes kept). With service names, `compose stop` only those containers; the rest of the stack keeps running |
 | `./dl-stack.sh restart [SERVICE...]` | `stop` then `start`: recreates the containers, so edits to the rendered compose file and freshly pulled images take effect. With service names, only those services are bounced, e.g. `./dl-stack.sh restart deeplake-api` |
 | `./dl-stack.sh status [SERVICE...]` | One line per service with its container state, health and uptime. Services with no container show as `absent`. Exits 1 unless every service is running and healthy (or a one-shot job that exited 0), so it works as a readiness probe |
+| `./dl-stack.sh creds` | Print the credentials and endpoints `setup` printed at the end (Keycloak admin, storage, OpenAI key status), read back from the rendered compose file. Works whether or not the stack is running |
 | `./dl-stack.sh scale N` | Run N `deeplake-stateless` nodes; applies immediately if the stack is up. Scaling **down deletes** the removed nodes' volumes |
 | `./dl-stack.sh set-tag SERVICE TAG` | Point one service at a different image tag in the rendered compose file, e.g. `./dl-stack.sh set-tag pg-proxy 1.2.3`. If the service is running it is recreated on the new image right away (pulled if needed), otherwise the tag applies on the next `start`. Naming any `deeplake-stateless-N` or `deeplake-indexer` retags all of them together, since they must run the same image |
 | `./dl-stack.sh upgrade-fga` | Write the OpenFGA authorization model this script ships to the existing store, replace the model id in the rendered compose file and recreate the running services that read it (`deeplake-api`, `deeplake-worker`). Idempotent: does nothing when the model is already current. `start` runs it automatically when the model is stale |
