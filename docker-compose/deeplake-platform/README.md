@@ -156,8 +156,10 @@ object storage volumes belong to the type chosen at `setup` time.
 
 ## Stateless node count
 
-`pg-deeplake-stateless` runs as one node by default. `setup` prints the selected
-node count. Set `DEEPLAKE_STATELESS_COUNT` to a positive integer to override it.
+`pg-deeplake-stateless` runs as several independent nodes, one per CPU core
+less one - two cores give one node, four give three - leaving a core for
+everything else on the host. `setup` detects this with `nproc` and prints the
+number it settled on. Set `DEEPLAKE_STATELESS_COUNT` to override it.
 
 A node serves one organization at a time: `pg-proxy` hands an organization a
 whole node on its first connection and frees it after 15 minutes without
@@ -262,7 +264,7 @@ Compose env file):
 ```sh
 export BASE_HOST=example.com
 export STORAGE_TYPE=alarik    # storage backend: alarik | garage | aws | azure | external-s3
-export DEEPLAKE_STATELESS_COUNT=  # stateless nodes; default: 1
+export DEEPLAKE_STATELESS_COUNT=  # stateless nodes; default: cpu cores - 1
 
 # required when STORAGE_TYPE=aws, ignored otherwise
 export DEEPLAKE_ROOT_PATH=    # s3://<bucket>/<prefix>
