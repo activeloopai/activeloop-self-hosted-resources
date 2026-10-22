@@ -13,19 +13,19 @@ global:
     audience: "https://api.deeplake.acme.internal"
   database:
     host: pg.acme.internal
-# Built from `main` (deeplake-api #307, deeplake-ui #330 merged 19 Aug).
+# Built from the `self-hosted` branches of deeplake-api (dd29401) and deeplake-ui (1fd41024), 21 Oct.
 deeplake-api:
   image:
-    serverTag: server-v0.53.0-a84179c
-    workerTag: worker-v0.53.0-a84179c
-    setupTag: setup-v0.53.0-a84179c
+    serverTag: server-v0.57.0-dd29401
+    workerTag: worker-v0.57.0-dd29401
+    setupTag: setup-v0.57.0-dd29401
 deeplake-ui:
   image:
-    tag: v0.44.0-4193de81
+    tag: v0.44.6-1fd41024
 dlpg:
   proxy:
     image:
-      tag: e867fc24c201807f06e2748085966e1b96fb2336
+      tag: 0b94311d8dfc28995e293adbccd527026952882d
   pool:
     image:
-      tag: 18_4.7.1_52f0d91f3b40fd869c6dcd35ff2b7ea955299982
+      tag: 18_4.7.4_b83e05c14dfbe3ae0e757a32000f25e61f0e520d

@@ -249,7 +249,7 @@ keycloak:
 
 # Bundled OpenFGA tuning. Enable it via global.openfga.enabled.
 openfga:
-  image: openfga/openfga:v1.8.0
+  image: openfga/openfga:v1.8.5
   replicas: 1
   database:
     # Empty -> the bundled postgres when enabled, otherwise global.database.host

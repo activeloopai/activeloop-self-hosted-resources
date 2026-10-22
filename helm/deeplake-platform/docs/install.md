@@ -322,13 +322,13 @@ current set.
 
 ```bash
 helm install $RELEASE oci://quay.io/activeloopai/charts/deeplake-platform \
-  --version 0.1.1 -n $NS \
+  --version 0.1.3 -n $NS \
   -f values-azure.yaml -f my-values.yaml --timeout 12m
 ```
 
 `values-azure.yaml` ships inside the chart. To use it as a file, pull the chart
 first (`helm pull oci://quay.io/activeloopai/charts/deeplake-platform --version
-0.1.1 --untar`) and install from the extracted directory, or set the same keys
+0.1.3 --untar`) and install from the extracted directory, or set the same keys
 in your own values file.
 
 Order is handled for you: with the bundled Postgres the migration Job becomes a
