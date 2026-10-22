@@ -57,7 +57,7 @@ pool:
   image:
     registry: ""
     repository: activeloopai/pg-deeplake-stateless
-    tag: 18_4.7.1_c514d3366d3b9dcff28dd6323aa72f5edee509df
+    tag: 18_4.7.4_b83e05c14dfbe3ae0e757a32000f25e61f0e520d
     pullPolicy: IfNotPresent
 
   # emptyDir by design: durability comes from object storage, not the pod.
