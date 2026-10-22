@@ -3,7 +3,7 @@ enabled: true
 image:
   registry: ""
   repository: activeloopai/deeplake-ui
-  tag: v0.44.0-4193de81
+  tag: v0.44.6-1fd41024
   pullPolicy: IfNotPresent
 
 replicaCount: 2
