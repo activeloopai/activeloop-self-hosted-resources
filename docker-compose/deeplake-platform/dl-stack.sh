@@ -1217,6 +1217,9 @@ $0: manage local deeplake stack
            newer model, '$0 start' does it automatically when the model is stale
   creds: print the credentials and endpoints setup printed at the end, read
          back from the rendered compose file
+  keycloak-reconcile: apply the realm settings this script ships to the running
+           keycloak (today the identity-provider claim mapper), the realm import
+           skips an existing realm. idempotent, '$0 start' runs it too
   add-user: create a login in the stack's keycloak realm, keycloak has to be
             running. e.g. '$0 add-user --email jane@example.com --org <org id> --role writer'
               --email EMAIL         required, also the username unless --username is given
@@ -2184,6 +2187,14 @@ start() {
     upgrade_fga
   fi
   docker compose -f "${CONFIG_DIR}/compose.yaml" up -d "$@"
+  # the realm import skips an existing realm, so realm settings added after
+  # setup are applied here. a slow or broken keycloak does not fail the start,
+  # the stack is already up, it only leaves the realm as it was
+  if [ "$#" -eq 0 ] || printf '%s\n' "$@" | grep -qx keycloak; then
+    if ! keycloak_reconcile; then
+      echo "[ERROR] the stack is up, but the keycloak realm settings were not applied" 1>&2
+    fi
+  fi
 }
 
 stop() {
@@ -2345,6 +2356,126 @@ kc_admin() {
     /opt/keycloak/bin/kcadm.sh "$@" --no-config --server http://localhost:8080 --realm master --user admin 2>&1)" || rc=$?
   grep -v '^Logging into ' <<<"${out}" || true
   return "${rc}"
+}
+
+# the mapper that puts the identity provider of an SSO login into the tokens,
+# the ui reads it (OIDC_IDP_CLAIM) to hide "change password" from SSO users.
+# keep it in step with the realm in compose-base.yaml and with the helm chart's
+# templates/_keycloak.tpl. no value may contain a comma or a brace, the checks
+# below split the config on them
+KC_IDP_MAPPER_NAME='identity-provider'
+KC_IDP_MAPPER='{"name":"identity-provider","protocol":"openid-connect","protocolMapper":"oidc-usersessionmodel-note-mapper","config":{"user.session.note":"identity_provider","claim.name":"identity_provider","jsonType.label":"String","id.token.claim":"true","access.token.claim":"true","userinfo.token.claim":"true","introspection.token.claim":"true"}}'
+KC_RECONCILE_CLIENTS=(deeplake-ui deeplake-cli)
+
+keycloak_reconcile_hint() {
+  echo "  retry with ./dl-stack.sh keycloak-reconcile once keycloak is healthy, or add the mapper by hand," 1>&2
+  echo "  see 'SSO users and the identity_provider claim' in the README" 1>&2
+}
+
+keycloak_reconcile() {
+  # keycloak_reconcile [timeout seconds]: brings realm settings the stack
+  # depends on into the running realm. --import-realm skips a realm that
+  # already exists, so a realm change in compose-base.yaml never reaches a
+  # stack set up before it. today that is the identity-provider mapper on the
+  # ui and cli clients: created when missing, replaced when it differs, left
+  # alone otherwise, so it is safe to run on every start. waits for keycloak up
+  # to the timeout. every failure is handled explicitly and returns 1, since
+  # start calls this where errexit does not apply
+  local timeout="${1:-180}" issuer realm deadline out client cid models list mid id name live stale check
+  local checks=() pairs=()
+  if ! [ -f "${CONFIG_DIR}/compose.yaml" ]; then
+    echo "[ERROR] no stack to reconcile, ${CONFIG_DIR}/compose.yaml does not exist, run ./dl-stack.sh setup first" 1>&2
+    return 1
+  fi
+  issuer="$(compose_values OIDC_ISSUER | head -n1)"
+  realm="${issuer##*/realms/}"
+  KC_ADMIN_PASSWORD="$(compose_values KC_BOOTSTRAP_ADMIN_PASSWORD | head -n1)"
+  KC_CONTAINER="$(awk '/^  keycloak:$/ { in_svc = 1; next }
+                       /^  [^ ]/ || /^[^ ]/ { in_svc = 0 }
+                       in_svc && /^    container_name: / { sub(/^    container_name: /, ""); print; exit }' "${CONFIG_DIR}/compose.yaml")"
+  KC_CONTAINER="${KC_CONTAINER:-dl-keycloak}"
+  if [ -z "${issuer}" ] || [ "${realm}" == "${issuer}" ] || [ -z "${KC_ADMIN_PASSWORD}" ]; then
+    echo "[ERROR] cannot read the keycloak realm and admin password from ${CONFIG_DIR}/compose.yaml" 1>&2
+    return 1
+  fi
+  if [ "$(docker inspect -f '{{.State.Running}}' "${KC_CONTAINER}" 2>/dev/null)" != 'true' ]; then
+    echo "[ERROR] keycloak (${KC_CONTAINER}) is not running, start it with ./dl-stack.sh start keycloak" 1>&2
+    return 1
+  fi
+  echo "[INFO] keycloak: checking realm '${realm}' settings"
+  deadline=$((SECONDS + timeout))
+  until out="$(kc_admin get "realms/${realm}" --fields realm </dev/null)"; do
+    if [[ ${out} == *invalid_grant* ]]; then
+      echo "[ERROR] keycloak rejected the admin login, KC_BOOTSTRAP_ADMIN_PASSWORD in ${CONFIG_DIR}/compose.yaml no longer matches the admin user" 1>&2
+      keycloak_reconcile_hint
+      return 1
+    fi
+    if [ "${SECONDS}" -ge "${deadline}" ]; then
+      echo "[ERROR] keycloak realm '${realm}' not reachable after ${timeout}s, last answer:" 1>&2
+      print_indented "${out}"
+      keycloak_reconcile_hint
+      return 1
+    fi
+    sleep 5
+  done
+  checks=("\"protocolMapper\":\"oidc-usersessionmodel-note-mapper\"")
+  # the definition's protocolMapper and every "key":"value" of its config
+  out="${KC_IDP_MAPPER#*\"config\":\{}"
+  IFS=, read -ra pairs <<<"${out%%\}*}"
+  checks+=("${pairs[@]}")
+  for client in "${KC_RECONCILE_CLIENTS[@]}"; do
+    if ! cid="$(kc_admin get clients -r "${realm}" -q "clientId=${client}" --fields id --format csv --noquotes </dev/null)"; then
+      echo "[ERROR] cannot look up client ${client}:" 1>&2
+      print_indented "${cid}"
+      return 1
+    fi
+    cid="$(tr -d '\r' <<<"${cid}" | sed '/^$/d')"
+    if [ -z "${cid}" ]; then
+      echo "[WARNING] keycloak: client ${client} is not in realm '${realm}', skipped"
+      continue
+    fi
+    models="clients/${cid}/protocol-mappers/models"
+    if ! list="$(kc_admin get "${models}" -r "${realm}" --fields id,name --format csv --noquotes </dev/null)"; then
+      echo "[ERROR] cannot list the mappers of client ${client}:" 1>&2
+      print_indented "${list}"
+      return 1
+    fi
+    mid=''
+    while IFS=, read -r id name; do
+      if [ "${name%$'\r'}" == "${KC_IDP_MAPPER_NAME}" ]; then
+        mid="${id}"
+      fi
+    done <<<"${list}"
+    if [ -z "${mid}" ]; then
+      if ! out="$(printf '%s' "${KC_IDP_MAPPER}" | kc_admin create "${models}" -r "${realm}" -f -)"; then
+        echo "[ERROR] cannot create mapper ${KC_IDP_MAPPER_NAME} on client ${client}:" 1>&2
+        print_indented "${out}"
+        return 1
+      fi
+      echo "[INFO] keycloak: ${client}: created mapper ${KC_IDP_MAPPER_NAME}"
+      continue
+    fi
+    if ! live="$(kc_admin get "${models}/${mid}" -r "${realm}" -c </dev/null)"; then
+      echo "[ERROR] cannot read mapper ${KC_IDP_MAPPER_NAME} of client ${client}:" 1>&2
+      print_indented "${live}"
+      return 1
+    fi
+    stale=''
+    for check in "${checks[@]}"; do
+      [[ ${live} == *"${check}"* ]] || stale+=" ${check}"
+    done
+    if [ -z "${stale}" ]; then
+      echo "[INFO] keycloak: ${client}: mapper ${KC_IDP_MAPPER_NAME} up to date"
+      continue
+    fi
+    # no merge: a full replace, so keys dropped from the definition go too
+    if ! out="$(printf '%s' "${KC_IDP_MAPPER}" | kc_admin update "${models}/${mid}" -r "${realm}" -n -f - -s "id=${mid}")"; then
+      echo "[ERROR] cannot update mapper ${KC_IDP_MAPPER_NAME} on client ${client}:" 1>&2
+      print_indented "${out}"
+      return 1
+    fi
+    echo "[INFO] keycloak: ${client}: updated mapper ${KC_IDP_MAPPER_NAME} (differed in:${stale})"
+  done
 }
 
 print_indented() {
@@ -2619,7 +2750,7 @@ _dl_stack() {
   cmd="${COMP_WORDS[1]}"
   COMPREPLY=()
   if [ "${COMP_CWORD}" -eq 1 ]; then
-    mapfile -t COMPREPLY < <(compgen -W 'setup start stop restart status creds add-user scale set-tag upgrade-fga destroy pull completion' -- "${cur}")
+    mapfile -t COMPREPLY < <(compgen -W 'setup start stop restart status creds add-user scale set-tag upgrade-fga keycloak-reconcile destroy pull completion' -- "${cur}")
     return
   fi
   case "${cmd}" in
@@ -2692,6 +2823,7 @@ _dl_stack() {
     'scale:change how many deeplake-stateless nodes the stack runs'
     'set-tag:point a service at a different image tag'
     'upgrade-fga:write the shipped OpenFGA model and point the services at it'
+    'keycloak-reconcile:apply the shipped realm settings to the running keycloak'
     'destroy:stop the stack and remove all docker volumes'
     'pull:pull the container images the stack runs'
     'completion:print shell completion for bash or zsh'
@@ -2772,6 +2904,10 @@ start) start "${@:2}" ;;
 scale) scale "${2:-}" ;;
 set-tag) set_tag "${2:-}" "${3:-}" ;;
 upgrade-fga) upgrade_fga ;;
+keycloak-reconcile)
+  check_prerequisites
+  keycloak_reconcile
+  ;;
 stop) stop "${@:2}" ;;
 restart) restart "${@:2}" ;;
 status) status "${@:2}" ;;
