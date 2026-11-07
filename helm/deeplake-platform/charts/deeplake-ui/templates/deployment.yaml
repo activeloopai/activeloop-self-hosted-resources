@@ -78,6 +78,10 @@ spec:
             - name: OIDC_IDP_HINT_PARAM
               value: {{ . | quote }}
             {{- end }}
+            # Claim naming the identity provider of a brokered (SSO) login; the
+            # bundled realm emits it under the same name.
+            - name: OIDC_IDP_CLAIM
+              value: {{ $g.auth.oidc.idpClaim | default "identity_provider" | quote }}
             {{- with $g.auth.oidc.registerMode }}
             - name: OIDC_REGISTER_MODE
               value: {{ . | quote }}

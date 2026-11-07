@@ -103,6 +103,11 @@ global:
       idpHintParam: kc_idp_hint
       # prompt-create | login
       registerMode: prompt-create
+      # Token claim holding the identity provider of an SSO login. The UI uses
+      # it to tell SSO users from password users (and hides "Change password"
+      # from SSO users). The bundled realm emits it; an external provider must
+      # emit it too, or every user looks like a password user.
+      idpClaim: identity_provider
     # Air-gapped installs can skip the discovery call, but must then supply
     # every endpoint explicitly.
     disableDiscovery: false
@@ -135,6 +140,11 @@ global:
     # Realm import runs once, at first startup, and skips a realm that already
     # exists. Edit clients in the admin console after that.
     importRealm: true
+    # With importRealm, a post-install/post-upgrade Job brings settings the
+    # chart depends on into an existing realm, which the import skips: today
+    # the identity-provider claim mapper on the UI and CLI clients. It logs in
+    # with adminSecret, so it fails if that admin was removed from Keycloak.
+    reconcileRealm: true
 
   # -- REQUIRED. Secret names; the chart never generates credentials, so create
   # these before installing. See docs/install.md step 3 for the commands.

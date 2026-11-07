@@ -1,0 +1,170 @@
+{{- $g := .Values.global -}}
+{{- $kc := $g.keycloak -}}
+{{- if and $kc.enabled (eq $g.auth.provider "oidc") $kc.importRealm $kc.reconcileRealm }}
+{{- /*
+  `start --import-realm` skips a realm that already exists, so realm changes
+  in this chart never reach an install whose realm was imported by an older
+  chart. This hook Job applies the settings the platform depends on to the
+  live realm through the admin API: on install it finds them already there
+  (a no-op), on upgrade it adds or corrects them. Each item is matched by
+  name and is created when missing, replaced when it differs, and left alone
+  otherwise, so reruns never duplicate anything.
+
+  Today: the identity-provider claim mapper on the UI and CLI clients.
+
+  The pod needs no Kubernetes API access (no token is mounted); its only
+  credential is the Keycloak bootstrap admin from global.keycloak.adminSecret.
+*/ -}}
+{{- $name := printf "%s-keycloak-reconcile" (include "deeplake.fullname" .) }}
+{{- $mapper := include "deeplake.keycloakIdpMapper" . | fromJson }}
+{{- $checks := list (printf "%s:%s" (toJson "protocolMapper") (toJson $mapper.protocolMapper)) }}
+{{- range $k, $v := $mapper.config }}
+{{- $checks = append $checks (printf "%s:%s" (toJson $k) (toJson $v)) }}
+{{- end }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ $name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "deeplake.labels" . | nindent 4 }}
+    app.kubernetes.io/component: keycloak-reconcile
+  annotations:
+    # post-*: Keycloak is part of this release, so it must exist first. On an
+    # upgrade that changes the realm ConfigMap, Keycloak restarts (Recreate),
+    # and the Job waits for it.
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "0"
+    # Kept until the next upgrade, so `kubectl logs job/...` shows what it did.
+    "helm.sh/hook-delete-policy": before-hook-creation
+spec:
+  backoffLimit: 3
+  activeDeadlineSeconds: 900
+  template:
+    metadata:
+      labels:
+        {{- include "deeplake.selectorLabels" (dict "ctx" . "component" "keycloak-reconcile") | nindent 8 }}
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      {{- include "deeplake.imagePullSecrets" . | nindent 6 }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 0
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: reconcile
+          # Same image as the server, for a kcadm.sh that matches its API.
+          image: {{ .Values.keycloak.image }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          env:
+            - name: KC_URL
+              value: {{ printf "http://%s-keycloak:8080" (include "deeplake.fullname" .) | quote }}
+            - name: REALM
+              value: {{ $kc.realm | quote }}
+            - name: CLIENTS
+              value: {{ join " " (list $g.auth.uiClientId $g.auth.cliClientId) | quote }}
+            - name: MAPPER_NAME
+              value: {{ $mapper.name | quote }}
+            - name: MAPPER_JSON
+              value: {{ $mapper | toJson | quote }}
+            # One `"key":"value"` per line; the live mapper matches when its
+            # compact JSON contains every line.
+            - name: MAPPER_CHECKS
+              value: {{ join "\n" $checks | quote }}
+            - name: KC_ADMIN_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $kc.adminSecret }}
+                  key: username
+            - name: KC_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $kc.adminSecret }}
+                  key: password
+            - name: KC_OPTS
+              value: "-Xmx96m -XX:TieredStopAtLevel=1"
+          command:
+            - /bin/bash
+            - -c
+            - |
+              set -euo pipefail
+              CFG=/tmp/kcadm.config
+              kc() { /opt/keycloak/bin/kcadm.sh "$@" --config "$CFG"; }
+
+              # Keycloak may still be starting (fresh install) or restarting
+              # (upgrade that changed the realm ConfigMap). Wait up to 10m.
+              echo "logging in to $KC_URL as the bootstrap admin"
+              i=0
+              until OUT=$(kc config credentials --server "$KC_URL" --realm master \
+                    --user "$KC_ADMIN_USER" --password "$KC_ADMIN_PASSWORD" 2>&1); do
+                if [[ $OUT == *invalid_grant* ]]; then
+                  echo "admin login rejected: the credentials in the admin Secret do not match a master-realm admin"
+                  exit 1
+                fi
+                i=$((i+1)); [ $i -gt 120 ] && { echo "keycloak not reachable after 10m"; exit 1; }
+                sleep 5
+              done
+
+              i=0
+              until kc get "realms/$REALM" --fields realm >/dev/null 2>&1; do
+                i=$((i+1)); [ $i -gt 24 ] && { echo "realm $REALM not found"; exit 1; }
+                sleep 5
+              done
+
+              for CLIENT in $CLIENTS; do
+                CID=$(kc get clients -r "$REALM" -q clientId="$CLIENT" --fields id --format csv --noquotes | tr -d '\r')
+                if [ -z "$CID" ]; then
+                  echo "client $CLIENT not in realm $REALM; skipping"
+                  continue
+                fi
+                MODELS="clients/$CID/protocol-mappers/models"
+                LIST=$(kc get "$MODELS" -r "$REALM" --fields id,name --format csv --noquotes | tr -d '\r')
+                MID=""
+                while IFS=, read -r ID NAME; do
+                  if [ "$NAME" = "$MAPPER_NAME" ]; then MID=$ID; fi
+                done <<< "$LIST"
+                if [ -z "$MID" ]; then
+                  printf '%s' "$MAPPER_JSON" | kc create "$MODELS" -r "$REALM" -f - >/dev/null
+                  echo "$CLIENT: created mapper $MAPPER_NAME"
+                  continue
+                fi
+                LIVE=$(kc get "$MODELS/$MID" -r "$REALM" -c)
+                STALE=""
+                while IFS= read -r CHECK; do
+                  [[ $LIVE == *"$CHECK"* ]] || STALE="$STALE $CHECK"
+                done <<< "$MAPPER_CHECKS"
+                if [ -z "$STALE" ]; then
+                  echo "$CLIENT: mapper $MAPPER_NAME up to date"
+                  continue
+                fi
+                # Full replace (no merge), so keys the chart dropped go too.
+                printf '%s' "$MAPPER_JSON" | kc update "$MODELS/$MID" -r "$REALM" -n -f - -s id="$MID"
+                echo "$CLIENT: updated mapper $MAPPER_NAME (differed in:$STALE)"
+              done
+              echo "realm $REALM reconciled"
+          resources:
+            requests:
+              cpu: "50m"
+              memory: 128Mi
+            limits:
+              memory: 256Mi
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir:
+            medium: Memory
+            sizeLimit: 16Mi
+      {{- with .Values.keycloak.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}
