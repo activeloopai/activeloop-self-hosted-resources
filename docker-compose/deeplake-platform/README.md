@@ -37,6 +37,92 @@ curl -fsSL https://raw.githubusercontent.com/activeloopai/activeloop-self-hosted
 | pg-proxy (Deep Lake PG endpoint) | `dl-pg-proxy` | internal |
 | Caddy | `dl-caddy` | `:80`, `:443` |
 
+One-shot containers: `deeplake-setup` (API database migrations) and
+`migrate_openfga` (OpenFGA schema) run to completion before their dependents
+start.
+
+### Platform diagram
+
+```mermaid
+flowchart LR
+  user(["Browser / SDK"])
+
+  subgraph host["Docker host (project: dl)"]
+    caddy["caddy<br/>:80 / :443"]
+    ui["deeplake-ui"]
+    api["deeplake-api"]
+    worker["deeplake-worker"]
+    setup["deeplake-setup<br/>(one-shot)"]
+    kc["keycloak"]
+    fga["openfga"]
+    fgamig["migrate_openfga<br/>(one-shot)"]
+    pg[("postgres<br/>deeplake / keycloak / openfga")]
+    proxy["pg-proxy"]
+    sl["deeplake-stateless-1 … N"]
+    idx["deeplake-indexer"]
+    s3["storage-api / storage-ui<br/>(alarik, garage only)"]
+  end
+
+  ext[("External storage<br/>S3 / Azure Blob / S3-compatible<br/>(aws, azure, external-s3)")]
+
+  user -->|HTTPS| caddy
+  caddy -->|app.| ui
+  caddy -->|api.| api
+  caddy -->|kc.| kc
+  caddy -->|openfga.| fga
+  caddy -->|"storage-api. / storage."| s3
+
+  setup --> pg
+  fgamig --> pg
+  kc --> pg
+  fga --> pg
+  api & worker -->|metadata| pg
+  api & worker -->|authz| fga
+  api -->|validate JWT| kc
+  api & worker -->|SQL| proxy
+  proxy -->|"LOCAL_PODS, one node per org"| sl
+  sl & idx -->|callback| api
+  api & sl & idx -->|datasets| s3
+  api & sl & idx -.->|datasets| ext
+```
+
+### Resource diagram
+
+```mermaid
+flowchart TB
+  subgraph net["Compose project dl (default network)"]
+    caddy["dl-caddy"] --- vcaddy[("dl_deeplake_caddy")]
+    pg["dl-postgres<br/>127.0.0.1:5432"] --- vpg[("dl_deeplake_postgres")]
+    idx["dl-deeplake-indexer"] --- vidx[("dl_deeplake_indexer")]
+    sl1["dl-deeplake-stateless-1"] --- vsl1[("dl_deeplake_stateless")]
+    sln["dl-deeplake-stateless-N"] --- vsln[("dl_deeplake_stateless_N")]
+    proxy["dl-pg-proxy"]
+    ui["dl-deeplake-ui"]
+    api["dl-deeplake-api"]
+    worker["dl-deeplake-worker"]
+    setup["dl-deeplake-setup"]
+    kc["dl-keycloak"]
+    fga["dl-openfga"]
+    fgamig["dl-migrate-openfga"]
+    subgraph alarik["STORAGE_TYPE=alarik"]
+      sa1["dl-storage-api"] --- va[("dl_deeplake_storage")]
+      sui["dl-storage-ui"]
+    end
+    subgraph garage["STORAGE_TYPE=garage"]
+      sa2["dl-storage-api"] --- vgm[("dl_deeplake_storage_meta")]
+      sa2 --- vgd[("dl_deeplake_storage_data")]
+    end
+  end
+
+  setup -->|completed| api & worker
+  fgamig -->|completed| fga
+  pg -->|healthy| setup & kc & fgamig
+  kc -->|healthy| api & ui
+  sl1 -->|healthy| proxy
+```
+
+Arrows in the resource diagram are `depends_on` ordering, not traffic.
+
 Caddy publishes **only** 80 and 443. Postgres is additionally bound to the host
 loopback (`127.0.0.1:5432`) for local `psql` access - it is not reachable off
 the host. This is the shared control-plane database (Keycloak users, OpenFGA
