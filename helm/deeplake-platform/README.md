@@ -26,6 +26,146 @@ deeplake-platform/
     └── dlpg/               # pg-proxy, stateless pool, indexer
 ```
 
+## What gets deployed
+
+Names below assume release name `dl` (`<release>-<component>`). Everything is
+`ClusterIP`; traffic enters only through the Ingress, plus `pg-proxy` if you
+set `dlpg.proxy.service.type: LoadBalancer`.
+
+### Always installed
+
+| Workload | Kind | Image | Replicas | Service | Storage |
+| --- | --- | --- | --- | --- | --- |
+| `dl-ui` | Deployment | `activeloopai/deeplake-ui` | 2 | `dl-ui:80` | - |
+| `dl-api-server` | Deployment | `activeloopai/deeplake-api` (`server-*`) | 2 | `dl-api-server:80` | `emptyDir` /tmp |
+| `dl-api-worker` | Deployment | `activeloopai/deeplake-api` (`worker-*`) | 1 | - | `emptyDir` /tmp |
+| `dl-pg-proxy` | Deployment | `activeloopai/pg-proxy` | 2 | `dl-pg-proxy:5432,8080` | - |
+| `dl-pool` | Deployment | `activeloopai/pg-deeplake-stateless` | managed by `pg-proxy` | - (pods addressed directly) | `emptyDir` pgdata |
+| `dl-indexer` | Deployment | `activeloopai/pg-deeplake-stateless` | 1 | - | `emptyDir` pgdata |
+| `dl-migrate` | Job (hook) | `activeloopai/deeplake-api` (`setup-*`) | - | - | - |
+| `dl-fga-bootstrap` | Job (hook) | `curl/curl` | - | - | writes `deeplake-openfga-ids` Secret |
+
+Supporting objects: Ingress `dl` (`<domain>` → `dl-ui`, `api.<domain>` →
+`dl-api-server`, `kc.<domain>` → `dl-keycloak` when bundled), ServiceAccount
+`dl-workload` (workload identity, shared by API and dlpg pods), ServiceAccount
++ Role `dl-pg-proxy` (patch pods/deployments, leases for leader election),
+ServiceAccount + Role `dl-fga-bootstrap` (get/create/patch Secrets, patch the
+two API Deployments), ConfigMap `dl-keycloak-realm` (when
+`global.auth.provider: oidc`).
+
+`dl-migrate` runs `pre-install,pre-upgrade` against an external database, and
+`post-install,post-upgrade` when the bundled Postgres is enabled (it cannot
+exist before the release). `dl-fga-bootstrap` runs `post-install,pre-upgrade`.
+
+### Optional, off by default
+
+| Toggle | Adds |
+| --- | --- |
+| `global.postgres.enabled` | Deployment + Service `dl-postgres` (`postgres:18`), PVC `dl-postgres` (32Gi), ConfigMap `dl-postgres-init` (creates `deeplake`, `keycloak`, `openfga` DBs) |
+| `global.keycloak.enabled` | Deployment + Service `dl-keycloak` (`keycloak:26.7.0`, 1 replica), Ingress rule for `kc.<domain>` |
+| `global.openfga.enabled` | Deployment + Service `dl-openfga` (`openfga:v1.8.5`, `migrate` init container) |
+| `ingress-nginx.enabled` | the `ingress-nginx` 4.12.1 subchart |
+| `dlpg.pool.canary.enabled` | Deployment `dl-pool-canary` (Activeloop-internal) |
+| `dlpg.pgPilot.enabled` | Role/RoleBinding `pg-pilot` for in-place pod resize (K8s ≥ 1.33) |
+| `*.serviceMonitor` / `dlpg.metrics.podMonitor` | Prometheus Operator `ServiceMonitor` / `PodMonitor` |
+
+### Not managed by the chart
+
+You provide these; the chart only references them:
+
+- Object storage bucket/container at `global.storage.rootPath`, and the cloud
+  identity (or static S3 key) that can read and write it.
+- Secrets `global.secrets.api`, `global.secrets.dlpg`, Keycloak admin, OpenFGA
+  token, image pull secret, TLS secret.
+- Control-plane Postgres, OIDC provider and OpenFGA when the bundled ones are off.
+- DNS records and the ingress controller / cert-manager.
+
+### Resource diagram
+
+```mermaid
+flowchart LR
+  subgraph ns["Namespace (release: dl)"]
+    ing["Ingress dl"]
+
+    subgraph ui["deeplake-ui"]
+      uiD["Deployment dl-ui"] --- uiS["Service dl-ui"]
+    end
+
+    subgraph api["deeplake-api"]
+      apiD["Deployment dl-api-server"] --- apiS["Service dl-api-server"]
+      wrkD["Deployment dl-api-worker"]
+      migJ["Job dl-migrate (hook)"]
+    end
+
+    subgraph dlpg["dlpg"]
+      pxD["Deployment dl-pg-proxy"] --- pxS["Service dl-pg-proxy"]
+      pxSA["SA + Role dl-pg-proxy"] -.-> pxD
+      poolD["Deployment dl-pool"]
+      idxD["Deployment dl-indexer"]
+    end
+
+    subgraph opt["Optional (global.*.enabled)"]
+      kcD["Deployment dl-keycloak"] --- kcS["Service dl-keycloak"]
+      fgaD["Deployment dl-openfga"] --- fgaS["Service dl-openfga"]
+      pgD["Deployment dl-postgres"] --- pgS["Service dl-postgres"]
+      pgD --- pvc[("PVC dl-postgres")]
+    end
+
+    fgaJ["Job dl-fga-bootstrap (hook)"] -->|writes| fgaSec[/"Secret deeplake-openfga-ids"/]
+    realm[/"ConfigMap dl-keycloak-realm"/] -.-> kcD
+    wsa["SA dl-workload"] -.-> apiD & wrkD & poolD & idxD
+
+    ing --> uiS & apiS & kcS
+    pxD -->|scales| poolD
+    fgaJ -->|restarts| apiD & wrkD
+    fgaSec -.-> apiD & wrkD
+  end
+```
+
+### Platform diagram
+
+```mermaid
+flowchart LR
+  user(["Browser"])
+  sdk(["SDK / psql client"])
+
+  subgraph k8s["Kubernetes cluster"]
+    ing["Ingress"]
+    ui["deeplake-ui"]
+    api["api-server"]
+    worker["api-worker"]
+    proxy["pg-proxy"]
+    pool["pool<br/>pg-deeplake-stateless × N"]
+    idx["indexer"]
+    kc["Keycloak*"]
+    fga["OpenFGA*"]
+    pg[("Postgres*<br/>deeplake / keycloak / openfga")]
+  end
+
+  obj[("Object storage<br/>Azure Blob / S3 / GCS / S3-compatible")]
+  idp(["External OIDC provider<br/>(when Keycloak is off)"])
+
+  user -->|HTTPS| ing
+  ing -->|"domain"| ui
+  ing -->|"api.domain"| api
+  ing -->|"kc.domain"| kc
+  user -. OIDC login .-> kc
+  user -. OIDC login .-> idp
+
+  api & worker -->|metadata| pg
+  api & worker -->|authz checks| fga
+  api -->|validate JWT| kc
+  api & worker -->|SQL| proxy
+  sdk -->|"Postgres wire<br/>(LoadBalancer, optional)"| proxy
+  proxy -->|"one pod per org"| pool
+  pool & idx -->|callback| api
+  pool & idx & api -->|datasets| obj
+  kc --> pg
+  fga --> pg
+```
+
+`*` bundled only when `global.<name>.enabled: true`; otherwise external.
+
 ## Install
 
 Full walkthrough in [docs/install.md](docs/install.md) — object storage,
