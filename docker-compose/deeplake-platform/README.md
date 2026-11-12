@@ -454,6 +454,7 @@ To create users from the command line instead, see [Adding users](#adding-users)
 | `./dl-stack.sh scale N` | Run N `deeplake-stateless` nodes; applies immediately if the stack is up. Scaling **down deletes** the removed nodes' volumes |
 | `./dl-stack.sh set-tag SERVICE TAG` | Point one service at a different image tag in the rendered compose file, e.g. `./dl-stack.sh set-tag pg-proxy 1.2.3`. If the service is running it is recreated on the new image right away (pulled if needed), otherwise the tag applies on the next `start`. Naming any `deeplake-stateless-N` or `deeplake-indexer` retags all of them together, since they must run the same image |
 | `./dl-stack.sh upgrade-fga` | Write the OpenFGA authorization model this script ships to the existing store, replace the model id in the rendered compose file and recreate the running services that read it (`deeplake-api`, `deeplake-worker`). Idempotent: does nothing when the model is already current. `start` runs it automatically when the model is stale |
+| `./dl-stack.sh keycloak-reconcile` | Apply the Keycloak realm settings this script ships to the running realm, which the realm import skips once the realm exists. Today: the `identity-provider` claim mapper. Idempotent: creates what is missing, replaces what differs, otherwise changes nothing. `start` runs it too. See [SSO users and the identity_provider claim](#sso-users-and-the-identity_provider-claim) |
 | `./dl-stack.sh destroy` | `compose down -v` - **deletes all data** - and removes the rendered config. Prompts for confirmation |
 | `./dl-stack.sh pull` | Pull the images the stack runs. Recreating the containers on them is `start`'s job |
 | `./dl-stack.sh destroy --force` | Same, without the prompt. For CI/automation |
@@ -583,11 +584,91 @@ it finds the model stale, so `pull` + `start` with a new script is enough;
 run `upgrade-fga` explicitly to control the timing. The "already current" check
 uses `~/.local/deeplake/.openfga-model`.
 
+**Keycloak realm settings are applied by `start`.** Keycloak imports the realm
+only when it does not exist yet, so settings added to the realm after your
+`setup` never reach it through the import. `start` (with no service names, or
+with `keycloak`) runs `keycloak-reconcile` after the containers are up and
+brings them in; see
+[SSO users and the identity_provider claim](#sso-users-and-the-identity_provider-claim).
+
 To move a single service to a specific tag:
 
 ```sh
 ./dl-stack.sh set-tag pg-proxy 1.2.3
 ```
+
+## SSO users and the identity_provider claim
+
+The UI tells users who signed in through an identity provider (Google, a
+corporate SSO brokered by Keycloak) from password users by the
+`identity_provider` claim, and shows "Change password" only to password users.
+The realm emits the claim from a User Session Note mapper named
+`identity-provider` on the `deeplake-ui` and `deeplake-cli` clients; Keycloak
+sets the note on brokered logins only. Stacks set up before the mapper was added
+do not have it, so every user looks like a password user.
+
+**Existing stacks**: download the new `dl-stack.sh`, then
+
+```sh
+./dl-stack.sh start                # or: ./dl-stack.sh keycloak-reconcile, with keycloak running
+```
+
+Expect `[INFO] keycloak: deeplake-ui: created mapper identity-provider` and the
+same for `deeplake-cli`; later runs print `up to date`. Users get the claim at
+their next login. The rendered `~/.local/deeplake/compose.yaml` keeps the old
+realm JSON; that is fine, since Keycloak no longer reads it once the realm
+exists.
+
+`keycloak-reconcile` signs in as the bootstrap admin `admin` with
+`KC_BOOTSTRAP_ADMIN_PASSWORD` from the rendered compose file, and waits up to 3
+minutes for Keycloak. When it cannot apply the mapper (Keycloak too slow, the
+admin removed or its password changed) `start` prints an `[ERROR]` but still
+completes, since the stack itself is up.
+
+**By hand**, in the admin console at `https://kc.$BASE_HOST/admin`: realm
+`deeplake` → Clients → `deeplake-ui` → Client scopes → `deeplake-ui-dedicated`
+→ Add mapper → By configuration → User Session Note. Name `identity-provider`,
+User Session Note `identity_provider`, Token Claim Name `identity_provider`,
+Claim JSON Type `String`, ID token, access token, userinfo and introspection on.
+Repeat for `deeplake-cli`. Or from the host, with an admin's password:
+
+```sh
+docker exec -i -e KC_CLI_PASSWORD dl-keycloak bash -c '
+K=/opt/keycloak/bin/kcadm.sh; C="--config /tmp/kcadm.config"
+$K config credentials $C --server http://localhost:8080 --realm master --user admin
+for CLIENT in deeplake-ui deeplake-cli; do
+  ID=$($K get clients $C -r deeplake -q clientId=$CLIENT --fields id --format csv --noquotes)
+  $K create clients/$ID/protocol-mappers/models $C -r deeplake \
+    -s name=identity-provider -s protocol=openid-connect \
+    -s protocolMapper=oidc-usersessionmodel-note-mapper \
+    -s "config.\"user.session.note\"=identity_provider" \
+    -s "config.\"claim.name\"=identity_provider" \
+    -s "config.\"jsonType.label\"=String" \
+    -s "config.\"id.token.claim\"=true" \
+    -s "config.\"access.token.claim\"=true" \
+    -s "config.\"userinfo.token.claim\"=true" \
+    -s "config.\"introspection.token.claim\"=true"
+done
+rm -f /tmp/kcadm.config'
+```
+
+with `KC_CLI_PASSWORD` exported in your shell (`read -rs KC_CLI_PASSWORD;
+export KC_CLI_PASSWORD`; `./dl-stack.sh creds` shows it), so the password is on
+no command line.
+
+**Limitation: Keycloak still lets an SSO user set a local password.** The claim
+only drives the UI. The account console (`https://kc.$BASE_HOST/realms/deeplake/account`)
+and `kc_action=UPDATE_PASSWORD` stay open to every user, and a password set
+there signs in without the identity provider, bypassing its MFA and
+offboarding. Keycloak 26.7 has no setting that forbids local credentials for
+brokered users: disabling the Update Password required action removes it for
+password users too, and no built-in flow condition detects an identity-provider
+link. Where this matters, one approach (test it against your own flows): give
+every identity provider a Hardcoded Role mapper (say `sso-only`), and add a
+conditional sub-flow to the browser and direct grant flows, after the password
+step, that denies access with `Condition - user role` = `sso-only` →
+`Deny access`. Also disable the user in Keycloak, not only in the identity
+provider, when offboarding.
 
 ## Troubleshooting
 
@@ -608,6 +689,11 @@ To move a single service to a specific tag:
   `start_period`, or flipping to `unhealthy`, is blocking everything that
   depends on it; `docker inspect --format '{{json .State.Health}}' <container>`
   shows the last probe output.
+* **`start` prints `the keycloak realm settings were not applied`** - Keycloak was
+  not ready within 3 minutes, or rejected the admin login. The stack still runs;
+  check `./dl-stack.sh status keycloak`, then run `./dl-stack.sh keycloak-reconcile`,
+  or apply the mapper by hand (see
+  [SSO users and the identity_provider claim](#sso-users-and-the-identity_provider-claim)).
 * **Logs** - `docker compose -f ~/.local/deeplake/compose.yaml logs -f <service>`.
 * **Login works but the API rejects tokens** - confirm `BASE_HOST` matches the
   hostname you're actually browsing; the realm's audience mapper and redirect

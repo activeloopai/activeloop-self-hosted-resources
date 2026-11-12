@@ -172,6 +172,9 @@ services:
       AUTH_PROVIDER: oidc
       OIDC_ISSUER: https://kc.${BASE_HOST}/realms/deeplake
       OIDC_CLIENT_ID: deeplake-ui
+      # claim naming the identity provider of an SSO login, emitted by the
+      # realm's identity-provider mapper. the ui hides "change password" for it
+      OIDC_IDP_CLAIM: identity_provider
       API_BASE_URL: https://api.${BASE_HOST}
     networks:
       - deeplake
@@ -376,6 +379,20 @@ configs:
                 "name": "email-verified-true",
                 "protocol": "openid-connect",
                 "protocolMapper": "oidc-hardcoded-claim-mapper"
+              },
+              {
+                "config": {
+                  "access.token.claim": "true",
+                  "claim.name": "identity_provider",
+                  "id.token.claim": "true",
+                  "introspection.token.claim": "true",
+                  "jsonType.label": "String",
+                  "user.session.note": "identity_provider",
+                  "userinfo.token.claim": "true"
+                },
+                "name": "identity-provider",
+                "protocol": "openid-connect",
+                "protocolMapper": "oidc-usersessionmodel-note-mapper"
               }
             ],
             "publicClient": true,
@@ -418,6 +435,20 @@ configs:
                 "name": "email-verified-true",
                 "protocol": "openid-connect",
                 "protocolMapper": "oidc-hardcoded-claim-mapper"
+              },
+              {
+                "config": {
+                  "access.token.claim": "true",
+                  "claim.name": "identity_provider",
+                  "id.token.claim": "true",
+                  "introspection.token.claim": "true",
+                  "jsonType.label": "String",
+                  "user.session.note": "identity_provider",
+                  "userinfo.token.claim": "true"
+                },
+                "name": "identity-provider",
+                "protocol": "openid-connect",
+                "protocolMapper": "oidc-usersessionmodel-note-mapper"
               }
             ],
             "publicClient": true,

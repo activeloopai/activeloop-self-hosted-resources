@@ -12,6 +12,7 @@
         "included.client.audience" $audience
         "access.token.claim" "true"
         "id.token.claim" "false")) -}}
+{{- $mappers = append $mappers (include "deeplake.keycloakIdpMapper" . | fromJson) -}}
 {{- if $kc.forceEmailVerified -}}
 {{- $mappers = append $mappers (dict
       "name" "email-verified-true"

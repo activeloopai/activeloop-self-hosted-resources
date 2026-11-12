@@ -322,13 +322,13 @@ current set.
 
 ```bash
 helm install $RELEASE oci://quay.io/activeloopai/charts/deeplake-platform \
-  --version 0.1.3 -n $NS \
+  --version 0.1.4 -n $NS \
   -f values-azure.yaml -f my-values.yaml --timeout 12m
 ```
 
 `values-azure.yaml` ships inside the chart. To use it as a file, pull the chart
 first (`helm pull oci://quay.io/activeloopai/charts/deeplake-platform --version
-0.1.3 --untar`) and install from the extracted directory, or set the same keys
+0.1.4 --untar`) and install from the extracted directory, or set the same keys
 in your own values file.
 
 Order is handled for you: with the bundled Postgres the migration Job becomes a
@@ -342,10 +342,12 @@ kubectl -n $NS get pods                    # all Running, no restarts
 kubectl -n $NS logs job/$RELEASE-migrate   # Complete
 kubectl -n $NS logs job/$RELEASE-fga-bootstrap
 kubectl -n $NS logs deploy/$RELEASE-keycloak | grep "imported"
+kubectl -n $NS logs job/$RELEASE-keycloak-reconcile
 ```
 
-Expect `store=... model=...` from the bootstrap Job and `Realm 'deeplake'
-imported` from Keycloak.
+Expect `store=... model=...` from the bootstrap Job, `Realm 'deeplake'
+imported` from Keycloak, and `realm deeplake reconciled` from the reconcile Job
+(bundled Keycloak only).
 
 The API log should show all of these. Any one missing means auth is not fully
 wired:
@@ -398,6 +400,8 @@ API calls need an organization: pass `X-Activeloop-Org-Id` (from `/me`), an
 | `device authorization URL must use HTTPS` | HTTP issuer | Use an HTTPS issuer; see step 4 |
 | API crash-loops, Keycloak host unresolvable, ingress disabled | Issuer derives to a public host with no DNS | Set `global.auth.issuerUrl`, or enable ingress |
 | Keycloak or OpenFGA cannot connect to an external DB | Their databases were never created | See step 3 |
+| SSO users see "Change password"; tokens have no `identity_provider` | Realm imported by chart 0.1.3 or older | `helm upgrade`; see "SSO users" in the chart README |
+| `*-keycloak-reconcile` Job: `admin login rejected` | The admin in `global.keycloak.adminSecret` was removed or its password changed | Fix the Secret, or set `global.keycloak.reconcileRealm=false` and apply the mapper by hand |
 
 ## Appendix: OpenFGA
 

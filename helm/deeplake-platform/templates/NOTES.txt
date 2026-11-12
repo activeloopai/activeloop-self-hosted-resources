@@ -31,6 +31,16 @@ OIDC issuer: {{ include "deeplake.issuerUrl" . }}
 the API fetches the discovery document over that hostname and will crash-loop
 until it does.
 {{- end }}
+{{- $kc := .Values.global.keycloak }}
+{{- if and $kc.enabled (eq .Values.global.auth.provider "oidc") $kc.importRealm $kc.reconcileRealm }}
+
+Keycloak realm settings (the identity_provider claim mapper) were applied by:
+  kubectl -n {{ .Release.Namespace }} logs job/{{ include "deeplake.fullname" . }}-keycloak-reconcile
+{{- else if eq .Values.global.auth.provider "oidc" }}
+
+The UI tells SSO users apart by the {{ .Values.global.auth.oidc.idpClaim | default "identity_provider" }} claim. This release does not
+manage the realm: make sure your provider emits it (see the chart README).
+{{- end }}
 
 {{- if eq .Values.global.cloud "s3" }}
 
