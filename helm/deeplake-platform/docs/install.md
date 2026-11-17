@@ -314,6 +314,40 @@ is required and does **not** default to the bundled service, and `sslMode`
 defaults to `require`, which the bundled Postgres does not offer — the chart
 refuses to render rather than let that fail at runtime.
 
+### External OIDC provider instead of the bundled Keycloak
+
+Set `global.keycloak.enabled: false` and point `global.auth` at your provider.
+Register a public UI client (authorization code with PKCE, redirect URI
+`https://<domain>/auth/callback`, post-logout redirect `https://<domain>`) and,
+for `deeplake` CLI login, a device authorization client. The API needs JWT
+access tokens with `iss` equal to `issuerUrl`, `aud` containing `audience`, and
+an `email` claim.
+
+```yaml
+global:
+  keycloak:
+    enabled: false
+  auth:
+    provider: oidc
+    issuerUrl: "https://<subdomain>.authkit.app"    # exactly the tokens' iss
+    audience: "https://api.deeplake.example.com"
+    uiClientId: "client_..."
+    cliClientId: "client_..."
+    oidc:
+      resource: "https://api.deeplake.example.com"  # WorkOS: same as audience
+    requireEmail: true        # 401 TOKEN_EMAIL_MISSING instead of a synthetic email
+    restrictClients: true     # OIDC_ALLOWED_CLIENTS = uiClientId, cliClientId, extras
+    extraAllowedClients: []
+```
+
+`oidc.resource` is the RFC 8707 resource indicator; leave it empty unless the
+provider needs it to set `aud` (WorkOS AuthKit does). `restrictClients` matters
+when the provider issues tokens with the same issuer and audience to other
+apps, for example WorkOS with dynamic client registration on. For WorkOS also
+add `email` and `email_verified` to the access token with a JWT template, and
+check one real token (`iss`, `aud`, `email`, and the client id in `azp` or
+`client_id`) before going live.
+
 Image tags are pinned by the chart — the platform release sets them together,
 so you do not normally override them. `test/example-values.yaml` shows the
 current set.
@@ -322,13 +356,13 @@ current set.
 
 ```bash
 helm install $RELEASE oci://quay.io/activeloopai/charts/deeplake-platform \
-  --version 0.1.4 -n $NS \
+  --version 0.1.5 -n $NS \
   -f values-azure.yaml -f my-values.yaml --timeout 12m
 ```
 
 `values-azure.yaml` ships inside the chart. To use it as a file, pull the chart
 first (`helm pull oci://quay.io/activeloopai/charts/deeplake-platform --version
-0.1.4 --untar`) and install from the extracted directory, or set the same keys
+0.1.5 --untar`) and install from the extracted directory, or set the same keys
 in your own values file.
 
 Order is handled for you: with the bundled Postgres the migration Job becomes a

@@ -1,7 +1,9 @@
 # Deep Lake self-hosted stack
 
 Single-host Docker Compose deployment of [Deeplake](http://deeplake.ai/) with:
-  - [Keycloak](https://www.keycloak.org/) as identity provider
+  - [Keycloak](https://www.keycloak.org/) as identity provider, or an external
+    OIDC provider of your own (`OIDC_PROVIDER=external`, see
+    [External OIDC provider](#external-oidc-provider))
   - [OpenFGA](https://openfga.dev/) for authorization
   - Postgres for dependency services
   - pluggable object storage, selected with `STORAGE_TYPE`: an in-stack
@@ -29,7 +31,7 @@ curl -fsSL https://raw.githubusercontent.com/activeloopai/activeloop-self-hosted
 | Deep Lake API | `dl-deeplake-api` | `https://api.$BASE_HOST` |
 | Deep Lake worker / setup / indexer | `dl-deeplake-*` | internal |
 | Deep Lake stateless nodes | `dl-deeplake-stateless-1` … `-N` | internal |
-| Keycloak | `dl-keycloak` | `https://kc.$BASE_HOST` |
+| Keycloak (not with `OIDC_PROVIDER=external`) | `dl-keycloak` | `https://kc.$BASE_HOST` |
 | OpenFGA | `dl-openfga` | `https://openfga.$BASE_HOST` |
 | Object storage API (`alarik`, `garage`) | `dl-storage-api` | `https://storage-api.$BASE_HOST` |
 | Object storage console (`alarik` only) | `dl-storage-ui` | `https://storage.$BASE_HOST` |
@@ -371,6 +373,20 @@ export S3_ENDPOINT_URL=       # https://<host>
 export S3_REGION=
 export S3_ACCESS_KEY=
 export S3_SECRET_KEY=
+
+# identity provider: keycloak (default, bundled) | external
+export OIDC_PROVIDER=keycloak
+# required when OIDC_PROVIDER=external, ignored otherwise
+export OIDC_ISSUER=           # exactly the iss claim of the provider's access tokens
+export OIDC_UI_CLIENT_ID=     # public client for the ui
+# optional when OIDC_PROVIDER=external, see External OIDC provider
+export OIDC_AUDIENCE=         # default: https://api.$BASE_HOST
+export OIDC_CLI_CLIENT_ID=    # empty: no cli login
+export OIDC_RESOURCE=
+export OIDC_SCOPE=
+export OIDC_REQUIRE_EMAIL=    # true | false
+export OIDC_ALLOWED_CLIENTS=  # comma separated, ui and cli clients are added
+
 export TLS_METHOD=http01      # or: from_file
 export TLS_CERT_PATH=         # required when TLS_METHOD=from_file
 export TLS_KEY_PATH=          # required when TLS_METHOD=from_file
@@ -411,15 +427,21 @@ source .env
 3. generate every password, access key and signing key (20–64 random chars),
    including the ones specific to the selected storage type, and prompt for any
    storage settings it expects you to provide (`aws`, `azure`, `external-s3`);
+   resolve the identity provider from `OIDC_PROVIDER` (asks when unset and a
+   TTY is attached, otherwise `keycloak`) and, for `external`, take the
+   `OIDC_*` settings from the environment or prompt for them;
 4. merge `compose/compose-base.yaml` with `compose/storage-$STORAGE_TYPE.yaml`
    → `~/.local/deeplake/compose.yaml` with all values substituted, adjusting
-   the Caddy TLS config for the chosen `TLS_METHOD`;
+   the Caddy TLS config for the chosen `TLS_METHOD`. With
+   `OIDC_PROVIDER=external` the Keycloak service, its database, its Caddy
+   route and every dependency on it are left out;
 5. start OpenFGA and Caddy, wait up to 5 minutes for
    `https://openfga.$BASE_HOST/healthz`;
 6. create the `deeplake` OpenFGA store and push the authorization model, writing
    both IDs back into the rendered compose file;
 7. run `deeplake-setup` (database migrations), then bring the stack down;
-8. print the storage and Keycloak admin credentials.
+8. print the storage and Keycloak admin credentials (with an external
+   provider: the issuer, client ids and the redirect URI to register).
 
 `./dl-stack.sh creds` prints them again at any time, reading them back from
 `~/.local/deeplake/compose.yaml`.
@@ -439,6 +461,64 @@ exits - fix DNS/TLS and start over.
 Then open `https://app.$BASE_HOST`. Self-registration is enabled on the
 `deeplake` Keycloak realm, so the first user can sign up from the login page.
 To create users from the command line instead, see [Adding users](#adding-users).
+With an external provider, users sign in with whatever accounts the provider
+allows.
+
+### External OIDC provider
+
+`OIDC_PROVIDER=external` runs the stack without Keycloak and validates tokens
+issued by your own OIDC provider (WorkOS, Okta, Entra ID, Auth0, an existing
+Keycloak, ...). The choice is made once, at `setup`; switching later means
+`destroy` and a new `setup`.
+
+Register at the provider before running `setup`:
+
+- a **public** client for the UI: authorization code with PKCE, redirect URI
+  `https://app.$BASE_HOST/auth/callback`, post-logout redirect URI
+  `https://app.$BASE_HOST`, web origin `https://app.$BASE_HOST`;
+- optionally a client for `deeplake` CLI login with the device authorization
+  grant (`OIDC_CLI_CLIENT_ID`);
+- access tokens that are JWTs signed with a key from the issuer's JWKS, with
+  `iss` equal to `OIDC_ISSUER`, `aud` containing `OIDC_AUDIENCE`, and an
+  `email` claim.
+
+| Variable | Required | Effect |
+| --- | --- | --- |
+| `OIDC_ISSUER` | yes | Issuer URL; discovery is read from `$OIDC_ISSUER/.well-known/openid-configuration` |
+| `OIDC_UI_CLIENT_ID` | yes | UI client id (`OIDC_CLIENT_ID` of `deeplake-ui`) |
+| `OIDC_AUDIENCE` | no | Audience `deeplake-api` requires, default `https://api.$BASE_HOST` |
+| `OIDC_CLI_CLIENT_ID` | no | CLI client id; empty turns CLI login off |
+| `OIDC_RESOURCE` | no | RFC 8707 `resource` the UI sends on authorize, token and refresh requests. WorkOS AuthKit only sets `aud` when asked this way: set it to the audience |
+| `OIDC_SCOPE` | no | UI scopes, default `openid profile email` |
+| `OIDC_REQUIRE_EMAIL` | no | `true` rejects tokens without an `email` claim (401 `TOKEN_EMAIL_MISSING`) instead of registering a synthetic address |
+| `OIDC_ALLOWED_CLIENTS` | no | Accept tokens only from these clients (`azp`, or `client_id`). The UI and CLI client ids are always added. Set it when the provider issues tokens with the same issuer and audience to other apps, e.g. WorkOS with dynamic client registration on |
+
+Each value is read from the environment when set and asked for otherwise; with
+no TTY a missing `OIDC_ISSUER` or `OIDC_UI_CLIENT_ID`, or any value that fails
+validation, aborts `setup`.
+`keycloak-reconcile` and `add-user` refuse to run on such a stack: users and
+clients are managed at the provider.
+
+WorkOS AuthKit specifics: its access tokens carry no `aud` unless the UI sends
+`OIDC_RESOURCE`, and no `email` unless a WorkOS JWT template adds `email` and
+`email_verified` (hence `OIDC_REQUIRE_EMAIL=true`, so a missing template fails
+loudly). With dynamic client registration on, any registered client can obtain
+tokens with the same issuer and audience, so either turn it off or set
+`OIDC_ALLOWED_CLIENTS`. Check one real access token before going live: `iss`
+equals `OIDC_ISSUER`, `aud` contains `OIDC_AUDIENCE`, `email` is present, and
+the client id is in `azp` or `client_id`. CLI device login against WorkOS is
+untested.
+
+```sh
+# WorkOS AuthKit example
+export OIDC_PROVIDER=external
+export OIDC_ISSUER=https://<subdomain>.authkit.app
+export OIDC_UI_CLIENT_ID=client_...
+export OIDC_RESOURCE=https://api.$BASE_HOST
+export OIDC_REQUIRE_EMAIL=true
+export OIDC_ALLOWED_CLIENTS=client_...
+./dl-stack.sh setup
+```
 
 ## Commands
 
@@ -449,12 +529,12 @@ To create users from the command line instead, see [Adding users](#adding-users)
 | `./dl-stack.sh stop [SERVICE...]` | Stop the stack (`compose down`, volumes kept). With service names, `compose stop` only those containers; the rest of the stack keeps running |
 | `./dl-stack.sh restart [SERVICE...]` | `stop` then `start`: recreates the containers, so edits to the rendered compose file and freshly pulled images take effect. With service names, only those services are bounced, e.g. `./dl-stack.sh restart deeplake-api` |
 | `./dl-stack.sh status [SERVICE...]` | One line per service with its container state, health and uptime. Services with no container show as `absent`. Exits 1 unless every service is running and healthy (or a one-shot job that exited 0), so it works as a readiness probe |
-| `./dl-stack.sh creds` | Print the credentials and endpoints `setup` printed at the end (Keycloak admin, storage, OpenAI key status), read back from the rendered compose file. Works whether or not the stack is running |
-| `./dl-stack.sh add-user --email EMAIL [OPTIONS]` | Create a login in the `deeplake` Keycloak realm and optionally invite it to an organization. Keycloak must be running. See [Adding users](#adding-users) |
+| `./dl-stack.sh creds` | Print the credentials and endpoints `setup` printed at the end (Keycloak admin or external issuer, storage, OpenAI key status), read back from the rendered compose file. Works whether or not the stack is running |
+| `./dl-stack.sh add-user --email EMAIL [OPTIONS]` | Create a login in the `deeplake` Keycloak realm and optionally invite it to an organization. Keycloak must be running; bundled Keycloak only. See [Adding users](#adding-users) |
 | `./dl-stack.sh scale N` | Run N `deeplake-stateless` nodes; applies immediately if the stack is up. Scaling **down deletes** the removed nodes' volumes |
 | `./dl-stack.sh set-tag SERVICE TAG` | Point one service at a different image tag in the rendered compose file, e.g. `./dl-stack.sh set-tag pg-proxy 1.2.3`. If the service is running it is recreated on the new image right away (pulled if needed), otherwise the tag applies on the next `start`. Naming any `deeplake-stateless-N` or `deeplake-indexer` retags all of them together, since they must run the same image |
 | `./dl-stack.sh upgrade-fga` | Write the OpenFGA authorization model this script ships to the existing store, replace the model id in the rendered compose file and recreate the running services that read it (`deeplake-api`, `deeplake-worker`). Idempotent: does nothing when the model is already current. `start` runs it automatically when the model is stale |
-| `./dl-stack.sh keycloak-reconcile` | Apply the Keycloak realm settings this script ships to the running realm, which the realm import skips once the realm exists. Today: the `identity-provider` claim mapper. Idempotent: creates what is missing, replaces what differs, otherwise changes nothing. `start` runs it too. See [SSO users and the identity_provider claim](#sso-users-and-the-identity_provider-claim) |
+| `./dl-stack.sh keycloak-reconcile` | Apply the Keycloak realm settings this script ships to the running realm, which the realm import skips once the realm exists. Today: the `identity-provider` claim mapper. Bundled Keycloak only. Idempotent: creates what is missing, replaces what differs, otherwise changes nothing. `start` runs it too. See [SSO users and the identity_provider claim](#sso-users-and-the-identity_provider-claim) |
 | `./dl-stack.sh destroy` | `compose down -v` - **deletes all data** - and removes the rendered config. Prompts for confirmation |
 | `./dl-stack.sh pull` | Pull the images the stack runs. Recreating the containers on them is `start`'s job |
 | `./dl-stack.sh destroy --force` | Same, without the prompt. For CI/automation |
