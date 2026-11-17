@@ -174,7 +174,7 @@ prerequisites are in place:
 
 ```bash
 helm install deeplake oci://quay.io/activeloopai/charts/deeplake-platform \
-  --version 0.1.4 \
+  --version 0.1.5 \
   --namespace deeplake --create-namespace \
   -f values-azure.yaml \
   -f my-values.yaml
@@ -225,6 +225,14 @@ Operator from Key Vault / Secrets Manager.
   server and worker Deployments (it patches a pod-template annotation; RBAC is
   limited to get/patch on those two Deployments). On an upgrade that also
   changes the API image this can roll the pods once before Helm rolls them again.
+- **External OIDC providers (WorkOS, Okta, Entra ID, ...).** With
+  `global.keycloak.enabled: false`, set `global.auth.issuerUrl`, `audience`,
+  `uiClientId` and `cliClientId`. Three settings cover providers that differ
+  from Keycloak: `global.auth.oidc.resource` (UI `OIDC_RESOURCE`, the RFC 8707
+  resource WorkOS needs to set `aud`), `global.auth.requireEmail` (API
+  `OIDC_REQUIRE_EMAIL`) and `global.auth.restrictClients` with
+  `extraAllowedClients` (API `OIDC_ALLOWED_CLIENTS`, always including the UI
+  and CLI clients). See "External OIDC provider" in `docs/install.md`.
 - **SSO users are told apart by the `identity_provider` claim.** The UI reads
   it (`global.auth.oidc.idpClaim`, passed as `OIDC_IDP_CLAIM`) to decide
   whether a user signed in with a password or through an identity provider,

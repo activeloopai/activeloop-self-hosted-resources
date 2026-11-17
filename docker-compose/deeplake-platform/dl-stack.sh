@@ -3,6 +3,7 @@
 CONFIG_DIR="$HOME/.local/deeplake"
 COMPOSE_BASE_URL="https://raw.githubusercontent.com/activeloopai/activeloop-self-hosted-resources/refs/heads/main/docker-compose/deeplake-platform/compose"
 SUPPORTED_STORAGE_TYPES=(alarik garage aws azure external-s3)
+SUPPORTED_OIDC_PROVIDERS=(keycloak external)
 OPENFGA_MODEL='{
   "schema_version": "1.1",
   "type_definitions": [
@@ -1198,6 +1199,9 @@ help() {
   echo "
 $0: manage local deeplake stack
   setup: configure the stack, re-running this will reintialize the stack
+         OIDC_PROVIDER=keycloak (default) bundles keycloak, OIDC_PROVIDER=external
+         signs in with your own OIDC provider and deploys no keycloak, see the
+         README for the OIDC_* variables it reads (or asks for)
   start: start the stack, if setup is not done it will setup first
   stop:  stop the stack
   restart: stop the stack and start it again, picking up edits to the
@@ -1219,9 +1223,10 @@ $0: manage local deeplake stack
          back from the rendered compose file
   keycloak-reconcile: apply the realm settings this script ships to the running
            keycloak (today the identity-provider claim mapper), the realm import
-           skips an existing realm. idempotent, '$0 start' runs it too
+           skips an existing realm. idempotent, '$0 start' runs it too.
+           bundled keycloak only
   add-user: create a login in the stack's keycloak realm, keycloak has to be
-            running. e.g. '$0 add-user --email jane@example.com --org <org id> --role writer'
+            running, bundled keycloak only. e.g. '$0 add-user --email jane@example.com --org <org id> --role writer'
               --email EMAIL         required, also the username unless --username is given
               --username NAME       login name, defaults to the email
               --first-name NAME, --last-name NAME
@@ -1307,6 +1312,12 @@ prompt_var() {
     if [ -n "${value}" ]; then
       if [ -z "${pattern}" ] || [[ "${value}" =~ ${pattern} ]]; then
         break
+      fi
+      if [ -z "${asked}" ] && ! [ -t 0 ]; then
+        # a bad value from the environment is a mistake to report, not one
+        # to replace with a default or an empty value behind the user's back
+        echo "[ERROR] ${name} must match ${pattern}" 1>&2
+        exit 1
       fi
       echo "[WARNING] ${name} must match ${pattern}" 1>&2
       value=''
@@ -1547,6 +1558,195 @@ storage:
 "
 }
 
+# identity provider
+#
+# keycloak (the default) runs in the stack with the realm compose-base.yaml
+# ships. external drops keycloak from the rendered compose file and points
+# deeplake-api and deeplake-ui at an OIDC provider outside the stack. every
+# OIDC_* value below is taken from the environment when set, otherwise asked
+# for, so a non-interactive setup only has to export them
+select_oidc_provider() {
+  local provider
+  if [ -z "${OIDC_PROVIDER}" ]; then
+    if [ -t 0 ] && [ "$(yes_or_no "sign in with an external OIDC provider instead of the bundled keycloak?")" == 'yes' ]; then
+      OIDC_PROVIDER=external
+    else
+      OIDC_PROVIDER=keycloak
+    fi
+  fi
+  for provider in "${SUPPORTED_OIDC_PROVIDERS[@]}"; do
+    if [ "${OIDC_PROVIDER}" == "${provider}" ]; then
+      echo "[INFO] using oidc provider: ${OIDC_PROVIDER}"
+      export OIDC_PROVIDER
+      return 0
+    fi
+  done
+  echo "[ERROR] unsupported OIDC_PROVIDER '${OIDC_PROVIDER}', supported: ${SUPPORTED_OIDC_PROVIDERS[*]}" 1>&2
+  exit 1
+}
+
+# the values land double quoted in yaml and in sed replacements, so none may
+# hold whitespace, a quote, a backslash or a sed/shell metacharacter
+OIDC_VALUE_RE='^[^][:space:]"'"'"'\\|&$`*?[]+$'
+
+gen_vars_oidc_external() {
+  local answer client clients list=()
+  prompt_var OIDC_ISSUER 'oidc issuer url, exactly the iss claim of its access tokens' plain '^https?://[^][:space:]"'"'"'\\|&$`*?[]+$'
+  prompt_var OIDC_AUDIENCE "audience deeplake-api requires in the aud claim (enter for https://api.${BASE_HOST})" optional "${OIDC_VALUE_RE}"
+  OIDC_AUDIENCE="${OIDC_AUDIENCE:-https://api.${BASE_HOST}}"
+  prompt_var OIDC_UI_CLIENT_ID 'client id of the deeplake ui (public client, authorization code with pkce)' plain "${OIDC_VALUE_RE}"
+  prompt_var OIDC_CLI_CLIENT_ID 'client id for cli login (device authorization grant, enter to skip)' optional "${OIDC_VALUE_RE}"
+  prompt_var OIDC_RESOURCE 'resource the ui requests tokens for (rfc 8707; WorkOS: the audience above, enter to skip)' optional "${OIDC_VALUE_RE}"
+  if [ -n "${OIDC_SCOPE}" ] && ! [[ "${OIDC_SCOPE}" =~ ^[A-Za-z0-9_:./\ -]+$ ]]; then
+    echo "[ERROR] OIDC_SCOPE may only hold scope names separated by spaces" 1>&2
+    exit 1
+  fi
+  if [ -z "${OIDC_REQUIRE_EMAIL}" ] && [ -t 0 ]; then
+    answer="$(yes_or_no "reject access tokens that carry no email claim? (recommended unless your machine clients have no email)")"
+    [ "${answer}" == 'yes' ] && OIDC_REQUIRE_EMAIL=true || OIDC_REQUIRE_EMAIL=false
+  fi
+  OIDC_REQUIRE_EMAIL="${OIDC_REQUIRE_EMAIL:-false}"
+  if ! [[ "${OIDC_REQUIRE_EMAIL}" =~ ^(true|false)$ ]]; then
+    echo "[ERROR] OIDC_REQUIRE_EMAIL must be true or false, got '${OIDC_REQUIRE_EMAIL}'" 1>&2
+    exit 1
+  fi
+  # deeplake-api refuses to start when the list leaves out its cli client, and
+  # a list without the ui client locks every user out, so both are always in
+  if [ -z "${OIDC_ALLOWED_CLIENTS}" ] && [ -t 0 ]; then
+    answer="$(yes_or_no "accept only access tokens issued to the deeplake ui and cli clients? (yes when the provider issues tokens for other apps too)")"
+    [ "${answer}" == 'yes' ] && OIDC_ALLOWED_CLIENTS="${OIDC_UI_CLIENT_ID}"
+  fi
+  if [ -n "${OIDC_ALLOWED_CLIENTS}" ]; then
+    clients=''
+    IFS=, read -ra list <<<"${OIDC_ALLOWED_CLIENTS}"
+    for client in "${list[@]}" "${OIDC_UI_CLIENT_ID}" "${OIDC_CLI_CLIENT_ID}"; do
+      client="${client// /}"
+      [ -n "${client}" ] || continue
+      if ! [[ "${client}" =~ ${OIDC_VALUE_RE} ]]; then
+        echo "[ERROR] OIDC_ALLOWED_CLIENTS holds an invalid client id '${client}'" 1>&2
+        exit 1
+      fi
+      [[ ",${clients}," == *",${client},"* ]] || clients+="${clients:+,}${client}"
+    done
+    OIDC_ALLOWED_CLIENTS="${clients}"
+  fi
+  export \
+    OIDC_ISSUER \
+    OIDC_AUDIENCE \
+    OIDC_UI_CLIENT_ID \
+    OIDC_CLI_CLIENT_ID \
+    OIDC_RESOURCE \
+    OIDC_SCOPE \
+    OIDC_REQUIRE_EMAIL \
+    OIDC_ALLOWED_CLIENTS
+}
+
+drop_yaml_blocks() {
+  # drop_yaml_blocks <file> <indent> <key>: removes every '<indent><key>:' line
+  # with everything nested under it, then every depends_on that was left with
+  # no entries, which compose would reject
+  awk -v head="$2$3:" -v depth="${#2}" '
+    function indent(l) { match(l, /^ */); return RLENGTH }
+    { lines[NR] = $0 }
+    END {
+      n = 0
+      for (i = 1; i <= NR; i++) {
+        if (lines[i] == head) {
+          for (i++; i <= NR && (lines[i] ~ /^ *$/ || indent(lines[i]) > depth); i++) {}
+          i--
+          continue
+        }
+        kept[++n] = lines[i]
+      }
+      for (i = 1; i <= n; i++) {
+        if (kept[i] ~ /^ *depends_on: *$/) {
+          for (j = i + 1; j <= n && kept[j] ~ /^ *$/; j++) {}
+          if (j > n || indent(kept[j]) <= indent(kept[i])) { continue }
+        }
+        print kept[i]
+      }
+    }' "$1" >"$1.tmp"
+  mv "$1.tmp" "$1"
+}
+
+edit_compose_oidc_external() {
+  # removes keycloak from the templates and points the services at the
+  # external provider. runs on the separate files, before the merge, like the
+  # storage hooks: the edits match on the template shape
+  local file
+  for file in "${COMPOSE_BASE_FILE}" "${COMPOSE_OVERLAY_FILE}"; do
+    # the keycloak service and its realm config, and every depends_on on it
+    drop_yaml_blocks "${file}" '  ' keycloak
+    drop_yaml_blocks "${file}" '      ' keycloak
+    # caddy's kc.<host> vhost, so http01 does not ask for a certificate for it
+    awk '/^      kc\.[^ ]* \{$/ { skip = 1; next }
+         skip && /^      \}$/ { skip = 0; drop_blank = 1; next }
+         skip { next }
+         drop_blank && /^ *$/ { drop_blank = 0; next }
+         { drop_blank = 0; print }' "${file}" >"${file}.tmp"
+    mv "${file}.tmp" "${file}"
+  done
+  sed -i '/USER keycloak WITH/d;/DATABASE keycloak/d;/TO keycloak;/d' "${COMPOSE_BASE_FILE}"
+  sed -i \
+    -e "s|^\( *OIDC_ISSUER: \).*\$|\1\"${OIDC_ISSUER}\"|" \
+    -e "s|^\( *OIDC_AUDIENCE: \).*\$|\1\"${OIDC_AUDIENCE}\"|" \
+    -e "s|^\( *OIDC_CLIENT_ID: \).*\$|\1\"${OIDC_UI_CLIENT_ID}\"|" \
+    "${COMPOSE_BASE_FILE}"
+  if [ -n "${OIDC_CLI_CLIENT_ID}" ]; then
+    sed -i "s|^\( *OIDC_CLI_CLIENT_ID: \).*\$|\1\"${OIDC_CLI_CLIENT_ID}\"|" "${COMPOSE_BASE_FILE}"
+  else
+    sed -i '/^ *OIDC_CLI_CLIENT_ID:/d' "${COMPOSE_BASE_FILE}"
+  fi
+  # matched on template shapes only and never on the OIDC_* lines, an issuer
+  # or a base host may well contain 'keycloak' or 'kc.'
+  local leftover='^ *keycloak:|reverse_proxy keycloak|^ *kc\.|KC_|PG_KEYCLOAK'
+  if cat "${COMPOSE_BASE_FILE}" "${COMPOSE_OVERLAY_FILE}" | grep -vE '^ *OIDC_[A-Z_]*:' | grep -qE "${leftover}"; then
+    echo "[ERROR] keycloak is still referenced after removing it, the compose templates changed shape:" 1>&2
+    grep -nE "${leftover}" "${COMPOSE_BASE_FILE}" "${COMPOSE_OVERLAY_FILE}" 1>&2
+    rm -f "${COMPOSE_BASE_FILE}" "${COMPOSE_OVERLAY_FILE}"
+    exit 1
+  fi
+  echo "[INFO] keycloak is not deployed, deeplake signs in with ${OIDC_ISSUER}"
+}
+
+write_oidc_overlay() {
+  # write_oidc_overlay <file>: the settings the templates have no key for, as
+  # an overlay merged over them. prints nothing and writes no file when there
+  # are none
+  local api='' ui=''
+  [ "${OIDC_REQUIRE_EMAIL}" == 'true' ] && api+="      OIDC_REQUIRE_EMAIL: \"true\"\n"
+  [ -n "${OIDC_ALLOWED_CLIENTS}" ] && api+="      OIDC_ALLOWED_CLIENTS: \"${OIDC_ALLOWED_CLIENTS}\"\n"
+  [ -n "${OIDC_RESOURCE}" ] && ui+="      OIDC_RESOURCE: \"${OIDC_RESOURCE}\"\n"
+  [ -n "${OIDC_SCOPE}" ] && ui+="      OIDC_SCOPE: \"${OIDC_SCOPE}\"\n"
+  [ -n "${api}${ui}" ] || return 0
+  (
+    umask 077
+    {
+      printf 'services:\n'
+      [ -n "${api}" ] && printf '  deeplake-api:\n    environment:\n%b' "${api}"
+      [ -n "${ui}" ] && printf '  deeplake-ui:\n    environment:\n%b' "${ui}"
+    } >"$1"
+  )
+  echo "$1"
+}
+
+has_keycloak() {
+  # whether the rendered stack runs the bundled keycloak
+  grep -q '^  keycloak:$' "${CONFIG_DIR}/compose.yaml" 2>/dev/null
+}
+
+require_keycloak() {
+  # require_keycloak <command>
+  if ! [ -f "${CONFIG_DIR}/compose.yaml" ]; then
+    echo "[ERROR] no stack yet, ${CONFIG_DIR}/compose.yaml does not exist, run ./dl-stack.sh setup first" 1>&2
+    exit 1
+  fi
+  if ! has_keycloak; then
+    echo "[ERROR] $1 manages the bundled keycloak, this stack signs in with an external OIDC provider ($(compose_values OIDC_ISSUER | head -n1)), manage users and clients there" 1>&2
+    exit 1
+  fi
+}
+
 stateless_count() {
   # one pg-deeplake-stateless node per cpu core less one, so the host keeps a
   # core for everything else. DEEPLAKE_STATELESS_COUNT overrides the detection
@@ -1613,6 +1813,10 @@ gen_vars() {
     TLS_KEY_PATH \
     TLS_CERT_PATH \
     TLS_METHOD
+  select_oidc_provider
+  if [ "${OIDC_PROVIDER}" == 'external' ]; then
+    gen_vars_oidc_external
+  fi
   DEEPLAKE_STATELESS_COUNT="$(stateless_count)"
   DEEPLAKE_STATELESS_PODS=''
   for i in $(seq 1 "${DEEPLAKE_STATELESS_COUNT}"); do
@@ -1649,7 +1853,21 @@ print_vars() {
   # the key itself is never printed, only whether deeplake-api has one
   local openai_status="not set, 'query with AI' is disabled"
   [ -n "${OPENAI_API_KEY}" ] && openai_status='set for deeplake-api'
-  echo "
+  if [ "${OIDC_PROVIDER}" == 'external' ]; then
+    echo "
+identity provider:
+  oidc issuer: ${OIDC_ISSUER}
+  ui client id: ${OIDC_UI_CLIENT_ID}
+  cli client id: ${OIDC_CLI_CLIENT_ID:-none, cli login is off}
+endpoints:
+  deeplake ui: https://app.${BASE_HOST}
+  deeplake api: https://api.${BASE_HOST}
+  ui redirect uri for the provider: https://app.${BASE_HOST}/auth/callback
+openai:
+  api key: ${openai_status}
+"
+  else
+    echo "
 credentials:
   keycloak admin username: admin
   keycloak admin password: ${KEYCLOAK_ADMIN_PASSWORD}
@@ -1660,6 +1878,7 @@ endpoints:
 openai:
   api key: ${openai_status}
 "
+  fi
   storage_hook print_vars
 }
 
@@ -1737,6 +1956,9 @@ ensure_compose_file() {
       "${COMPOSE_BASE_FILE}" "${COMPOSE_OVERLAY_FILE}"
   fi
   storage_hook edit_compose
+  if [ "${OIDC_PROVIDER}" == 'external' ]; then
+    edit_compose_oidc_external
+  fi
   # the openai key goes to deeplake-api alone, so it rides in a small overlay of
   # its own instead of the env anchor shared with the worker and setup jobs
   local overlays=(-f "${COMPOSE_BASE_FILE}" -f "${COMPOSE_OVERLAY_FILE}")
@@ -1749,15 +1971,20 @@ ensure_compose_file() {
     )
     overlays+=(-f "${openai_file}")
   fi
+  local oidc_file=''
+  if [ "${OIDC_PROVIDER}" == 'external' ]; then
+    oidc_file="$(write_oidc_overlay "${CONFIG_DIR}/.oidc.yaml")"
+    [ -n "${oidc_file}" ] && overlays+=(-f "${oidc_file}")
+  fi
   if ! docker compose --project-name "$(basename "${CONFIG_DIR}")" \
     "${overlays[@]}" \
     config --no-interpolate --no-path-resolution >"${CONFIG_DIR}/compose.yaml"; then
     echo "[ERROR] failed to merge compose-base.yaml with storage-${STORAGE_TYPE}.yaml"
-    rm -f "${CONFIG_DIR}/compose.yaml" "${COMPOSE_BASE_FILE}" "${COMPOSE_OVERLAY_FILE}" "${openai_file}"
+    rm -f "${CONFIG_DIR}/compose.yaml" "${COMPOSE_BASE_FILE}" "${COMPOSE_OVERLAY_FILE}" "${openai_file}" "${CONFIG_DIR}/.oidc.yaml"
     exit 1
   fi
   chmod 600 "${CONFIG_DIR}/compose.yaml"
-  rm -f "${COMPOSE_BASE_FILE}" "${COMPOSE_OVERLAY_FILE}" "${openai_file}"
+  rm -f "${COMPOSE_BASE_FILE}" "${COMPOSE_OVERLAY_FILE}" "${openai_file}" "${CONFIG_DIR}/.oidc.yaml"
   FRESH_SETUP=1
 }
 
@@ -2190,7 +2417,7 @@ start() {
   # the realm import skips an existing realm, so realm settings added after
   # setup are applied here. a slow or broken keycloak does not fail the start,
   # the stack is already up, it only leaves the realm as it was
-  if [ "$#" -eq 0 ] || printf '%s\n' "$@" | grep -qx keycloak; then
+  if has_keycloak && { [ "$#" -eq 0 ] || printf '%s\n' "$@" | grep -qx keycloak; }; then
     if ! keycloak_reconcile; then
       echo "[ERROR] the stack is up, but the keycloak realm settings were not applied" 1>&2
     fi
@@ -2298,13 +2525,26 @@ creds() {
     echo "[ERROR] no credentials to show, ${CONFIG_DIR}/compose.yaml does not exist, run ./dl-stack.sh setup first" 1>&2
     exit 1
   fi
-  kc_host="$(compose_values KC_HOSTNAME | head -n1)"
-  BASE_HOST="${kc_host#kc.}"
-  KEYCLOAK_ADMIN_PASSWORD="$(compose_values KC_BOOTSTRAP_ADMIN_PASSWORD | head -n1)"
   OPENAI_API_KEY="$(compose_values OPENAI_API_KEY | head -n1)"
-  if [ -z "${BASE_HOST}" ] || [ -z "${KEYCLOAK_ADMIN_PASSWORD}" ]; then
-    echo "[ERROR] cannot read the base host and keycloak admin password from ${CONFIG_DIR}/compose.yaml" 1>&2
-    exit 1
+  if has_keycloak; then
+    OIDC_PROVIDER=keycloak
+    kc_host="$(compose_values KC_HOSTNAME | head -n1)"
+    BASE_HOST="${kc_host#kc.}"
+    KEYCLOAK_ADMIN_PASSWORD="$(compose_values KC_BOOTSTRAP_ADMIN_PASSWORD | head -n1)"
+    if [ -z "${BASE_HOST}" ] || [ -z "${KEYCLOAK_ADMIN_PASSWORD}" ]; then
+      echo "[ERROR] cannot read the base host and keycloak admin password from ${CONFIG_DIR}/compose.yaml" 1>&2
+      exit 1
+    fi
+  else
+    OIDC_PROVIDER=external
+    BASE_HOST="$(compose_values APP_BASE_URL | sed -n 's#^https://app\.##p' | head -n1)"
+    OIDC_ISSUER="$(compose_values OIDC_ISSUER | head -n1)"
+    OIDC_UI_CLIENT_ID="$(compose_values OIDC_CLIENT_ID | head -n1)"
+    OIDC_CLI_CLIENT_ID="$(compose_values OIDC_CLI_CLIENT_ID | head -n1)"
+    if [ -z "${BASE_HOST}" ] || [ -z "${OIDC_ISSUER}" ]; then
+      echo "[ERROR] cannot read the base host and oidc issuer from ${CONFIG_DIR}/compose.yaml" 1>&2
+      exit 1
+    fi
   fi
   # each storage type leaves a key no other type has: alarik and garage their
   # own service settings, azure the service principal, external-s3 an endpoint
@@ -2906,13 +3146,17 @@ set-tag) set_tag "${2:-}" "${3:-}" ;;
 upgrade-fga) upgrade_fga ;;
 keycloak-reconcile)
   check_prerequisites
+  require_keycloak keycloak-reconcile
   keycloak_reconcile
   ;;
 stop) stop "${@:2}" ;;
 restart) restart "${@:2}" ;;
 status) status "${@:2}" ;;
 creds) creds ;;
-add-user) add_user "${@:2}" ;;
+add-user)
+  require_keycloak add-user
+  add_user "${@:2}"
+  ;;
 setup) setup ;;
 destroy) destroy "${2:-}" ;;
 pull) pull ;;

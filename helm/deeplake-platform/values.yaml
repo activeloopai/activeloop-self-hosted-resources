@@ -108,6 +108,25 @@ global:
       # from SSO users). The bundled realm emits it; an external provider must
       # emit it too, or every user looks like a password user.
       idpClaim: identity_provider
+      # RFC 8707 resource indicator the UI sends on authorize, token and
+      # refresh requests. Leave empty for Keycloak (it maps the audience
+      # itself). WorkOS AuthKit only puts an aud claim in its access tokens
+      # when one is requested this way: set it to the same value as
+      # global.auth.audience.
+      resource: ""
+    # Reject access tokens that carry no email claim (401 TOKEN_EMAIL_MISSING)
+    # instead of registering the user under a synthetic address. Turn on for
+    # providers whose access tokens have no email by default (WorkOS: add it
+    # with a JWT template).
+    requireEmail: false
+    # Accept only access tokens issued to these clients (azp claim, or
+    # client_id when azp is absent). When true, the API accepts uiClientId,
+    # cliClientId and extraAllowedClients, and rejects tokens from any other
+    # client with 401 TOKEN_CLIENT_INVALID. Needed when the provider issues
+    # tokens with the same issuer and audience to other apps, e.g. a WorkOS
+    # AuthKit domain with dynamic client registration on.
+    restrictClients: false
+    extraAllowedClients: []
     # Air-gapped installs can skip the discovery call, but must then supply
     # every endpoint explicitly.
     disableDiscovery: false

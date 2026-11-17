@@ -60,6 +60,18 @@
   value: {{ $g.auth.cliClientId | quote }}
 - name: JWT_DECODE_LEEWAY
   value: "30"
+{{- if $g.auth.requireEmail }}
+- name: OIDC_REQUIRE_EMAIL
+  value: "true"
+{{- end }}
+{{- if $g.auth.restrictClients }}
+{{- $clients := concat (list $g.auth.uiClientId $g.auth.cliClientId) ($g.auth.extraAllowedClients | default list) | compact | uniq }}
+{{- if not $clients }}
+{{- fail "global.auth.restrictClients needs uiClientId, cliClientId or extraAllowedClients" }}
+{{- end }}
+- name: OIDC_ALLOWED_CLIENTS
+  value: {{ join "," $clients | quote }}
+{{- end }}
 {{- if $g.auth.disableDiscovery }}
 # Air-gapped: never call the discovery endpoint. Every endpoint below must be
 # supplied explicitly or startup fails.

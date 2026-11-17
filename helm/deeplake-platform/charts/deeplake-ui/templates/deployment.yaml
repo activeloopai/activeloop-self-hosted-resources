@@ -61,6 +61,11 @@ spec:
               value: {{ $g.auth.uiClientId | quote }}
             - name: OIDC_AUDIENCE
               value: {{ $g.auth.audience | quote }}
+            {{- with $g.auth.oidc.resource }}
+            # RFC 8707 resource: providers such as WorkOS set aud from it.
+            - name: OIDC_RESOURCE
+              value: {{ . | quote }}
+            {{- end }}
             {{- with $g.auth.oidc.scope }}
             - name: OIDC_SCOPE
               value: {{ . | quote }}
